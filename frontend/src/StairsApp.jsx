@@ -183,7 +183,7 @@ const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, userName, o
       <header className="flex items-center justify-between px-6 py-4">
         <div className="flex items-center gap-2">
           <span className="text-2xl font-bold" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "'Instrument Serif', Georgia, serif" }}>ST.AIRS</span>
-          <span className="text-[10px] text-gray-600 uppercase tracking-widest">v3.3</span>
+          <span className="text-[10px] text-gray-600 uppercase tracking-widest">v3.4</span>
         </div>
         <div className="flex items-center gap-3">
           <button onClick={onLangToggle} className="text-xs text-gray-500 hover:text-amber-400 transition">{lang === "en" ? "عربي" : "EN"}</button>
@@ -231,7 +231,7 @@ const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, userName, o
       </div>
       {/* AI Strategy Wizard */}
       <StrategyWizard open={showWizard} onClose={() => setShowWizard(false)} onCreate={onCreate} />
-      <footer className="text-center py-8 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • ST.AIRS v3.3 • {new Date().getFullYear()}</footer>
+      <footer className="text-center py-8 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • ST.AIRS v3.4 • {new Date().getFullYear()}</footer>
     </div>
   );
 };
@@ -282,21 +282,29 @@ const StrategyWizard = ({ open, onClose, onCreate }) => {
     setAiLoading(false);
   };
 
-  // Simple element extraction from AI response
+  // Smart element extraction — builds hierarchy using numbering
+  // [Objective 1] → [KR 1.1] means KR is child of Objective 1
   const extractElements = (text) => {
     const elements = [];
     const lines = text.split("\n");
     for (const line of lines) {
-      const clean = line.replace(/\*\*/g, "").trim();
-      // Match patterns like [Vision], [Objective], [KR], [Initiative]
-      const vMatch = clean.match(/\[?Vision\]?[:–-]\s*(.+)/i);
-      const oMatch = clean.match(/\[?Objective\s*\d*\]?[:–-]\s*(.+)/i);
-      const kMatch = clean.match(/\[?(?:Key Result|KR)\s*\d*\.?\d*\]?[:–-]\s*(.+)/i);
-      const iMatch = clean.match(/\[?Initiative\s*\d*\.?\d*\]?[:–-]\s*(.+)/i);
-      if (vMatch) elements.push({ element_type: "vision", title: vMatch[1].trim() });
-      else if (oMatch) elements.push({ element_type: "objective", title: oMatch[1].trim() });
-      else if (kMatch) elements.push({ element_type: "key_result", title: kMatch[1].trim() });
-      else if (iMatch) elements.push({ element_type: "initiative", title: iMatch[1].trim() });
+      const clean = line.replace(/\*\*/g, "").replace(/^[-–•]\s*/, "").trim();
+      if (!clean) continue;
+      // Vision
+      const v = clean.match(/\[?Vision\]?\s*[:–-]\s*(.+)/i);
+      if (v) { elements.push({ element_type: "vision", title: v[1].trim(), _num: "V" }); continue; }
+      // Objective N
+      const o = clean.match(/\[?Objective\s*(\d+)\]?\s*[:–-]\s*(.+)/i);
+      if (o) { elements.push({ element_type: "objective", title: o[2].trim(), _num: o[1] }); continue; }
+      // KR N.M or Key Result N.M
+      const k = clean.match(/\[?(?:Key Result|KR)\s*(\d+)\.?(\d*)\]?\s*[:–-]\s*(.+)/i);
+      if (k) { elements.push({ element_type: "key_result", title: k[3].trim(), _num: `${k[1]}.${k[2] || "0"}`, _parentNum: k[1] }); continue; }
+      // Initiative N.M
+      const i2 = clean.match(/\[?Initiative\s*(\d+)\.?(\d*)\]?\s*[:–-]\s*(.+)/i);
+      if (i2) { elements.push({ element_type: "initiative", title: i2[3].trim(), _num: `I${i2[1]}.${i2[2] || "0"}`, _parentNum: i2[1] }); continue; }
+      // Task N.M
+      const t = clean.match(/\[?Task\s*(\d+)\.?(\d*)\]?\s*[:–-]\s*(.+)/i);
+      if (t) { elements.push({ element_type: "task", title: t[3].trim(), _num: `T${t[1]}.${t[2] || "0"}`, _parentNum: t[1] }); continue; }
     }
     return elements;
   };
@@ -315,17 +323,43 @@ const StrategyWizard = ({ open, onClose, onCreate }) => {
       created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       source: "local",
     };
-    // Save generated elements
+    // Build elements with proper parent-child wiring
     if (generatedElements.length > 0) {
+      const codePrefix = { vision: "VIS", objective: "OBJ", key_result: "KR", initiative: "INI", task: "TSK" };
+      // First pass: assign IDs
       const els = generatedElements.map((el, i) => ({
         ...el, id: `el_${Date.now()}_${i}`,
-        code: `${el.element_type === "vision" ? "VIS" : el.element_type === "objective" ? "OBJ" : el.element_type === "key_result" ? "KR" : "INI"}-${String(i + 1).padStart(3, "0")}`,
+        code: `${codePrefix[el.element_type] || "EL"}-${String(i + 1).padStart(3, "0")}`,
         health: "on_track", progress_percent: 0, parent_id: null,
       }));
+      // Second pass: wire parent_id using _num/_parentNum
+      // Vision is root. Objectives are children of Vision.
+      // KRs with _parentNum "1" are children of Objective with _num "1", etc.
+      const visionId = els.find(e => e.element_type === "vision")?.id;
+      const objMap = {}; // _num → id
+      els.forEach(el => {
+        if (el.element_type === "objective") {
+          el.parent_id = visionId || null;
+          objMap[el._num] = el.id;
+        }
+      });
+      els.forEach(el => {
+        if (el.element_type === "key_result" || el.element_type === "initiative" || el.element_type === "task") {
+          // Find the parent objective by _parentNum
+          if (el._parentNum && objMap[el._parentNum]) {
+            el.parent_id = objMap[el._parentNum];
+          } else if (visionId) {
+            // Fallback: attach to last objective or vision
+            const lastObj = [...els].reverse().find(e => e.element_type === "objective");
+            el.parent_id = lastObj?.id || visionId;
+          }
+        }
+      });
+      // Clean up internal fields
+      els.forEach(el => { delete el._num; delete el._parentNum; });
       localStorage.setItem(`stairs_el_${strat.id}`, JSON.stringify(els));
     }
     onCreate(strat);
-    // Reset
     setStep(0); setInfo({ name: "", company: "", industry: "", description: "", icon: "🎯", color: GOLD });
     setAiMessages([]); setGeneratedElements([]);
     onClose();
@@ -568,31 +602,140 @@ const DashboardView = ({ data, lang }) => {
   );
 };
 
-const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove }) => {
+const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, strategyContext }) => {
+  const [expanded, setExpanded] = useState(null); // stair id
+  const [aiAction, setAiAction] = useState(null); // { id, type: "explain"|"enhance" }
+  const [aiResult, setAiResult] = useState({}); // { [stairId]: { explain, enhance } }
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const handleAI = async (stair, action) => {
+    setAiAction({ id: stair.id, type: action });
+    setAiLoading(true);
+    try {
+      const contextPrefix = strategyContext && strategyContext.source !== "server"
+        ? `[Strategy: "${strategyContext.name}" for "${strategyContext.company}". Industry: ${strategyContext.industry || "unspecified"}. ${strategyContext.description || ""}]\n\n`
+        : "";
+      const prompt = action === "explain"
+        ? `${contextPrefix}Explain this strategic element in detail:\n- Type: ${stair.element_type}\n- Title: ${stair.title}\n- Code: ${stair.code || "N/A"}\n- Current health: ${stair.health}\n- Progress: ${stair.progress_percent}%\n${stair.description ? `- Description: ${stair.description}` : ""}\n\nExplain what this element means in the strategic context, why it matters, what success looks like, and what risks to watch for. Be specific to this organization, not generic.`
+        : `${contextPrefix}Enhance this strategic element with actionable recommendations:\n- Type: ${stair.element_type}\n- Title: ${stair.title}\n- Code: ${stair.code || "N/A"}\n- Current health: ${stair.health}\n- Progress: ${stair.progress_percent}%\n${stair.description ? `- Description: ${stair.description}` : ""}\n\nSuggest: 1) How to improve this element's definition, 2) What KPIs or metrics to track, 3) Specific next actions, 4) Potential sub-elements (Key Results or Initiatives) that could be added beneath it. Be specific and actionable.`;
+      const res = await api.post("/api/v1/ai/chat", { message: prompt });
+      setAiResult(prev => ({
+        ...prev,
+        [stair.id]: { ...prev[stair.id], [action]: res.response }
+      }));
+    } catch (e) {
+      setAiResult(prev => ({
+        ...prev,
+        [stair.id]: { ...prev[stair.id], [action]: `⚠️ Error: ${e.message}` }
+      }));
+    }
+    setAiLoading(false);
+    setAiAction(null);
+  };
+
+  const toggleExpand = (id) => {
+    setExpanded(prev => prev === id ? null : id);
+  };
+
   const renderStair = (node, depth = 0, si = 0, sc = 1) => {
     const s = node.stair, color = typeColors[s.element_type] || "#94a3b8";
+    const isExpanded = expanded === s.id;
+    const result = aiResult[s.id];
+    const isLoadingThis = aiLoading && aiAction?.id === s.id;
+
     return (
-      <div key={s.id} style={{ marginLeft: depth * 28 }}>
-        <div className="group flex items-center gap-2 p-3 rounded-xl my-1 transition-all hover:bg-white/[0.03]" style={{ borderLeft: `3px solid ${color}` }}>
-          <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition shrink-0">
-            <button onClick={e => { e.stopPropagation(); onMove(s.id, "up"); }} disabled={si === 0} className="text-gray-600 hover:text-white text-[10px] disabled:opacity-20 p-0.5">▲</button>
-            <button onClick={e => { e.stopPropagation(); onMove(s.id, "down"); }} disabled={si >= sc - 1} className="text-gray-600 hover:text-white text-[10px] disabled:opacity-20 p-0.5">▼</button>
-          </div>
-          <div className="flex-1 flex items-center gap-3 cursor-pointer min-w-0" onClick={() => onEdit(s)}>
+      <div key={s.id} style={{ marginLeft: depth * 24 }}>
+        {/* Main row */}
+        <div className={`group rounded-xl my-1.5 transition-all ${isExpanded ? "ring-1" : ""}`}
+          style={{ borderLeft: `3px solid ${color}`, ...(isExpanded ? { ringColor: `${color}40`, background: "rgba(22, 37, 68, 0.4)" } : {}) }}>
+
+          <div className="flex items-center gap-2 p-3 cursor-pointer hover:bg-white/[0.03] rounded-xl transition" onClick={() => toggleExpand(s.id)}>
+            {/* Move arrows */}
+            <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition shrink-0">
+              <button onClick={e => { e.stopPropagation(); onMove(s.id, "up"); }} disabled={si === 0} className="text-gray-600 hover:text-white text-[10px] disabled:opacity-20 p-0.5">▲</button>
+              <button onClick={e => { e.stopPropagation(); onMove(s.id, "down"); }} disabled={si >= sc - 1} className="text-gray-600 hover:text-white text-[10px] disabled:opacity-20 p-0.5">▼</button>
+            </div>
+
+            {/* Expand indicator */}
+            <span className={`text-gray-600 text-[10px] transition-transform ${isExpanded ? "rotate-90" : ""}`}>▶</span>
+
+            {/* Element info */}
             <span style={{ color, fontSize: 16 }}>{typeIcons[s.element_type] || "•"}</span>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2"><span className="text-xs font-mono opacity-40" style={{ color }}>{s.code}</span><span className="text-white text-sm font-medium truncate">{lang === "ar" && s.title_ar ? s.title_ar : s.title}</span></div>
-              {s.description && <div className="text-gray-600 text-xs mt-0.5 truncate max-w-md">{s.description}</div>}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono opacity-40" style={{ color }}>{s.code}</span>
+                <span className="text-white text-sm font-medium truncate">{lang === "ar" && s.title_ar ? s.title_ar : s.title}</span>
+              </div>
+              {s.description && !isExpanded && <div className="text-gray-600 text-xs mt-0.5 truncate max-w-md">{s.description}</div>}
             </div>
             <HealthBadge health={s.health} />
-            <div className="w-14 text-right shrink-0"><div className="text-xs font-medium" style={{ color }}>{s.progress_percent}%</div><div className="h-1 rounded-full bg-[#1e3a5f] mt-0.5 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${s.progress_percent}%`, background: color, transition: "width 0.6s ease" }} /></div></div>
-            <div className="opacity-0 group-hover:opacity-60 transition text-gray-500 text-xs shrink-0">✎</div>
+            <div className="w-14 text-right shrink-0">
+              <div className="text-xs font-medium" style={{ color }}>{s.progress_percent}%</div>
+              <div className="h-1 rounded-full bg-[#1e3a5f] mt-0.5 overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${s.progress_percent}%`, background: color, transition: "width 0.6s ease" }} />
+              </div>
+            </div>
           </div>
+
+          {/* Expanded panel */}
+          {isExpanded && (
+            <div className="px-4 pb-4 pt-1 space-y-3" style={{ borderTop: `1px solid ${color}15` }}>
+              {/* Description */}
+              {s.description && <div className="text-gray-400 text-sm leading-relaxed">{s.description}</div>}
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button onClick={(e) => { e.stopPropagation(); handleAI(s, "explain"); }}
+                  disabled={isLoadingThis}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]"
+                  style={{ borderColor: `${TEAL}60`, color: "#5eead4", background: `${TEAL}20` }}>
+                  {isLoadingThis && aiAction?.type === "explain" ? <span className="animate-spin">⟳</span> : "💡"} Explain
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); handleAI(s, "enhance"); }}
+                  disabled={isLoadingThis}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]"
+                  style={{ borderColor: `${GOLD}60`, color: GOLD, background: `${GOLD}15` }}>
+                  {isLoadingThis && aiAction?.type === "enhance" ? <span className="animate-spin">⟳</span> : "✨"} Enhance
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); onEdit(s); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#1e3a5f] text-gray-400 hover:text-white transition hover:bg-white/5">
+                  ✎ Edit
+                </button>
+              </div>
+
+              {/* AI loading indicator */}
+              {isLoadingThis && (
+                <div className="flex items-center gap-2 py-3">
+                  <div className="flex gap-1">{[0,1,2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-amber-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
+                  <span className="text-gray-500 text-xs">{aiAction?.type === "explain" ? "Analyzing..." : "Generating recommendations..."}</span>
+                </div>
+              )}
+
+              {/* AI Explain result */}
+              {result?.explain && (
+                <div className="p-3 rounded-lg" style={{ background: `${TEAL}10`, border: `1px solid ${TEAL}25` }}>
+                  <div className="flex items-center gap-2 mb-2"><span className="text-xs font-semibold text-teal-300 uppercase tracking-wider">💡 Explanation</span></div>
+                  <div className="text-sm"><Markdown text={result.explain} /></div>
+                </div>
+              )}
+
+              {/* AI Enhance result */}
+              {result?.enhance && (
+                <div className="p-3 rounded-lg" style={{ background: `${GOLD}08`, border: `1px solid ${GOLD}20` }}>
+                  <div className="flex items-center gap-2 mb-2"><span className="text-xs font-semibold text-amber-300 uppercase tracking-wider">✨ Enhancement</span></div>
+                  <div className="text-sm"><Markdown text={result.enhance} /></div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+
+        {/* Children */}
         {node.children?.map((ch, ci) => renderStair(ch, depth + 1, ci, node.children.length))}
       </div>
     );
   };
+
   return (
     <div>
       <div className="flex items-center gap-3 mb-4">
@@ -602,7 +745,7 @@ const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove }) => {
       </div>
       {!tree?.length ? <div className="text-gray-500 text-center py-12">No elements yet. Add your first strategic element or use the AI Advisor to generate them.</div>
         : <div className="space-y-0.5">{tree.map((n, i) => renderStair(n, 0, i, tree.length))}</div>}
-      <div className="text-center text-gray-600 text-xs mt-6 italic">Click any element to edit · Use arrows to reorder</div>
+      <div className="text-center text-gray-600 text-xs mt-6 italic">Click any element to expand · 💡 Explain · ✨ Enhance · ✎ Edit · ▲▼ Reorder</div>
     </div>
   );
 };
@@ -859,12 +1002,12 @@ export default function StairsApp() {
         {err && <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 text-sm flex items-center gap-2"><span>⚠️ {err}</span><button onClick={loadData} className="ml-auto text-xs underline">Retry</button></div>}
         {loading && view !== "ai" ? <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" /></div> : <>
           {view === "dashboard" && <DashboardView data={dashboard} lang={lang} />}
-          {view === "staircase" && <StaircaseView tree={tree} lang={lang} onEdit={s => { setEditStair(s); setEditorOpen(true); }} onAdd={() => { setEditStair(null); setEditorOpen(true); }} onExport={() => setExportOpen(true)} onMove={moveStair} />}
+          {view === "staircase" && <StaircaseView tree={tree} lang={lang} onEdit={s => { setEditStair(s); setEditorOpen(true); }} onAdd={() => { setEditStair(null); setEditorOpen(true); }} onExport={() => setExportOpen(true)} onMove={moveStair} strategyContext={activeSt} />}
           {view === "ai" && <AIChatView lang={lang} userId={user?.id || user?.email} strategyContext={activeSt} />}
           {view === "alerts" && <AlertsView alerts={alerts} />}
         </>}
       </main>
-      <footer className="text-center py-6 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • ST.AIRS v3.3 • {new Date().getFullYear()}</footer>
+      <footer className="text-center py-6 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • ST.AIRS v3.4 • {new Date().getFullYear()}</footer>
       <StairEditor open={editorOpen} onClose={() => { setEditorOpen(false); setEditStair(null); }} stair={editStair} allStairs={tree} onSave={saveStair} onDelete={delStair} lang={lang} />
       <ExportPDF open={exportOpen} onClose={() => setExportOpen(false)} tree={tree} dashboard={dashboard} strategyName={activeSt?.name} />
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif&family=DM+Sans:wght@400;500;700&family=Noto+Kufi+Arabic:wght@400;500;700&display=swap');*{scrollbar-width:thin;scrollbar-color:rgba(184,144,74,0.15) transparent}::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:rgba(184,144,74,0.15);border-radius:3px}`}</style>
