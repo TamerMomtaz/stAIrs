@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 
 const API = "https://stairs-production.up.railway.app";
 
-// ═══ DESIGN CONSTANTS ═══
+// â•â•â• DESIGN CONSTANTS â•â•â•
 const GOLD = "#B8904A";
 const GOLD_L = "#e8b94a";
 const TEAL = "#2A5C5C";
@@ -11,14 +11,14 @@ const DEEP = "#0a1628";
 const BORDER = "rgba(30, 58, 95, 0.5)";
 
 const typeColors = { vision: GOLD, objective: "#60a5fa", key_result: "#34d399", initiative: "#a78bfa", task: "#94a3b8" };
-const typeIcons = { vision: "◆", objective: "▣", key_result: "◎", initiative: "▶", task: "•" };
+const typeIcons = { vision: "â—†", objective: "â–£", key_result: "â—Ž", initiative: "â–¶", task: "â€¢" };
 const typeLabels = { vision: "Vision", objective: "Objective", key_result: "Key Result", initiative: "Initiative", task: "Task" };
-const typeLabelsAr = { vision: "الرؤية", objective: "الهدف", key_result: "نتيجة رئيسية", initiative: "مبادرة", task: "مهمة" };
+const typeLabelsAr = { vision: "Ø§Ù„Ø±Ø¤ÙŠØ©", objective: "Ø§Ù„Ù‡Ø¯Ù", key_result: "Ù†ØªÙŠØ¬Ø© Ø±Ø¦ÙŠØ³ÙŠØ©", initiative: "Ù…Ø¨Ø§Ø¯Ø±Ø©", task: "Ù…Ù‡Ù…Ø©" };
 const glass = (op = 0.6) => ({ background: `rgba(22, 37, 68, ${op})`, border: `1px solid ${BORDER}` });
 const inputCls = "w-full px-3 py-2.5 rounded-lg bg-[#0a1628]/80 border border-[#1e3a5f] text-white placeholder-gray-600 focus:border-amber-500/40 focus:outline-none transition text-sm";
 const labelCls = "text-gray-400 text-xs uppercase tracking-wider mb-1.5 block";
 
-// ═══ SIMPLE MARKDOWN RENDERER ═══
+// â•â•â• SIMPLE MARKDOWN RENDERER â•â•â•
 const Markdown = ({ text }) => {
   if (!text) return null;
   const lines = text.split("\n");
@@ -30,15 +30,15 @@ const Markdown = ({ text }) => {
       elements.push(<h3 key={i} className="text-amber-300 font-semibold text-sm mt-3 mb-1">{line.slice(3)}</h3>);
     } else if (line.startsWith("# ")) {
       elements.push(<h2 key={i} className="text-amber-200 font-bold text-base mt-3 mb-1">{line.slice(2)}</h2>);
-    } else if (line.startsWith("- **") || line.startsWith("– **")) {
-      const match = line.match(/^[-–]\s*\*\*\[?([^\]*]+)\]?\*\*\s*(.*)/);
+    } else if (line.startsWith("- **") || line.startsWith("â€“ **")) {
+      const match = line.match(/^[-â€“]\s*\*\*\[?([^\]*]+)\]?\*\*\s*(.*)/);
       if (match) {
-        elements.push(<div key={i} className="flex gap-2 ml-2 my-0.5"><span className="text-amber-400/60 shrink-0">→</span><span><strong className="text-amber-200/90">{match[1]}</strong> <span className="text-gray-300">{match[2]}</span></span></div>);
+        elements.push(<div key={i} className="flex gap-2 ml-2 my-0.5"><span className="text-amber-400/60 shrink-0">â†’</span><span><strong className="text-amber-200/90">{match[1]}</strong> <span className="text-gray-300">{match[2]}</span></span></div>);
       } else {
-        elements.push(<div key={i} className="flex gap-2 ml-2 my-0.5"><span className="text-amber-400/60">→</span><span className="text-gray-300">{line.replace(/^[-–]\s*/, "").replace(/\*\*/g, "")}</span></div>);
+        elements.push(<div key={i} className="flex gap-2 ml-2 my-0.5"><span className="text-amber-400/60">â†’</span><span className="text-gray-300">{line.replace(/^[-â€“]\s*/, "").replace(/\*\*/g, "")}</span></div>);
       }
     } else if (line.startsWith("- ")) {
-      elements.push(<div key={i} className="flex gap-2 ml-2 my-0.5"><span className="text-gray-600">•</span><span className="text-gray-300">{line.slice(2).replace(/\*\*/g, "")}</span></div>);
+      elements.push(<div key={i} className="flex gap-2 ml-2 my-0.5"><span className="text-gray-600">â€¢</span><span className="text-gray-300">{line.slice(2).replace(/\*\*/g, "")}</span></div>);
     } else if (line.trim() === "") {
       elements.push(<div key={i} className="h-2" />);
     } else {
@@ -50,7 +50,7 @@ const Markdown = ({ text }) => {
   return <div>{elements}</div>;
 };
 
-// ═══ API CLIENT ═══
+// â•â•â• API CLIENT â•â•â•
 class StairsAPI {
   constructor() {
     this.token = localStorage.getItem("stairs_token");
@@ -70,14 +70,14 @@ class StairsAPI {
     return d;
   }
   logout() { this.token = null; this.user = null; localStorage.removeItem("stairs_token"); localStorage.removeItem("stairs_user"); }
-  async get(p) { const r = await fetch(`${API}${p}`, { headers: this.headers() }); if (r.status === 401) { this.logout(); throw new Error("Session expired"); } if (!r.ok) throw new Error(`GET ${p} → ${r.status}`); return r.json(); }
-  async post(p, b) { const r = await fetch(`${API}${p}`, { method: "POST", headers: this.headers(), body: JSON.stringify(b) }); if (r.status === 401) { this.logout(); throw new Error("Session expired"); } if (!r.ok) throw new Error(`POST ${p} → ${r.status}`); return r.json(); }
-  async put(p, b) { const r = await fetch(`${API}${p}`, { method: "PUT", headers: this.headers(), body: JSON.stringify(b) }); if (r.status === 401) { this.logout(); throw new Error("Session expired"); } if (!r.ok) throw new Error(`PUT ${p} → ${r.status}`); return r.json(); }
-  async del(p) { const r = await fetch(`${API}${p}`, { method: "DELETE", headers: this.headers() }); if (r.status === 401) { this.logout(); throw new Error("Session expired"); } if (!r.ok) throw new Error(`DELETE ${p} → ${r.status}`); return r.status === 204 ? null : r.json(); }
+  async get(p) { const r = await fetch(`${API}${p}`, { headers: this.headers() }); if (r.status === 401) { this.logout(); throw new Error("Session expired"); } if (!r.ok) throw new Error(`GET ${p} â†’ ${r.status}`); return r.json(); }
+  async post(p, b) { const r = await fetch(`${API}${p}`, { method: "POST", headers: this.headers(), body: JSON.stringify(b) }); if (r.status === 401) { this.logout(); throw new Error("Session expired"); } if (!r.ok) throw new Error(`POST ${p} â†’ ${r.status}`); return r.json(); }
+  async put(p, b) { const r = await fetch(`${API}${p}`, { method: "PUT", headers: this.headers(), body: JSON.stringify(b) }); if (r.status === 401) { this.logout(); throw new Error("Session expired"); } if (!r.ok) throw new Error(`PUT ${p} â†’ ${r.status}`); return r.json(); }
+  async del(p) { const r = await fetch(`${API}${p}`, { method: "DELETE", headers: this.headers() }); if (r.status === 401) { this.logout(); throw new Error("Session expired"); } if (!r.ok) throw new Error(`DELETE ${p} â†’ ${r.status}`); return r.status === 204 ? null : r.json(); }
 }
 const api = new StairsAPI();
 
-// ═══ CONVERSATION STORE ═══
+// â•â•â• CONVERSATION STORE â•â•â•
 class ConvStore {
   constructor(uid) { this.p = `stairs_c_${uid}`; }
   _k(k) { return `${this.p}_${k}`; }
@@ -91,7 +91,7 @@ class ConvStore {
   setActive(id) { if (id) localStorage.setItem(this._k("a"), id); else localStorage.removeItem(this._k("a")); }
 }
 
-// ═══ STRATEGY STORE ═══
+// â•â•â• STRATEGY STORE â•â•â•
 class StratStore {
   constructor(uid) { this.k = `stairs_s_${uid}`; }
   list() { try { return JSON.parse(localStorage.getItem(this.k) || "[]"); } catch { return []; } }
@@ -103,16 +103,16 @@ class StratStore {
   setActive(id) { if (id) localStorage.setItem(`${this.k}_a`, id); else localStorage.removeItem(`${this.k}_a`); }
   ensureDefaults() {
     if (this.list().length === 0) {
-      this.add({ id: "rootrise", name: "RootRise Vision 2026", description: "DEVONEERS strategic roadmap — MENA AI market leadership", company: "DEVONEERS / RootRise", icon: "🌱", color: GOLD, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), source: "server" });
+      this.add({ id: "rootrise", name: "RootRise Vision 2026", description: "DEVONEERS strategic roadmap â€” MENA AI market leadership", company: "DEVONEERS / RootRise", icon: "ðŸŒ±", color: GOLD, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), source: "server" });
       this.setActive("rootrise");
     }
   }
 }
 
-// ═══ SHARED COMPONENTS ═══
+// â•â•â• SHARED COMPONENTS â•â•â•
 const HealthBadge = ({ health, size = "sm" }) => {
   const c = { on_track: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30", at_risk: "bg-amber-500/20 text-amber-300 border-amber-500/30", off_track: "bg-red-500/20 text-red-300 border-red-500/30", achieved: "bg-blue-500/20 text-blue-300 border-blue-500/30" };
-  const d = { on_track: "●", at_risk: "●", off_track: "○", achieved: "★" };
+  const d = { on_track: "â—", at_risk: "â—", off_track: "â—‹", achieved: "â˜…" };
   const s = size === "sm" ? "text-[10px] px-2 py-0.5" : "text-xs px-3 py-1";
   return <span className={`${s} rounded-full border font-medium whitespace-nowrap ${c[health] || c.at_risk}`}>{d[health] || "?"} {health?.replace("_", " ").toUpperCase()}</span>;
 };
@@ -138,7 +138,7 @@ const Modal = ({ open, onClose, title, children, wide }) => {
         style={{ background: "rgba(15, 25, 50, 0.97)", border: `1px solid ${GOLD}33` }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: `1px solid ${GOLD}22` }}>
           <h2 className="text-white font-semibold text-lg">{title}</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-white transition text-xl leading-none p-1">✕</button>
+          <button onClick={onClose} className="text-gray-500 hover:text-white transition text-xl leading-none p-1">âœ•</button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-4">{children}</div>
       </div>
@@ -146,7 +146,7 @@ const Modal = ({ open, onClose, title, children, wide }) => {
   );
 };
 
-// ═══ LOGIN ═══
+// â•â•â• LOGIN â•â•â•
 const LoginScreen = ({ onLogin, lang }) => {
   const [email, setEmail] = useState(""); const [pass, setPass] = useState("");
   const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
@@ -175,7 +175,7 @@ const LoginScreen = ({ onLogin, lang }) => {
   );
 };
 
-// ═══ STRATEGY LANDING PAGE ═══
+// â•â•â• STRATEGY LANDING PAGE â•â•â•
 const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, userName, onLogout, onLangToggle, lang }) => {
   const [showWizard, setShowWizard] = useState(false);
   return (
@@ -186,8 +186,8 @@ const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, userName, o
           <span className="text-[10px] text-gray-600 uppercase tracking-widest">v3.4</span>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={onLangToggle} className="text-xs text-gray-500 hover:text-amber-400 transition">{lang === "en" ? "عربي" : "EN"}</button>
-          <button onClick={onLogout} className="text-xs text-gray-600 hover:text-gray-300 transition">{userName} ↗</button>
+          <button onClick={onLangToggle} className="text-xs text-gray-500 hover:text-amber-400 transition">{lang === "en" ? "Ø¹Ø±Ø¨ÙŠ" : "EN"}</button>
+          <button onClick={onLogout} className="text-xs text-gray-600 hover:text-gray-300 transition">{userName} â†—</button>
         </div>
       </header>
       <div className="max-w-4xl mx-auto px-6 pt-12 pb-8 text-center">
@@ -211,9 +211,9 @@ const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, userName, o
               style={{ ...glass(0.5), borderColor: `${s.color || GOLD}30` }} onClick={() => onSelect(s)}>
               {s.source !== "server" && (
                 <button onClick={e => { e.stopPropagation(); onDelete(s.id); }}
-                  className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 text-xs transition p-1.5 rounded-lg hover:bg-red-500/10">✕</button>
+                  className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 text-xs transition p-1.5 rounded-lg hover:bg-red-500/10">âœ•</button>
               )}
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl mb-4" style={{ background: `${s.color || GOLD}20`, border: `1px solid ${s.color || GOLD}30` }}>{s.icon || "🎯"}</div>
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl mb-4" style={{ background: `${s.color || GOLD}20`, border: `1px solid ${s.color || GOLD}30` }}>{s.icon || "ðŸŽ¯"}</div>
               <div className="flex-1">
                 <div className="text-white font-semibold text-base mb-1">{s.name}</div>
                 <div className="text-gray-500 text-xs mb-2">{s.company}</div>
@@ -222,7 +222,7 @@ const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, userName, o
               <div className="flex items-center justify-between mt-4 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
                 <div className="text-gray-600 text-[10px]">{new Date(s.updated_at).toLocaleDateString()}</div>
                 <div className="text-xs font-medium" style={{ color: s.color || GOLD }}>
-                  {s.source === "server" ? "● Connected" : "● Draft"}
+                  {s.source === "server" ? "â— Connected" : "â— Draft"}
                 </div>
               </div>
             </div>
@@ -231,22 +231,22 @@ const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, userName, o
       </div>
       {/* AI Strategy Wizard */}
       <StrategyWizard open={showWizard} onClose={() => setShowWizard(false)} onCreate={onCreate} />
-      <footer className="text-center py-8 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • ST.AIRS v3.4 • {new Date().getFullYear()}</footer>
+      <footer className="text-center py-8 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS â€¢ ST.AIRS v3.4 â€¢ {new Date().getFullYear()}</footer>
     </div>
   );
 };
 
-// ═══ AI STRATEGY WIZARD — Conversational strategy builder ═══
+// â•â•â• AI STRATEGY WIZARD â€” Conversational strategy builder â•â•â•
 const StrategyWizard = ({ open, onClose, onCreate }) => {
   const [step, setStep] = useState(0); // 0=info, 1=ai-chat, 2=review
-  const [info, setInfo] = useState({ name: "", company: "", industry: "", description: "", icon: "🎯", color: GOLD });
+  const [info, setInfo] = useState({ name: "", company: "", industry: "", description: "", icon: "ðŸŽ¯", color: GOLD });
   const [aiMessages, setAiMessages] = useState([]);
   const [aiInput, setAiInput] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [generatedElements, setGeneratedElements] = useState([]);
   const endRef = useRef(null);
 
-  const iconOpts = ["🎯", "🌱", "🚀", "🏗️", "💡", "🏭", "📊", "🌍", "⚡", "🔬", "🛡️", "🌐"];
+  const iconOpts = ["ðŸŽ¯", "ðŸŒ±", "ðŸš€", "ðŸ—ï¸", "ðŸ’¡", "ðŸ­", "ðŸ“Š", "ðŸŒ", "âš¡", "ðŸ”¬", "ðŸ›¡ï¸", "ðŸŒ"];
   const colorOpts = [GOLD, TEAL, "#60a5fa", "#a78bfa", "#f87171", "#34d399", "#fbbf24", "#ec4899"];
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [aiMessages]);
@@ -277,33 +277,33 @@ const StrategyWizard = ({ open, onClose, onCreate }) => {
         setGeneratedElements(prev => [...prev, ...extracted]);
       }
     } catch (e) {
-      setAiMessages(prev => [...prev, { role: "ai", text: `⚠️ ${e.message}`, error: true }]);
+      setAiMessages(prev => [...prev, { role: "ai", text: `âš ï¸ ${e.message}`, error: true }]);
     }
     setAiLoading(false);
   };
 
-  // Smart element extraction — builds hierarchy using numbering
-  // [Objective 1] → [KR 1.1] means KR is child of Objective 1
+  // Smart element extraction â€” builds hierarchy using numbering
+  // [Objective 1] â†’ [KR 1.1] means KR is child of Objective 1
   const extractElements = (text) => {
     const elements = [];
     const lines = text.split("\n");
     for (const line of lines) {
-      const clean = line.replace(/\*\*/g, "").replace(/^[-–•]\s*/, "").trim();
+      const clean = line.replace(/\*\*/g, "").replace(/^[-â€“â€¢]\s*/, "").trim();
       if (!clean) continue;
       // Vision
-      const v = clean.match(/\[?Vision\]?\s*[:–-]\s*(.+)/i);
+      const v = clean.match(/\[?Vision\]?\s*[:â€“-]\s*(.+)/i);
       if (v) { elements.push({ element_type: "vision", title: v[1].trim(), _num: "V" }); continue; }
       // Objective N
-      const o = clean.match(/\[?Objective\s*(\d+)\]?\s*[:–-]\s*(.+)/i);
+      const o = clean.match(/\[?Objective\s*(\d+)\]?\s*[:â€“-]\s*(.+)/i);
       if (o) { elements.push({ element_type: "objective", title: o[2].trim(), _num: o[1] }); continue; }
       // KR N.M or Key Result N.M
-      const k = clean.match(/\[?(?:Key Result|KR)\s*(\d+)\.?(\d*)\]?\s*[:–-]\s*(.+)/i);
+      const k = clean.match(/\[?(?:Key Result|KR)\s*(\d+)\.?(\d*)\]?\s*[:â€“-]\s*(.+)/i);
       if (k) { elements.push({ element_type: "key_result", title: k[3].trim(), _num: `${k[1]}.${k[2] || "0"}`, _parentNum: k[1] }); continue; }
       // Initiative N.M
-      const i2 = clean.match(/\[?Initiative\s*(\d+)\.?(\d*)\]?\s*[:–-]\s*(.+)/i);
+      const i2 = clean.match(/\[?Initiative\s*(\d+)\.?(\d*)\]?\s*[:â€“-]\s*(.+)/i);
       if (i2) { elements.push({ element_type: "initiative", title: i2[3].trim(), _num: `I${i2[1]}.${i2[2] || "0"}`, _parentNum: i2[1] }); continue; }
       // Task N.M
-      const t = clean.match(/\[?Task\s*(\d+)\.?(\d*)\]?\s*[:–-]\s*(.+)/i);
+      const t = clean.match(/\[?Task\s*(\d+)\.?(\d*)\]?\s*[:â€“-]\s*(.+)/i);
       if (t) { elements.push({ element_type: "task", title: t[3].trim(), _num: `T${t[1]}.${t[2] || "0"}`, _parentNum: t[1] }); continue; }
     }
     return elements;
@@ -336,7 +336,7 @@ const StrategyWizard = ({ open, onClose, onCreate }) => {
       // Vision is root. Objectives are children of Vision.
       // KRs with _parentNum "1" are children of Objective with _num "1", etc.
       const visionId = els.find(e => e.element_type === "vision")?.id;
-      const objMap = {}; // _num → id
+      const objMap = {}; // _num â†’ id
       els.forEach(el => {
         if (el.element_type === "objective") {
           el.parent_id = visionId || null;
@@ -360,7 +360,7 @@ const StrategyWizard = ({ open, onClose, onCreate }) => {
       localStorage.setItem(`stairs_el_${strat.id}`, JSON.stringify(els));
     }
     onCreate(strat);
-    setStep(0); setInfo({ name: "", company: "", industry: "", description: "", icon: "🎯", color: GOLD });
+    setStep(0); setInfo({ name: "", company: "", industry: "", description: "", icon: "ðŸŽ¯", color: GOLD });
     setAiMessages([]); setGeneratedElements([]);
     onClose();
   };
@@ -408,7 +408,7 @@ const StrategyWizard = ({ open, onClose, onCreate }) => {
             <button onClick={startAISession} disabled={!info.name.trim()}
               className="px-5 py-2 rounded-lg text-sm font-semibold text-[#0a1628] disabled:opacity-40 transition-all hover:scale-[1.02]"
               style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>
-              Next → Build with AI
+              Next â†’ Build with AI
             </button>
           </div>
         </div>
@@ -436,10 +436,10 @@ const StrategyWizard = ({ open, onClose, onCreate }) => {
           {/* Extracted elements indicator */}
           {generatedElements.length > 0 && (
             <div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-lg" style={glass(0.3)}>
-              <span className="text-amber-400 text-xs">✓ {generatedElements.length} elements captured</span>
+              <span className="text-amber-400 text-xs">âœ“ {generatedElements.length} elements captured</span>
               <div className="flex-1" />
               <button onClick={() => setStep(2)} className="text-xs px-3 py-1 rounded-md bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition">
-                Review & Create →
+                Review & Create â†’
               </button>
             </div>
           )}
@@ -449,7 +449,7 @@ const StrategyWizard = ({ open, onClose, onCreate }) => {
             <div className="mb-2">
               <button onClick={askForStrategy}
                 className="text-xs px-3 py-1.5 rounded-full border border-amber-500/30 text-amber-400/80 hover:bg-amber-500/10 transition">
-                ✨ Ask AI to generate the staircase now
+                âœ¨ Ask AI to generate the staircase now
               </button>
             </div>
           )}
@@ -466,10 +466,10 @@ const StrategyWizard = ({ open, onClose, onCreate }) => {
 
           {/* Skip option */}
           <div className="flex justify-between mt-3">
-            <button onClick={() => setStep(0)} className="text-xs text-gray-500 hover:text-gray-300 transition">← Back</button>
+            <button onClick={() => setStep(0)} className="text-xs text-gray-500 hover:text-gray-300 transition">â† Back</button>
             <button onClick={() => { setStep(2); }}
               className="text-xs text-gray-500 hover:text-gray-300 transition">
-              Skip AI → Create empty strategy
+              Skip AI â†’ Create empty strategy
             </button>
           </div>
         </div>
@@ -481,7 +481,7 @@ const StrategyWizard = ({ open, onClose, onCreate }) => {
             <span className="text-2xl">{info.icon}</span>
             <div>
               <div className="text-white font-semibold">{info.name}</div>
-              <div className="text-gray-500 text-xs">{info.company} {info.industry ? `· ${info.industry}` : ""}</div>
+              <div className="text-gray-500 text-xs">{info.company} {info.industry ? `Â· ${info.industry}` : ""}</div>
             </div>
           </div>
           {generatedElements.length > 0 ? (
@@ -494,7 +494,7 @@ const StrategyWizard = ({ open, onClose, onCreate }) => {
                     <span className="text-[10px] text-gray-500 uppercase w-16 shrink-0">{el.element_type.replace("_", " ")}</span>
                     <span className="text-sm text-gray-200 truncate">{el.title}</span>
                     <button onClick={() => setGeneratedElements(prev => prev.filter((_, j) => j !== i))}
-                      className="ml-auto text-gray-600 hover:text-red-400 text-xs shrink-0">✕</button>
+                      className="ml-auto text-gray-600 hover:text-red-400 text-xs shrink-0">âœ•</button>
                   </div>
                 ))}
               </div>
@@ -503,7 +503,7 @@ const StrategyWizard = ({ open, onClose, onCreate }) => {
             <div className="text-gray-500 text-sm text-center py-6">No elements generated. You can add them manually after creation.</div>
           )}
           <div className="flex justify-end gap-3 pt-4" style={{ borderTop: `1px solid ${BORDER}` }}>
-            <button onClick={() => setStep(1)} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition">← Back to AI</button>
+            <button onClick={() => setStep(1)} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition">â† Back to AI</button>
             <button onClick={finishWizard}
               className="px-5 py-2 rounded-lg text-sm font-semibold text-[#0a1628] transition-all hover:scale-[1.02]"
               style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>
@@ -516,7 +516,7 @@ const StrategyWizard = ({ open, onClose, onCreate }) => {
   );
 };
 
-// ═══ STAIR EDITOR ═══
+// â•â•â• STAIR EDITOR â•â•â•
 const StairEditor = ({ open, onClose, stair, allStairs, onSave, onDelete, lang }) => {
   const isNew = !stair?.id;
   const [form, setForm] = useState({ title: "", title_ar: "", description: "", element_type: "objective", health: "on_track", progress_percent: 0, parent_id: null, code: "" });
@@ -584,7 +584,7 @@ const StairEditor = ({ open, onClose, stair, allStairs, onSave, onDelete, lang }
   );
 };
 
-// ═══ VIEWS ═══
+// â•â•â• VIEWS â•â•â•
 const DashboardView = ({ data, lang }) => {
   const s = data?.stats || {};
   const stats = [
@@ -626,7 +626,7 @@ const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, strategyCo
     } catch (e) {
       setAiResult(prev => ({
         ...prev,
-        [stair.id]: { ...prev[stair.id], [action]: `⚠️ Error: ${e.message}` }
+        [stair.id]: { ...prev[stair.id], [action]: `âš ï¸ Error: ${e.message}` }
       }));
     }
     setAiLoading(false);
@@ -652,15 +652,15 @@ const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, strategyCo
           <div className="flex items-center gap-2 p-3 cursor-pointer hover:bg-white/[0.03] rounded-xl transition" onClick={() => toggleExpand(s.id)}>
             {/* Move arrows */}
             <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition shrink-0">
-              <button onClick={e => { e.stopPropagation(); onMove(s.id, "up"); }} disabled={si === 0} className="text-gray-600 hover:text-white text-[10px] disabled:opacity-20 p-0.5">▲</button>
-              <button onClick={e => { e.stopPropagation(); onMove(s.id, "down"); }} disabled={si >= sc - 1} className="text-gray-600 hover:text-white text-[10px] disabled:opacity-20 p-0.5">▼</button>
+              <button onClick={e => { e.stopPropagation(); onMove(s.id, "up"); }} disabled={si === 0} className="text-gray-600 hover:text-white text-[10px] disabled:opacity-20 p-0.5">â–²</button>
+              <button onClick={e => { e.stopPropagation(); onMove(s.id, "down"); }} disabled={si >= sc - 1} className="text-gray-600 hover:text-white text-[10px] disabled:opacity-20 p-0.5">â–¼</button>
             </div>
 
             {/* Expand indicator */}
-            <span className={`text-gray-600 text-[10px] transition-transform ${isExpanded ? "rotate-90" : ""}`}>▶</span>
+            <span className={`text-gray-600 text-[10px] transition-transform ${isExpanded ? "rotate-90" : ""}`}>â–¶</span>
 
             {/* Element info */}
-            <span style={{ color, fontSize: 16 }}>{typeIcons[s.element_type] || "•"}</span>
+            <span style={{ color, fontSize: 16 }}>{typeIcons[s.element_type] || "â€¢"}</span>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-mono opacity-40" style={{ color }}>{s.code}</span>
@@ -689,17 +689,17 @@ const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, strategyCo
                   disabled={isLoadingThis}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]"
                   style={{ borderColor: `${TEAL}60`, color: "#5eead4", background: `${TEAL}20` }}>
-                  {isLoadingThis && aiAction?.type === "explain" ? <span className="animate-spin">⟳</span> : "💡"} Explain
+                  {isLoadingThis && aiAction?.type === "explain" ? <span className="animate-spin">âŸ³</span> : "ðŸ’¡"} Explain
                 </button>
                 <button onClick={(e) => { e.stopPropagation(); handleAI(s, "enhance"); }}
                   disabled={isLoadingThis}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]"
                   style={{ borderColor: `${GOLD}60`, color: GOLD, background: `${GOLD}15` }}>
-                  {isLoadingThis && aiAction?.type === "enhance" ? <span className="animate-spin">⟳</span> : "✨"} Enhance
+                  {isLoadingThis && aiAction?.type === "enhance" ? <span className="animate-spin">âŸ³</span> : "âœ¨"} Enhance
                 </button>
                 <button onClick={(e) => { e.stopPropagation(); onEdit(s); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#1e3a5f] text-gray-400 hover:text-white transition hover:bg-white/5">
-                  ✎ Edit
+                  âœŽ Edit
                 </button>
               </div>
 
@@ -714,7 +714,7 @@ const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, strategyCo
               {/* AI Explain result */}
               {result?.explain && (
                 <div className="p-3 rounded-lg" style={{ background: `${TEAL}10`, border: `1px solid ${TEAL}25` }}>
-                  <div className="flex items-center gap-2 mb-2"><span className="text-xs font-semibold text-teal-300 uppercase tracking-wider">💡 Explanation</span></div>
+                  <div className="flex items-center gap-2 mb-2"><span className="text-xs font-semibold text-teal-300 uppercase tracking-wider">ðŸ’¡ Explanation</span></div>
                   <div className="text-sm"><Markdown text={result.explain} /></div>
                 </div>
               )}
@@ -722,7 +722,7 @@ const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, strategyCo
               {/* AI Enhance result */}
               {result?.enhance && (
                 <div className="p-3 rounded-lg" style={{ background: `${GOLD}08`, border: `1px solid ${GOLD}20` }}>
-                  <div className="flex items-center gap-2 mb-2"><span className="text-xs font-semibold text-amber-300 uppercase tracking-wider">✨ Enhancement</span></div>
+                  <div className="flex items-center gap-2 mb-2"><span className="text-xs font-semibold text-amber-300 uppercase tracking-wider">âœ¨ Enhancement</span></div>
                   <div className="text-sm"><Markdown text={result.enhance} /></div>
                 </div>
               )}
@@ -741,11 +741,11 @@ const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, strategyCo
       <div className="flex items-center gap-3 mb-4">
         <button onClick={onAdd} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-[1.02]" style={{ background: `${GOLD}22`, border: `1px solid ${GOLD}33`, color: GOLD }}>+ Add Element</button>
         <div className="flex-1" />
-        <button onClick={onExport} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition" style={{ border: `1px solid ${BORDER}` }}>↓ Export PDF</button>
+        <button onClick={onExport} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition" style={{ border: `1px solid ${BORDER}` }}>â†“ Export PDF</button>
       </div>
       {!tree?.length ? <div className="text-gray-500 text-center py-12">No elements yet. Add your first strategic element or use the AI Advisor to generate them.</div>
         : <div className="space-y-0.5">{tree.map((n, i) => renderStair(n, 0, i, tree.length))}</div>}
-      <div className="text-center text-gray-600 text-xs mt-6 italic">Click any element to expand · 💡 Explain · ✨ Enhance · ✎ Edit · ▲▼ Reorder</div>
+      <div className="text-center text-gray-600 text-xs mt-6 italic">Click any element to expand Â· ðŸ’¡ Explain Â· âœ¨ Enhance Â· âœŽ Edit Â· â–²â–¼ Reorder</div>
     </div>
   );
 };
@@ -790,7 +790,7 @@ const AIChatView = ({ lang, userId, strategyContext }) => {
     // Prepend strategy context to the message so the backend AI knows which strategy we're in
     let contextMsg = msg;
     if (strategyContext && strategyContext.source !== "server") {
-      contextMsg = `[CONTEXT: Working on strategy "${strategyContext.name}" for "${strategyContext.company || strategyContext.name}"${strategyContext.industry ? `, industry: ${strategyContext.industry}` : ""}${strategyContext.description ? `. ${strategyContext.description}` : ""}. This is NOT the RootRise strategy — give advice specific to this company.]\n\n${msg}`;
+      contextMsg = `[CONTEXT: Working on strategy "${strategyContext.name}" for "${strategyContext.company || strategyContext.name}"${strategyContext.industry ? `, industry: ${strategyContext.industry}` : ""}${strategyContext.description ? `. ${strategyContext.description}` : ""}. This is NOT the RootRise strategy â€” give advice specific to this company.]\n\n${msg}`;
     }
 
     const userMsg = { role: "user", text: msg, ts: new Date().toISOString() };
@@ -807,7 +807,7 @@ const AIChatView = ({ lang, userId, strategyContext }) => {
         if (conv) { if (conv.title === "New") conv.title = msg.slice(0, 60); conv.updated_at = new Date().toISOString(); conv.count = final.length; store.save(conv); setConvs(store.list()); }
       }
     } catch (e) {
-      const err = { role: "ai", text: `⚠️ ${e.message}`, error: true, ts: new Date().toISOString() };
+      const err = { role: "ai", text: `âš ï¸ ${e.message}`, error: true, ts: new Date().toISOString() };
       const final = [...newMsgs, err]; setMessages(final); if (store && cid) store.saveMsgs(cid, final);
     }
     setLoading(false);
@@ -826,7 +826,7 @@ const AIChatView = ({ lang, userId, strategyContext }) => {
         <div className="flex-1 overflow-y-auto py-1">
           {convs.map(c => (
             <div key={c.id} className={`group px-3 py-2 mx-1 my-0.5 rounded-lg cursor-pointer transition ${c.id === activeId ? "bg-amber-500/10 border border-amber-500/20" : "hover:bg-white/5 border border-transparent"}`} onClick={() => loadConv(c.id)}>
-              <div className="flex items-start justify-between gap-2"><div className="text-sm text-white truncate flex-1">{c.title}</div><button onClick={e => { e.stopPropagation(); delConv(c.id); }} className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 text-xs transition">✕</button></div>
+              <div className="flex items-start justify-between gap-2"><div className="text-sm text-white truncate flex-1">{c.title}</div><button onClick={e => { e.stopPropagation(); delConv(c.id); }} className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 text-xs transition">âœ•</button></div>
             </div>
           ))}
         </div>
@@ -864,12 +864,12 @@ const AIChatView = ({ lang, userId, strategyContext }) => {
 };
 
 const AlertsView = ({ alerts }) => {
-  const sc = { critical: { bg: "rgba(248,113,113,0.1)", border: "#f8717130", icon: "🔴", text: "text-red-300" }, high: { bg: "rgba(251,191,36,0.1)", border: "#fbbf2430", icon: "🟡", text: "text-amber-300" }, medium: { bg: "rgba(96,165,250,0.1)", border: "#60a5fa30", icon: "🔵", text: "text-blue-300" }, info: { bg: "rgba(96,165,250,0.08)", border: "#60a5fa20", icon: "ℹ️", text: "text-blue-300" } };
+  const sc = { critical: { bg: "rgba(248,113,113,0.1)", border: "#f8717130", icon: "ðŸ”´", text: "text-red-300" }, high: { bg: "rgba(251,191,36,0.1)", border: "#fbbf2430", icon: "ðŸŸ¡", text: "text-amber-300" }, medium: { bg: "rgba(96,165,250,0.1)", border: "#60a5fa30", icon: "ðŸ”µ", text: "text-blue-300" }, info: { bg: "rgba(96,165,250,0.08)", border: "#60a5fa20", icon: "â„¹ï¸", text: "text-blue-300" } };
   if (!alerts?.length) return <div className="text-gray-500 text-center py-12">No active alerts</div>;
   return <div className="space-y-3">{alerts.map((a, i) => { const s = sc[a.severity] || sc.info; return <div key={i} className="p-4 rounded-xl" style={{ background: s.bg, border: `1px solid ${s.border}` }}><div className="flex items-start gap-3"><span className="text-lg">{s.icon}</span><div className="flex-1"><div className={`font-medium text-sm ${s.text}`}>{a.title}</div><div className="text-gray-400 text-xs mt-1">{a.description}</div></div></div></div>; })}</div>;
 };
 
-// ═══ PDF EXPORT ═══
+// â•â•â• PDF EXPORT â•â•â•
 const ExportPDF = ({ open, onClose, tree, dashboard, strategyName }) => {
   const [busy, setBusy] = useState(false);
   const flat = useMemo(() => { const f = []; const w = (ns, d = 0) => { ns?.forEach(n => { f.push({ ...n.stair, depth: d }); if (n.children) w(n.children, d + 1); }); }; w(tree); return f; }, [tree]);
@@ -877,15 +877,15 @@ const ExportPDF = ({ open, onClose, tree, dashboard, strategyName }) => {
   const generate = () => {
     setBusy(true);
     const s = dashboard?.stats || {};
-    const hl = h => ({ on_track: "✓ On Track", at_risk: "⚠ At Risk", off_track: "✗ Off Track", achieved: "★ Achieved" }[h] || h);
+    const hl = h => ({ on_track: "âœ“ On Track", at_risk: "âš  At Risk", off_track: "âœ— Off Track", achieved: "â˜… Achieved" }[h] || h);
     const hbg = h => ({ on_track: "#d1fae5", at_risk: "#fef3c7", off_track: "#fecaca", achieved: "#dbeafe" }[h] || "#f3f4f6");
     const hfg = h => ({ on_track: "#065f46", at_risk: "#92400e", off_track: "#991b1b", achieved: "#1e40af" }[h] || "#374151");
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');*{margin:0;padding:0;box-sizing:border-box}body{font-family:'DM Sans',sans-serif;color:#1a1a2e;padding:40px}.header{text-align:center;margin-bottom:32px;padding-bottom:24px;border-bottom:2px solid ${GOLD}}.header h1{font-size:28px;color:${GOLD};letter-spacing:2px}.header .sub{font-size:14px;color:#666}.header .date{font-size:11px;color:#999;margin-top:4px}.stats{display:flex;gap:16px;margin-bottom:28px}.sc{flex:1;text-align:center;padding:16px;border-radius:8px;background:#f8fafc;border:1px solid #e2e8f0}.sc .v{font-size:24px;font-weight:700}.sc .l{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-top:4px}.st{font-size:12px;text-transform:uppercase;letter-spacing:2px;color:${GOLD};margin:24px 0 12px;font-weight:600}.el{display:flex;align-items:center;gap:12px;padding:10px 14px;margin:4px 0;border-radius:8px;border-left:3px solid #ccc;background:#fafbfc}.el .code{font-size:10px;font-family:monospace;color:#94a3b8;min-width:50px}.el .t{flex:1;font-size:13px;font-weight:500}.el .b{font-size:9px;padding:2px 8px;border-radius:10px;font-weight:600}.el .p{font-size:12px;font-weight:600;min-width:40px;text-align:right}.footer{text-align:center;margin-top:40px;padding-top:20px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8}@media print{body{padding:20px}}</style></head><body>
-    <div class="header"><h1>ST.AIRS</h1><div class="sub">${strategyName || "Strategy Report"}</div><div class="date">${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })} · Read-Only Export</div></div>
+    <div class="header"><h1>ST.AIRS</h1><div class="sub">${strategyName || "Strategy Report"}</div><div class="date">${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })} Â· Read-Only Export</div></div>
     <div class="stats"><div class="sc"><div class="v" style="color:#60a5fa">${s.total_elements || flat.length}</div><div class="l">Elements</div></div><div class="sc"><div class="v" style="color:#34d399">${s.on_track || 0}</div><div class="l">On Track</div></div><div class="sc"><div class="v" style="color:#fbbf24">${s.at_risk || 0}</div><div class="l">At Risk</div></div><div class="sc"><div class="v" style="color:#f87171">${s.off_track || 0}</div><div class="l">Off Track</div></div></div>
     <div class="st">Strategy Staircase</div>
     ${flat.map(el => `<div class="el" style="margin-left:${el.depth * 24}px;border-left-color:${typeColors[el.element_type] || "#94a3b8"}"><div class="code" style="color:${typeColors[el.element_type]}">${el.code || ""}</div><div class="t">${el.title}</div><div class="b" style="background:${hbg(el.health)};color:${hfg(el.health)}">${hl(el.health)}</div><div class="p" style="color:${typeColors[el.element_type]}">${el.progress_percent}%</div></div>`).join("")}
-    <div class="footer">Generated by ST.AIRS · DEVONEERS · ${new Date().toISOString().split("T")[0]}<br/>Read-only strategy snapshot — "Human IS the Loop"</div></body></html>`;
+    <div class="footer">Generated by ST.AIRS Â· DEVONEERS Â· ${new Date().toISOString().split("T")[0]}<br/>Read-only strategy snapshot â€” "Human IS the Loop"</div></body></html>`;
     const w = window.open("", "_blank"); if (w) { w.document.write(html); w.document.close(); setTimeout(() => { w.print(); setBusy(false); }, 800); }
     else { const b = new Blob([html], { type: "text/html" }); const u = URL.createObjectURL(b); const a = document.createElement("a"); a.href = u; a.download = `${(strategyName || "strategy").replace(/\s+/g, "_")}.html`; a.click(); URL.revokeObjectURL(u); setBusy(false); }
   };
@@ -893,15 +893,15 @@ const ExportPDF = ({ open, onClose, tree, dashboard, strategyName }) => {
   return (
     <Modal open={open} onClose={onClose} title="Export Strategy as PDF">
       <div className="space-y-4">
-        <p className="text-gray-400 text-sm">A print dialog will open — choose "Save as PDF" to download your strategy as a formatted document.</p>
+        <p className="text-gray-400 text-sm">A print dialog will open â€” choose "Save as PDF" to download your strategy as a formatted document.</p>
         <div className="p-4 rounded-xl text-center" style={glass(0.3)}><div className="text-2xl font-bold mb-1" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "'Instrument Serif', Georgia, serif" }}>ST.AIRS</div><div className="text-gray-500 text-xs">{strategyName}</div><div className="text-gray-600 text-[10px] mt-1">{flat.length} elements</div></div>
-        <div className="flex justify-end gap-3"><button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition">Cancel</button><button onClick={generate} disabled={busy} className="px-5 py-2 rounded-lg text-sm font-semibold text-[#0a1628] disabled:opacity-40 transition-all hover:scale-[1.02]" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>{busy ? "Generating..." : "↓ Download PDF"}</button></div>
+        <div className="flex justify-end gap-3"><button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition">Cancel</button><button onClick={generate} disabled={busy} className="px-5 py-2 rounded-lg text-sm font-semibold text-[#0a1628] disabled:opacity-40 transition-all hover:scale-[1.02]" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>{busy ? "Generating..." : "â†“ Download PDF"}</button></div>
       </div>
     </Modal>
   );
 };
 
-// ═══ MAIN APP ═══
+// â•â•â• MAIN APP â•â•â•
 export default function StairsApp() {
   const [user, setUser] = useState(api.user);
   const [lang, setLang] = useState("en");
@@ -985,21 +985,21 @@ export default function StairsApp() {
   if (!user) return <LoginScreen onLogin={u => setUser(u)} lang={lang} />;
   if (!activeSt) return <StrategyLanding strategies={strategies} onSelect={selectSt} onCreate={createSt} onDelete={deleteSt} userName={user.full_name || user.email} onLogout={() => { api.logout(); setUser(null); setActiveSt(null); }} onLangToggle={() => setLang(l => l === "en" ? "ar" : "en")} lang={lang} />;
 
-  const navItems = [{ key: "dashboard", icon: "◫", label: "Dashboard" }, { key: "staircase", icon: "🪜", label: "Staircase" }, { key: "ai", icon: "◉", label: "AI Advisor" }, { key: "alerts", icon: "⚡", label: "Alerts" }];
+  const navItems = [{ key: "dashboard", icon: "â—«", label: "Dashboard" }, { key: "staircase", icon: "ðŸªœ", label: "Staircase" }, { key: "ai", icon: "â—‰", label: "AI Advisor" }, { key: "alerts", icon: "âš¡", label: "Alerts" }];
 
   return (
     <div className="min-h-screen text-white" dir={lang === "ar" ? "rtl" : "ltr"} style={{ background: `linear-gradient(180deg, ${DEEP} 0%, #0f1f3a 50%, ${DEEP} 100%)`, fontFamily: lang === "ar" ? "'Noto Kufi Arabic', sans-serif" : "'DM Sans', system-ui, sans-serif" }}>
       <header className="sticky top-0 z-50 backdrop-blur-xl px-4 py-3 flex items-center gap-3" style={{ background: "rgba(10, 22, 40, 0.9)", borderBottom: `1px solid ${BORDER}` }}>
-        <button onClick={backToLanding} className="text-gray-500 hover:text-white transition p-1.5 rounded-lg hover:bg-white/5">←</button>
+        <button onClick={backToLanding} className="text-gray-500 hover:text-white transition p-1.5 rounded-lg hover:bg-white/5">â†</button>
         <div className="flex items-center gap-2 mr-2"><span className="text-lg">{activeSt.icon}</span><div><div className="text-sm font-semibold text-white leading-tight">{activeSt.name}</div><div className="text-[10px] text-gray-600">{activeSt.company}</div></div></div>
         <nav className="flex-1 flex justify-center gap-1">{navItems.map(n => <button key={n.key} onClick={() => setView(n.key)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${view === n.key ? "bg-amber-500/15 text-amber-300 border border-amber-500/20" : "text-gray-500 hover:text-gray-300"}`}><span className="mr-1">{n.icon}</span>{n.label}{n.key === "alerts" && alerts.length > 0 && <span className="ml-1 bg-red-500/80 text-white text-[9px] px-1.5 py-0.5 rounded-full">{alerts.length}</span>}</button>)}</nav>
         <div className="flex items-center gap-3">
-          <button onClick={() => setLang(l => l === "en" ? "ar" : "en")} className="text-xs text-gray-500 hover:text-amber-400 transition">{lang === "en" ? "عربي" : "EN"}</button>
-          <button onClick={() => { api.logout(); setUser(null); setActiveSt(null); }} className="text-xs text-gray-600 hover:text-gray-300 transition">{user.full_name} ↗</button>
+          <button onClick={() => setLang(l => l === "en" ? "ar" : "en")} className="text-xs text-gray-500 hover:text-amber-400 transition">{lang === "en" ? "Ø¹Ø±Ø¨ÙŠ" : "EN"}</button>
+          <button onClick={() => { api.logout(); setUser(null); setActiveSt(null); }} className="text-xs text-gray-600 hover:text-gray-300 transition">{user.full_name} â†—</button>
         </div>
       </header>
       <main className="max-w-5xl mx-auto px-4 py-6">
-        {err && <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 text-sm flex items-center gap-2"><span>⚠️ {err}</span><button onClick={loadData} className="ml-auto text-xs underline">Retry</button></div>}
+        {err && <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 text-sm flex items-center gap-2"><span>âš ï¸ {err}</span><button onClick={loadData} className="ml-auto text-xs underline">Retry</button></div>}
         {loading && view !== "ai" ? <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" /></div> : <>
           {view === "dashboard" && <DashboardView data={dashboard} lang={lang} />}
           {view === "staircase" && <StaircaseView tree={tree} lang={lang} onEdit={s => { setEditStair(s); setEditorOpen(true); }} onAdd={() => { setEditStair(null); setEditorOpen(true); }} onExport={() => setExportOpen(true)} onMove={moveStair} strategyContext={activeSt} />}
@@ -1007,7 +1007,7 @@ export default function StairsApp() {
           {view === "alerts" && <AlertsView alerts={alerts} />}
         </>}
       </main>
-      <footer className="text-center py-6 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • ST.AIRS v3.4 • {new Date().getFullYear()}</footer>
+      <footer className="text-center py-6 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS â€¢ ST.AIRS v3.4 â€¢ {new Date().getFullYear()}</footer>
       <StairEditor open={editorOpen} onClose={() => { setEditorOpen(false); setEditStair(null); }} stair={editStair} allStairs={tree} onSave={saveStair} onDelete={delStair} lang={lang} />
       <ExportPDF open={exportOpen} onClose={() => setExportOpen(false)} tree={tree} dashboard={dashboard} strategyName={activeSt?.name} />
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif&family=DM+Sans:wght@400;500;700&family=Noto+Kufi+Arabic:wght@400;500;700&display=swap');*{scrollbar-width:thin;scrollbar-color:rgba(184,144,74,0.15) transparent}::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:rgba(184,144,74,0.15);border-radius:3px}`}</style>
