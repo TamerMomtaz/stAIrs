@@ -405,7 +405,7 @@ const DashboardView = ({ data, lang }) => {
 };
 
 // ═══ STAIRCASE VIEW ═══
-const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, strategyContext }) => {
+const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, strategyContext, onSaveNote }) => {
   const [expanded, setExpanded] = useState(null); const [aiAction, setAiAction] = useState(null);
   const [aiResult, setAiResult] = useState({}); const [aiLoading, setAiLoading] = useState(false);
   const isAr = lang === "ar";
@@ -443,8 +443,8 @@ const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, strategyCo
                 <button onClick={e => {e.stopPropagation();onEdit(s);}} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#1e3a5f] text-gray-400 hover:text-white transition hover:bg-white/5">✎ {isAr?"تعديل":"Edit"}</button>
               </div>
               {isLd && <div className="flex items-center gap-2 py-3"><div className="flex gap-1">{[0,1,2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-amber-500/40 animate-bounce" style={{animationDelay:`${i*0.15}s`}} />)}</div><span className="text-gray-500 text-xs">{aiAction?.type==="explain"?"Analyzing...":"Generating..."}</span></div>}
-              {result?.explain && <div className="p-3 rounded-lg" style={{background:`${TEAL}10`,border:`1px solid ${TEAL}25`}}><div className="text-xs font-semibold text-teal-300 uppercase tracking-wider mb-2">💡 Explanation</div><div className="text-sm"><Markdown text={result.explain}/></div></div>}
-              {result?.enhance && <div className="p-3 rounded-lg" style={{background:`${GOLD}08`,border:`1px solid ${GOLD}20`}}><div className="text-xs font-semibold text-amber-300 uppercase tracking-wider mb-2">✨ Enhancement</div><div className="text-sm"><Markdown text={result.enhance}/></div></div>}
+              {result?.explain && <div className="p-3 rounded-lg" style={{background:`${TEAL}10`,border:`1px solid ${TEAL}25`}}><div className="flex items-center justify-between mb-2"><span className="text-xs font-semibold text-teal-300 uppercase tracking-wider">💡 Explanation</span>{onSaveNote&&<button onClick={() => onSaveNote(`💡 ${s.title} — Explain`, result.explain, "ai_explain")} className="text-[10px] text-gray-600 hover:text-teal-300 transition px-1.5 py-0.5 rounded hover:bg-teal-500/10">📌 Save</button>}</div><div className="text-sm"><Markdown text={result.explain}/></div></div>}
+              {result?.enhance && <div className="p-3 rounded-lg" style={{background:`${GOLD}08`,border:`1px solid ${GOLD}20`}}><div className="flex items-center justify-between mb-2"><span className="text-xs font-semibold text-amber-300 uppercase tracking-wider">✨ Enhancement</span>{onSaveNote&&<button onClick={() => onSaveNote(`✨ ${s.title} — Enhance`, result.enhance, "ai_enhance")} className="text-[10px] text-gray-600 hover:text-amber-300 transition px-1.5 py-0.5 rounded hover:bg-amber-500/10">📌 Save</button>}</div><div className="text-sm"><Markdown text={result.enhance}/></div></div>}
             </div>
           )}
         </div>
@@ -461,7 +461,7 @@ const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, strategyCo
 };
 
 // ═══ AI CHAT — BUG 4+6 FIX ═══
-const AIChatView = ({ lang, userId, strategyContext }) => {
+const AIChatView = ({ lang, userId, strategyContext, onSaveNote }) => {
   const storeRef = useRef(null); if (!storeRef.current && userId) storeRef.current = new ConvStore(userId); const store = storeRef.current;
   const [convs, setConvs] = useState([]); const [activeId, setActiveId] = useState(null);
   const [messages, setMessages] = useState([]); const [input, setInput] = useState("");
@@ -503,7 +503,7 @@ const AIChatView = ({ lang, userId, strategyContext }) => {
         </div>
         <div className="flex-1 overflow-y-auto space-y-3 pb-4 px-1 min-h-0">
           {messages.length===0 && <div className="text-gray-600 text-center py-12 text-sm">{isAr?"ابدأ محادثة جديدة":"Start a new conversation"}</div>}
-          {messages.map((m,i) => <div key={i} className={`flex ${m.role==="user"?"justify-end":"justify-start"}`}><div className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed ${m.role==="user"?"bg-amber-500/20 text-amber-100 rounded-br-md":m.error?"bg-red-500/10 text-red-300 rounded-bl-md border border-red-500/20":"bg-[#162544] text-gray-200 rounded-bl-md border border-[#1e3a5f]"}`}>{m.role==="ai"?<Markdown text={m.text}/>:<div className="whitespace-pre-wrap">{m.text}</div>}{m.tokens>0&&<div className="text-[10px] text-gray-600 mt-2 text-right">{m.tokens} tokens</div>}</div></div>)}
+          {messages.map((m,i) => <div key={i} className={`flex ${m.role==="user"?"justify-end":"justify-start"}`}><div className={`group/msg relative max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed ${m.role==="user"?"bg-amber-500/20 text-amber-100 rounded-br-md":m.error?"bg-red-500/10 text-red-300 rounded-bl-md border border-red-500/20":"bg-[#162544] text-gray-200 rounded-bl-md border border-[#1e3a5f]"}`}>{m.role==="ai"?<Markdown text={m.text}/>:<div className="whitespace-pre-wrap">{m.text}</div>}{m.role==="ai"&&!m.error&&<div className="flex items-center gap-2 mt-2">{m.tokens>0&&<span className="text-[10px] text-gray-600">{m.tokens} tokens</span>}<div className="flex-1"/>{onSaveNote&&<button onClick={() => onSaveNote(m.text.slice(0,60), m.text, "ai_chat")} className="opacity-0 group-hover/msg:opacity-100 text-[10px] text-gray-600 hover:text-amber-400 transition px-1.5 py-0.5 rounded hover:bg-amber-500/10" title="Save to Notes">📌 Save</button>}</div>}</div></div>)}
           {loading && <div className="flex gap-1 px-4 py-2">{[0,1,2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-amber-500/40 animate-bounce" style={{animationDelay:`${i*0.15}s`}}/>)}</div>}
           <div ref={endRef}/>
         </div>
@@ -621,6 +621,106 @@ const KnowledgeLibrary = ({ lang }) => {
   );
 };
 
+// ═══ NOTES STORE ═══
+class NotesStore {
+  constructor(uid) { this.key = `stairs_notes_${uid}`; }
+  list() { try { return JSON.parse(localStorage.getItem(this.key) || "[]").sort((a,b) => b.updated_at.localeCompare(a.updated_at)); } catch { return []; } }
+  save(note) { const all = this.list(); const i = all.findIndex(n => n.id === note.id); if (i >= 0) all[i] = note; else all.unshift(note); localStorage.setItem(this.key, JSON.stringify(all)); }
+  remove(id) { localStorage.setItem(this.key, JSON.stringify(this.list().filter(n => n.id !== id))); }
+  create(title, content, source) { const n = { id: `n_${Date.now()}_${Math.random().toString(36).slice(2,5)}`, title, content, source: source || "manual", tags: [], pinned: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }; this.save(n); return n; }
+}
+
+// ═══ NOTES VIEW ═══
+const NotesView = ({ lang, userId, strategyName }) => {
+  const storeRef = useRef(null); if (!storeRef.current && userId) storeRef.current = new NotesStore(userId); const store = storeRef.current;
+  const [notes, setNotes] = useState([]); const [editing, setEditing] = useState(null);
+  const [title, setTitle] = useState(""); const [content, setContent] = useState("");
+  const [search, setSearch] = useState(""); const [confirmDel, setConfirmDel] = useState(null);
+  const isAr = lang === "ar";
+  useEffect(() => { if (store) setNotes(store.list()); }, [store]);
+  const refresh = () => { if (store) setNotes(store.list()); };
+  const startNew = () => { setEditing("new"); setTitle(""); setContent(""); };
+  const startEdit = (n) => { setEditing(n.id); setTitle(n.title); setContent(n.content); };
+  const saveNote = () => {
+    if (!store || !title.trim()) return;
+    if (editing === "new") { store.create(title.trim(), content, "manual"); }
+    else { const n = notes.find(x => x.id === editing); if (n) { n.title = title.trim(); n.content = content; n.updated_at = new Date().toISOString(); store.save(n); } }
+    setEditing(null); setTitle(""); setContent(""); refresh();
+  };
+  const deleteNote = (id) => { if (!store) return; store.remove(id); setConfirmDel(null); refresh(); };
+  const togglePin = (n) => { if (!store) return; n.pinned = !n.pinned; n.updated_at = new Date().toISOString(); store.save(n); refresh(); };
+  const exportNote = (n) => {
+    const w = window.open("", "_blank"); if (!w) return;
+    w.document.write(`<!DOCTYPE html><html><head><title>${n.title}</title><style>body{font-family:system-ui;padding:40px;max-width:700px;margin:0 auto;color:#1e293b;line-height:1.7}h1{color:#B8904A;border-bottom:2px solid #B8904A;padding-bottom:8px}pre{background:#f1f5f9;padding:16px;border-radius:8px;overflow-x:auto;font-size:13px;white-space:pre-wrap}.meta{color:#94a3b8;font-size:12px;margin-bottom:24px}.source{display:inline-block;background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:4px;font-size:11px}</style></head><body><h1>${n.title}</h1><div class="meta">${strategyName ? `Strategy: ${strategyName} · ` : ""}${new Date(n.created_at).toLocaleString()} · <span class="source">${n.source}</span></div><pre>${n.content}</pre><div style="margin-top:30px;text-align:center;color:#94a3b8;font-size:10px">ST.AIRS Notes · By DEVONEERS · &I</div></body></html>`);
+    w.document.close(); w.print();
+  };
+  const copyNote = (n) => { navigator.clipboard?.writeText(`${n.title}\n\n${n.content}`).then(() => alert("Copied to clipboard!")); };
+  const filtered = notes.filter(n => !search || n.title.toLowerCase().includes(search.toLowerCase()) || n.content.toLowerCase().includes(search.toLowerCase()));
+  const pinned = filtered.filter(n => n.pinned);
+  const unpinned = filtered.filter(n => !n.pinned);
+  const sourceIcon = s => ({ ai_chat: "🤖", ai_explain: "💡", ai_enhance: "✨", manual: "📝" }[s] || "📄");
+
+  if (editing) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <button onClick={() => { setEditing(null); setTitle(""); setContent(""); }} className="text-gray-500 hover:text-white text-sm transition">← {isAr ? "رجوع" : "Back"}</button>
+          <span className="text-white font-semibold text-sm">{editing === "new" ? (isAr ? "ملاحظة جديدة" : "New Note") : (isAr ? "تعديل" : "Edit Note")}</span>
+        </div>
+        <input value={title} onChange={e => setTitle(e.target.value)} placeholder={isAr ? "عنوان الملاحظة..." : "Note title..."} className={inputCls} style={{ padding: "12px 16px", fontSize: "15px" }} />
+        <textarea value={content} onChange={e => setContent(e.target.value)} placeholder={isAr ? "اكتب ملاحظتك هنا..." : "Write your note here... (paste AI insights, ideas, etc.)"} rows={12} className={`${inputCls} resize-none`} style={{ padding: "12px 16px", fontSize: "14px", lineHeight: "1.7" }} />
+        <div className="flex justify-end gap-3">
+          <button onClick={() => { setEditing(null); }} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition">{isAr ? "إلغاء" : "Cancel"}</button>
+          <button onClick={saveNote} disabled={!title.trim()} className="px-5 py-2 rounded-lg text-sm font-semibold text-[#0a1628] disabled:opacity-40 transition-all hover:scale-[1.02]" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>{isAr ? "حفظ" : "Save Note"}</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <button onClick={startNew} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-[1.02]" style={{ background: `${GOLD}22`, border: `1px solid ${GOLD}33`, color: GOLD }}>+ {isAr ? "ملاحظة جديدة" : "New Note"}</button>
+        <div className="flex-1" />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder={isAr ? "بحث..." : "Search notes..."} className={inputCls} style={{ padding: "8px 14px", fontSize: "13px", maxWidth: "240px" }} />
+        <span className="text-gray-600 text-xs">{notes.length} {isAr ? "ملاحظة" : "notes"}</span>
+      </div>
+      {notes.length === 0 ? (
+        <div className="text-center py-16">
+          <div className="text-4xl mb-4">📝</div>
+          <div className="text-gray-500 text-sm mb-2">{isAr ? "لا توجد ملاحظات بعد." : "No notes yet."}</div>
+          <div className="text-gray-600 text-xs">{isAr ? "احفظ الأفكار من محادثات الذكاء الاصطناعي أو اكتب ملاحظاتك." : "Save insights from AI chats, or write your own notes."}</div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {[...pinned, ...unpinned].map(n => (
+            <div key={n.id} className="group p-4 rounded-xl transition-all hover:scale-[1.005]" style={{ ...glass(0.5), borderColor: n.pinned ? `${GOLD}40` : undefined }}>
+              <div className="flex items-start gap-3">
+                <span className="text-base shrink-0 mt-0.5">{sourceIcon(n.source)}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    {n.pinned && <span className="text-amber-400 text-xs">📌</span>}
+                    <span className="text-white font-medium text-sm truncate">{n.title}</span>
+                  </div>
+                  <div className="text-gray-500 text-xs mt-1 line-clamp-2">{n.content.slice(0, 150)}{n.content.length > 150 ? "..." : ""}</div>
+                  <div className="text-gray-700 text-[10px] mt-2">{new Date(n.updated_at).toLocaleString()} · {n.source.replace("_", " ")}</div>
+                </div>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition shrink-0">
+                  <button onClick={() => togglePin(n)} className="p-1.5 rounded-lg text-xs hover:bg-white/5 transition" title="Pin">{n.pinned ? "📌" : "📍"}</button>
+                  <button onClick={() => startEdit(n)} className="p-1.5 rounded-lg text-xs text-gray-500 hover:text-white hover:bg-white/5 transition" title="Edit">✎</button>
+                  <button onClick={() => copyNote(n)} className="p-1.5 rounded-lg text-xs text-gray-500 hover:text-white hover:bg-white/5 transition" title="Copy">📋</button>
+                  <button onClick={() => exportNote(n)} className="p-1.5 rounded-lg text-xs text-gray-500 hover:text-white hover:bg-white/5 transition" title="Export">↗</button>
+                  <button onClick={() => confirmDel === n.id ? deleteNote(n.id) : setConfirmDel(n.id)} className={`p-1.5 rounded-lg text-xs transition ${confirmDel === n.id ? "bg-red-500/20 text-red-300" : "text-gray-600 hover:text-red-400 hover:bg-red-500/10"}`} title="Delete">{confirmDel === n.id ? "?" : "✕"}</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ═══ MAIN APP ═══
 export default function App() {
   const [user, setUser] = useState(api.user);
@@ -635,6 +735,11 @@ export default function App() {
   const [showEditor, setShowEditor] = useState(false);
   const [stratLoading, setStratLoading] = useState(true);
   const stratApiRef = useRef(null);
+  const notesStoreRef = useRef(null);
+  const saveToNotes = (title, content, source) => {
+    if (!notesStoreRef.current && user) notesStoreRef.current = new NotesStore(user.id || user.email);
+    if (notesStoreRef.current) { notesStoreRef.current.create(title, content, source); alert("📌 Saved to Notes!"); }
+  };
   const isAr = lang === "ar";
 
   // Init StrategyAPI when user logs in
@@ -821,6 +926,7 @@ export default function App() {
     { key: "ai", icon: "🤖", label: isAr ? "المستشار" : "AI Advisor" },
     { key: "alerts", icon: "🔔", label: isAr ? "تنبيهات" : "Alerts" },
     { key: "knowledge", icon: "📖", label: isAr ? "المعرفة" : "Knowledge" },
+    { key: "notes", icon: "📝", label: isAr ? "ملاحظات" : "Notes" },
   ];
 
   return (
@@ -855,10 +961,11 @@ export default function App() {
       {/* Content */}
       <main className="max-w-6xl mx-auto px-6 py-6">
         {view === "dashboard" && <DashboardView data={dashData} lang={lang} />}
-        {view === "staircase" && <StaircaseView tree={stairTree} lang={lang} onEdit={s => { setEditStair(s); setShowEditor(true); }} onAdd={() => { setEditStair(null); setShowEditor(true); }} onExport={exportPDF} onMove={moveStair} strategyContext={activeStrat} />}
-        {view === "ai" && <AIChatView lang={lang} userId={user.id || user.email} strategyContext={activeStrat} />}
+        {view === "staircase" && <StaircaseView tree={stairTree} lang={lang} onEdit={s => { setEditStair(s); setShowEditor(true); }} onAdd={() => { setEditStair(null); setShowEditor(true); }} onExport={exportPDF} onMove={moveStair} strategyContext={activeStrat} onSaveNote={saveToNotes} />}
+        {view === "ai" && <AIChatView lang={lang} userId={user.id || user.email} strategyContext={activeStrat} onSaveNote={saveToNotes} />}
         {view === "alerts" && <AlertsView alerts={alerts} lang={lang} />}
         {view === "knowledge" && <KnowledgeLibrary lang={lang} />}
+        {view === "notes" && <NotesView lang={lang} userId={user.id || user.email} strategyName={activeStrat?.name} />}
       </main>
 
       {/* Stair Editor Modal */}
