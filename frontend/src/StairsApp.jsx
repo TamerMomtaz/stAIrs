@@ -152,15 +152,15 @@ const ProgressRing = ({ percent = 0, size = 80, stroke = 6, color }) => {
 const Modal = ({ open, onClose, title, children, wide }) => {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6" onClick={onClose}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div className={`relative z-10 w-full ${wide ? "max-w-4xl" : "max-w-lg"} max-h-[88vh] flex flex-col rounded-2xl overflow-hidden`}
-        style={{ background: "rgba(15, 25, 50, 0.97)", border: `1px solid ${GOLD}33` }} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: `1px solid ${GOLD}22` }}>
+      <div className={`relative z-10 w-full ${wide ? "max-w-4xl" : "max-w-lg"} min-w-[340px] max-h-[88vh] flex flex-col rounded-2xl overflow-hidden`}
+        style={{ background: "rgba(15, 25, 50, 0.97)", border: `1px solid ${GOLD}33`, boxShadow: "0 25px 50px rgba(0,0,0,0.5)" }} onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: `1px solid ${GOLD}22` }}>
           <h2 className="text-white font-semibold text-lg">{title}</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-white transition text-xl leading-none p-1">✕</button>
         </div>
-        <div className="flex-1 overflow-y-auto px-6 py-4">{children}</div>
+        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
       </div>
     </div>
   );
@@ -177,15 +177,15 @@ const LoginScreen = ({ onLogin }) => {
   };
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${DEEP} 0%, #162544 40%, #1a3055 70%, #0f1f3a 100%)` }}>
-      <form onSubmit={go} className="relative z-10 w-full max-w-md p-10 rounded-2xl backdrop-blur-xl" style={{ background: "rgba(22, 37, 68, 0.8)", border: `1px solid ${GOLD}33` }}>
-        <div className="text-center mb-8">
-          <div className="text-5xl font-bold tracking-tight mb-1" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L}, ${CHAMPAGNE})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "'Instrument Serif', Georgia, serif" }}>ST.AIRS</div>
-          <div className="text-gray-400 text-sm tracking-widest uppercase mt-1">Strategic Staircase</div>
-          <div className="w-12 h-0.5 mx-auto mt-3" style={{ background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
+      <form onSubmit={go} className="relative z-10 w-full max-w-md p-10 rounded-2xl backdrop-blur-xl" style={{ background: "rgba(22, 37, 68, 0.8)", border: `1px solid ${GOLD}33`, boxShadow: "0 25px 50px rgba(0,0,0,0.4)" }}>
+        <div className="text-center mb-10">
+          <div className="text-5xl font-bold tracking-tight mb-2" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L}, ${CHAMPAGNE})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "'Instrument Serif', Georgia, serif" }}>ST.AIRS</div>
+          <div className="text-gray-400 text-sm tracking-widest uppercase mt-2">Strategic Staircase</div>
+          <div className="w-16 h-0.5 mx-auto mt-4" style={{ background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
         </div>
-        <div className="space-y-5">
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" required className={inputCls} style={{ padding: "12px 16px", fontSize: "15px" }} />
-          <input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Password" required className={inputCls} style={{ padding: "12px 16px", fontSize: "15px" }} />
+        <div className="space-y-4">
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" required className={inputCls} style={{ padding: "14px 16px", fontSize: "15px" }} />
+          <input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Password" required className={inputCls} style={{ padding: "14px 16px", fontSize: "15px" }} />
         </div>
         {err && <div className="mt-3 text-red-400 text-sm text-center">{err}</div>}
         <button type="submit" disabled={busy} className="w-full mt-8 py-3.5 rounded-lg font-semibold text-[#0a1628] transition-all hover:scale-[1.02] disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, fontSize: "16px" }}>{busy ? "..." : "Sign In"}</button>
@@ -229,7 +229,7 @@ const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, userName, o
               const statusColor = s.source === "server" ? (s.status === "active" ? "#34d399" : s.status === "archived" ? "#94a3b8" : GOLD) : "#a78bfa";
               return (
                 <div key={s.id} className="group relative p-8 rounded-2xl transition-all hover:scale-[1.02] cursor-pointer flex flex-col" style={{ ...glass(0.5), borderColor: `${s.color || GOLD}30`, width: "320px", minHeight: "260px" }} onClick={() => onSelect(s)}>
-                  {s.source !== "server" && (<button onClick={e => { e.stopPropagation(); onDelete(s.id); }} className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 text-xs transition p-1.5 rounded-lg hover:bg-red-500/10">✕</button>)}
+                  <button onClick={e => { e.stopPropagation(); if (window.confirm(`Delete "${s.name}"?`)) onDelete(s.id); }} className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 text-xs transition p-1.5 rounded-lg hover:bg-red-500/10">✕</button>
                   <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl mb-4" style={{ background: `${s.color || GOLD}20`, border: `1px solid ${s.color || GOLD}30` }}>{s.icon || "🎯"}</div>
                   <div className="flex-1">
                     <div className="text-white font-semibold text-base mb-1">{isAr && s.name_ar ? s.name_ar : s.name}</div>
@@ -334,15 +334,15 @@ const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
         </div>
       )}
       {step === 1 && (
-        <div className="flex flex-col h-[60vh]">
-          <div className="flex-1 overflow-y-auto space-y-3 pb-4">
+        <div className="flex flex-col" style={{ height: "60vh" }}>
+          <div className="flex-1 overflow-y-auto space-y-3 pb-4 min-h-0">
             {aiMessages.map((m, i) => (<div key={i} className={`flex ${m.role==="user"?"justify-end":"justify-start"}`}><div className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed ${m.role==="user"?"bg-amber-500/20 text-amber-100 rounded-br-md":m.error?"bg-red-500/10 text-red-300 rounded-bl-md border border-red-500/20":"bg-[#162544] text-gray-200 rounded-bl-md border border-[#1e3a5f]"}`}>{m.role==="ai"?<Markdown text={m.text}/>:<div className="whitespace-pre-wrap">{m.text}</div>}</div></div>))}
             {aiLoading && <div className="flex gap-1 px-4 py-2">{[0,1,2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-amber-500/40 animate-bounce" style={{ animationDelay:`${i*0.15}s` }} />)}</div>}
             <div ref={endRef} />
           </div>
           {generatedElements.length > 0 && (<div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-lg" style={glass(0.3)}><span className="text-amber-400 text-xs">✓ {generatedElements.length} elements captured</span><div className="flex-1"/><button onClick={() => setStep(2)} className="text-xs px-3 py-1 rounded-md bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition">Review & Create →</button></div>)}
           {aiMessages.length >= 3 && generatedElements.length === 0 && (<div className="mb-2"><button onClick={askForStrategy} className="text-xs px-3 py-1.5 rounded-full border border-amber-500/30 text-amber-400/80 hover:bg-amber-500/10 transition">✨ Ask AI to generate the staircase now</button></div>)}
-          <div className="flex gap-2">
+          <div className="shrink-0 flex gap-2 pt-2">
             <textarea value={aiInput} onChange={e => setAiInput(e.target.value)} onKeyDown={e => { if (e.key==="Enter"&&!e.shiftKey) { e.preventDefault(); sendToAI(); } }} placeholder="Describe your goals... (Shift+Enter for new line)" disabled={aiLoading} rows={2} className="flex-1 px-4 py-3 rounded-xl bg-[#0a1628]/60 border border-[#1e3a5f] text-white placeholder-gray-600 focus:border-amber-500/40 focus:outline-none transition text-sm resize-none" />
             <button onClick={sendToAI} disabled={aiLoading||!aiInput.trim()} className="px-5 py-3 rounded-xl font-medium text-sm disabled:opacity-30 transition-all hover:scale-105 self-end" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, color: DEEP }}>Send</button>
           </div>
@@ -507,8 +507,8 @@ const AIChatView = ({ lang, userId, strategyContext }) => {
           {loading && <div className="flex gap-1 px-4 py-2">{[0,1,2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-amber-500/40 animate-bounce" style={{animationDelay:`${i*0.15}s`}}/>)}</div>}
           <div ref={endRef}/>
         </div>
-        {messages.length<=1 && <div className="flex flex-wrap gap-2 mb-3">{quicks.map((q,i) => <button key={i} onClick={() => setInput(q)} className="text-xs px-3 py-1.5 rounded-full border border-amber-500/20 text-amber-400/70 hover:bg-amber-500/10 transition">{q}</button>)}</div>}
-        <div className="flex gap-2">
+        {messages.length<=1 && <div className="shrink-0 flex flex-wrap gap-2 mb-3">{quicks.map((q,i) => <button key={i} onClick={() => setInput(q)} className="text-xs px-3 py-1.5 rounded-full border border-amber-500/20 text-amber-400/70 hover:bg-amber-500/10 transition">{q}</button>)}</div>}
+        <div className="shrink-0 flex gap-2">
           <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key==="Enter"&&!e.shiftKey) { e.preventDefault(); send(); } }} placeholder={isAr?"اسأل المستشار... (Shift+Enter لسطر جديد)":"Ask the strategy AI... (Shift+Enter for new line)"} disabled={loading} rows={3} className="flex-1 px-4 py-3 rounded-xl bg-[#0a1628]/60 border border-[#1e3a5f] text-white placeholder-gray-600 focus:border-amber-500/40 focus:outline-none transition text-sm resize-none" />
           <button onClick={send} disabled={loading||!input.trim()} className="px-5 py-3 rounded-xl font-medium text-sm disabled:opacity-30 transition-all hover:scale-105 self-end" style={{ background:`linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, color:DEEP }}>{isAr?"إرسال":"Send"}</button>
         </div>
@@ -774,7 +774,10 @@ export default function App() {
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
         <div className="flex items-center gap-3">
-          <button onClick={() => { setActiveStrat(null); if (stratApiRef.current) stratApiRef.current.setActive(null); }} className="text-xl font-bold transition hover:opacity-80" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "'Instrument Serif', Georgia, serif" }}>ST.AIRS</button>
+          <button onClick={() => { setActiveStrat(null); if (stratApiRef.current) stratApiRef.current.setActive(null); }} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition group" title="Back to Strategies">
+            <span className="text-lg group-hover:-translate-x-0.5 transition-transform">←</span>
+            <span className="text-xl font-bold" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "'Instrument Serif', Georgia, serif" }}>ST.AIRS</span>
+          </button>
           <span className="text-[10px] text-gray-600 uppercase tracking-widest">v3.5.2</span>
           <span className="text-gray-600">|</span>
           <span className="text-sm text-white font-medium">{activeStrat.icon} {isAr && activeStrat.name_ar ? activeStrat.name_ar : activeStrat.name}</span>
