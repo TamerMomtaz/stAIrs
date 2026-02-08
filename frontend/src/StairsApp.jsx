@@ -176,20 +176,20 @@ const LoginScreen = ({ onLogin }) => {
     setBusy(false);
   };
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${DEEP} 0%, #162544 40%, #1a3055 70%, #0f1f3a 100%)` }}>
-      <form onSubmit={go} className="relative z-10 w-full max-w-md p-10 rounded-2xl backdrop-blur-xl" style={{ background: "rgba(22, 37, 68, 0.8)", border: `1px solid ${GOLD}33`, boxShadow: "0 25px 50px rgba(0,0,0,0.4)" }}>
-        <div className="text-center mb-10">
-          <div className="text-5xl font-bold tracking-tight mb-2" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L}, ${CHAMPAGNE})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "'Instrument Serif', Georgia, serif" }}>ST.AIRS</div>
-          <div className="text-gray-400 text-sm tracking-widest uppercase mt-2">Strategic Staircase</div>
-          <div className="w-16 h-0.5 mx-auto mt-4" style={{ background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", background: `linear-gradient(135deg, ${DEEP} 0%, #162544 40%, #1a3055 70%, #0f1f3a 100%)` }}>
+      <form onSubmit={go} style={{ position: "relative", zIndex: 10, width: "100%", maxWidth: "440px", padding: "48px 40px", borderRadius: "16px", backdropFilter: "blur(20px)", background: "rgba(22, 37, 68, 0.85)", border: `1px solid ${GOLD}33`, boxShadow: "0 25px 60px rgba(0,0,0,0.5)" }}>
+        <div style={{ textAlign: "center", marginBottom: "40px" }}>
+          <div style={{ fontSize: "52px", fontWeight: "bold", letterSpacing: "-1px", marginBottom: "8px", background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L}, ${CHAMPAGNE})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "'Instrument Serif', Georgia, serif" }}>ST.AIRS</div>
+          <div style={{ color: "#9ca3af", fontSize: "13px", letterSpacing: "4px", textTransform: "uppercase", marginTop: "4px" }}>Strategic Staircase</div>
+          <div style={{ width: "64px", height: "2px", margin: "16px auto 0", background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
         </div>
-        <div className="space-y-4">
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" required className={inputCls} style={{ padding: "14px 16px", fontSize: "15px" }} />
-          <input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Password" required className={inputCls} style={{ padding: "14px 16px", fontSize: "15px" }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" required className={inputCls} style={{ padding: "14px 18px", fontSize: "15px", height: "48px" }} />
+          <input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Password" required className={inputCls} style={{ padding: "14px 18px", fontSize: "15px", height: "48px" }} />
         </div>
-        {err && <div className="mt-3 text-red-400 text-sm text-center">{err}</div>}
-        <button type="submit" disabled={busy} className="w-full mt-8 py-3.5 rounded-lg font-semibold text-[#0a1628] transition-all hover:scale-[1.02] disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, fontSize: "16px" }}>{busy ? "..." : "Sign In"}</button>
-        <div className="text-center mt-6 text-gray-600 text-xs">By DEVONEERS</div>
+        {err && <div style={{ marginTop: "12px", color: "#f87171", fontSize: "14px", textAlign: "center" }}>{err}</div>}
+        <button type="submit" disabled={busy} style={{ width: "100%", marginTop: "32px", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "16px", color: "#0a1628", border: "none", cursor: "pointer", background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, opacity: busy ? 0.5 : 1, transition: "transform 0.2s" }}>{busy ? "..." : "Sign In"}</button>
+        <div style={{ textAlign: "center", marginTop: "24px", color: "#4b5563", fontSize: "12px" }}>By DEVONEERS</div>
       </form>
     </div>
   );
@@ -737,25 +737,74 @@ export default function App() {
   };
 
   const exportPDF = () => {
-    // BUG 2 PARTIAL FIX: Include AI insights in print export
     const w = window.open("", "_blank");
     if (!w) return;
     const flatItems = [];
     const walkTree = (nodes, depth = 0) => { nodes.forEach(n => { flatItems.push({ ...n.stair, _depth: depth }); if (n.children) walkTree(n.children, depth + 1); }); };
     walkTree(stairTree);
+    const healthLabel = h => ({ on_track: "✅ On Track", at_risk: "⚠️ At Risk", off_track: "🔴 Off Track", achieved: "⭐ Achieved" }[h] || h || "—");
+    const typeColor = t => ({ vision: "#7c3aed", objective: "#2563eb", key_result: "#059669", initiative: "#d97706", task: "#64748b" }[t] || "#64748b");
     const rows = flatItems.map(s => {
-      let row = `<tr><td style="padding:6px 8px;border-bottom:1px solid #222;padding-left:${12 + s._depth * 20}px"><span style="color:${typeColors[s.element_type]||"#94a3b8"}">${typeIcons[s.element_type]||"•"}</span> <strong>${s.code||""}</strong> ${isAr && s.title_ar ? s.title_ar : s.title}</td><td style="padding:6px;border-bottom:1px solid #222;text-align:center">${s.element_type.replace("_"," ")}</td><td style="padding:6px;border-bottom:1px solid #222;text-align:center">${s.health?.replace("_"," ")||""}</td><td style="padding:6px;border-bottom:1px solid #222;text-align:center">${s.progress_percent||0}%</td></tr>`;
-      // BUG 2 FIX: If AI insights exist, add them
+      const indent = s._depth * 28;
+      const barW = Math.max(s.progress_percent || 0, 2);
+      const barColor = (s.progress_percent || 0) >= 70 ? "#059669" : (s.progress_percent || 0) >= 40 ? "#d97706" : "#dc2626";
+      let row = `<tr style="border-bottom:1px solid #e5e7eb">
+        <td style="padding:10px 8px 10px ${12+indent}px;vertical-align:top">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="color:${typeColor(s.element_type)};font-size:14px">${typeIcons[s.element_type]||"•"}</span>
+            <span style="font-size:10px;color:${typeColor(s.element_type)};font-weight:600;text-transform:uppercase;letter-spacing:0.5px;background:${typeColor(s.element_type)}15;padding:1px 6px;border-radius:3px">${s.element_type.replace("_"," ")}</span>
+          </div>
+          <div style="margin-top:4px;font-weight:600;color:#1e293b;font-size:13px">${s.code ? `<span style="color:#94a3b8;font-family:monospace;font-size:11px">${s.code}</span> ` : ""}${isAr && s.title_ar ? s.title_ar : s.title}</div>
+          ${s.description ? `<div style="color:#64748b;font-size:11px;margin-top:2px;max-width:500px">${s.description}</div>` : ""}
+        </td>
+        <td style="padding:10px 8px;text-align:center;vertical-align:middle;white-space:nowrap;font-size:12px;color:#475569">${healthLabel(s.health)}</td>
+        <td style="padding:10px 8px;text-align:center;vertical-align:middle;width:120px">
+          <div style="font-weight:600;font-size:13px;color:${barColor};margin-bottom:3px">${s.progress_percent||0}%</div>
+          <div style="background:#e5e7eb;border-radius:4px;height:6px;overflow:hidden"><div style="background:${barColor};height:100%;width:${barW}%;border-radius:4px;transition:width 0.3s"></div></div>
+        </td>
+      </tr>`;
       if (s.ai_insights) {
         try {
           const insights = typeof s.ai_insights === "string" ? JSON.parse(s.ai_insights) : s.ai_insights;
-          if (insights.explain) row += `<tr><td colspan="4" style="padding:4px 8px 4px ${32 + s._depth * 20}px;border-bottom:1px solid #1a1a2e;color:#5eead4;font-size:11px"><em>AI Explain:</em> ${insights.explain.slice(0,300)}${insights.explain.length>300?"...":""}</td></tr>`;
-          if (insights.enhance) row += `<tr><td colspan="4" style="padding:4px 8px 4px ${32 + s._depth * 20}px;border-bottom:1px solid #1a1a2e;color:${GOLD};font-size:11px"><em>AI Enhance:</em> ${insights.enhance.slice(0,300)}${insights.enhance.length>300?"...":""}</td></tr>`;
+          if (insights.explain) row += `<tr><td colspan="3" style="padding:4px 8px 8px ${40+indent}px;border-bottom:1px solid #f1f5f9"><div style="background:#f0fdfa;border-left:3px solid #14b8a6;padding:6px 10px;border-radius:0 4px 4px 0;font-size:11px;color:#0f766e"><strong>💡 AI Insight:</strong> ${insights.explain.slice(0,300)}${insights.explain.length>300?"...":""}</div></td></tr>`;
+          if (insights.enhance) row += `<tr><td colspan="3" style="padding:4px 8px 8px ${40+indent}px;border-bottom:1px solid #f1f5f9"><div style="background:#fffbeb;border-left:3px solid #f59e0b;padding:6px 10px;border-radius:0 4px 4px 0;font-size:11px;color:#92400e"><strong>✨ Enhancement:</strong> ${insights.enhance.slice(0,300)}${insights.enhance.length>300?"...":""}</div></td></tr>`;
         } catch {}
       }
       return row;
     }).join("");
-    w.document.write(`<!DOCTYPE html><html><head><title>ST.AIRS Export - ${activeStrat?.name||"Strategy"}</title><style>body{background:#0a1628;color:white;font-family:system-ui;padding:40px}h1{color:${GOLD};font-size:24px}table{width:100%;border-collapse:collapse;margin-top:20px}th{text-align:left;padding:8px;border-bottom:2px solid ${GOLD};color:${GOLD};font-size:12px;text-transform:uppercase}</style></head><body><h1>${activeStrat?.icon||""} ${activeStrat?.name||"Strategy"}</h1><p style="color:#666;font-size:12px">${activeStrat?.company||""} ${activeStrat?.industry?`· ${activeStrat.industry}`:""} · Exported ${new Date().toLocaleDateString()}</p><table><thead><tr><th>Element</th><th>Type</th><th>Health</th><th>Progress</th></tr></thead><tbody>${rows}</tbody></table><p style="color:#444;font-size:10px;margin-top:30px;text-align:center">ST.AIRS v3.5.2 · By DEVONEERS · "Human IS the Loop"</p></body></html>`);
+    const stats = { total: flatItems.length, onTrack: flatItems.filter(s => s.health === "on_track").length, atRisk: flatItems.filter(s => s.health === "at_risk").length, offTrack: flatItems.filter(s => s.health === "off_track").length, avgProgress: flatItems.length ? Math.round(flatItems.reduce((a,s) => a + (s.progress_percent||0), 0) / flatItems.length) : 0 };
+    w.document.write(`<!DOCTYPE html><html><head><title>ST.AIRS Export - ${activeStrat?.name||"Strategy"}</title>
+<style>
+  @page { margin: 20mm 15mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #fff; color: #1e293b; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; padding: 0; line-height: 1.5; }
+  .header { display: flex; align-items: center; gap: 16px; padding-bottom: 16px; border-bottom: 2px solid #B8904A; margin-bottom: 20px; }
+  .header .icon { font-size: 36px; }
+  .header h1 { font-size: 28px; color: #1e293b; font-weight: 700; }
+  .header .subtitle { font-size: 12px; color: #64748b; margin-top: 2px; }
+  .stats-bar { display: flex; gap: 12px; margin-bottom: 24px; }
+  .stat-box { flex: 1; padding: 12px; border-radius: 8px; text-align: center; border: 1px solid #e5e7eb; }
+  .stat-box .num { font-size: 22px; font-weight: 700; }
+  .stat-box .lbl { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { text-align: left; padding: 10px 8px; border-bottom: 2px solid #B8904A; color: #B8904A; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+  .footer { text-align: center; margin-top: 30px; padding-top: 16px; border-top: 1px solid #e5e7eb; color: #94a3b8; font-size: 10px; }
+  @media print { .stat-box { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+</style></head><body>
+  <div class="header">
+    <span class="icon">${activeStrat?.icon||"🎯"}</span>
+    <div><h1>${activeStrat?.name||"Strategy"}</h1><div class="subtitle">${activeStrat?.company||""} ${activeStrat?.industry?`· ${activeStrat.industry}`:""} · Exported ${new Date().toLocaleDateString()}</div></div>
+  </div>
+  <div class="stats-bar">
+    <div class="stat-box"><div class="num" style="color:#2563eb">${stats.total}</div><div class="lbl">Elements</div></div>
+    <div class="stat-box"><div class="num" style="color:#059669">${stats.onTrack}</div><div class="lbl">On Track</div></div>
+    <div class="stat-box"><div class="num" style="color:#d97706">${stats.atRisk}</div><div class="lbl">At Risk</div></div>
+    <div class="stat-box"><div class="num" style="color:#dc2626">${stats.offTrack}</div><div class="lbl">Off Track</div></div>
+    <div class="stat-box"><div class="num" style="color:#7c3aed">${stats.avgProgress}%</div><div class="lbl">Avg Progress</div></div>
+  </div>
+  <table><thead><tr><th style="width:60%">Element</th><th style="text-align:center">Health</th><th style="text-align:center;width:120px">Progress</th></tr></thead><tbody>${rows}</tbody></table>
+  <div class="footer">ST.AIRS v3.5.2 · By DEVONEERS · "Human IS the Loop" · &I</div>
+</body></html>`);
     w.document.close();
     w.print();
   };
