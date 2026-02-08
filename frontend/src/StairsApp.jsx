@@ -195,7 +195,7 @@ const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, userName, o
         <p className="text-gray-500 text-sm max-w-lg mx-auto">Each strategy is an independent staircase for a company, product, or project. The AI advisor knows the context of whichever strategy you're working in.</p>
       </div>
       <div className="max-w-4xl mx-auto px-6 pb-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 justify-items-center">
           {/* Create new */}
           <button onClick={() => setShowWizard(true)}
             className="group p-6 rounded-2xl border-2 border-dashed border-[#1e3a5f] hover:border-amber-500/40 transition-all hover:scale-[1.02] min-h-[200px] flex flex-col items-center justify-center gap-3">
