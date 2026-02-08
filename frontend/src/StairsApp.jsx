@@ -662,10 +662,38 @@ export default function App() {
   const createStrategy = async (stratData) => {
     if (!stratApiRef.current) return;
     const created = await stratApiRef.current.create(stratData);
-    // If local elements were generated, store them
-    if (stratData._localElements?.length > 0 && created.source === "local") {
-      localStorage.setItem(`stairs_el_${created.id}`, JSON.stringify(stratData._localElements));
+
+    // POST generated elements to backend (or store locally as fallback)
+    if (stratData._localElements?.length > 0) {
+      if (created.source === "server") {
+        // Server path: POST each element, mapping local parent IDs to server IDs
+        const idMap = {}; // local_id → server_id
+        for (const el of stratData._localElements) {
+          try {
+            // Map parent_id from local to server
+            const serverParentId = el.parent_id ? (idMap[el.parent_id] || null) : null;
+            const serverEl = await api.post(`/api/v1/stairs/${created.id}`, {
+              title: el.title,
+              title_ar: el.title_ar || null,
+              description: el.description || null,
+              element_type: el.element_type,
+              code: el.code || null,
+              health: el.health || "on_track",
+              progress_percent: el.progress_percent || 0,
+              parent_id: serverParentId,
+            });
+            // Track the mapping so children can reference server parent IDs
+            if (el.id && serverEl?.id) idMap[el.id] = serverEl.id;
+          } catch (e) {
+            console.warn("Failed to create stair element:", el.title, e.message);
+          }
+        }
+      } else {
+        // Local fallback: store in localStorage
+        localStorage.setItem(`stairs_el_${created.id}`, JSON.stringify(stratData._localElements));
+      }
     }
+
     await loadStrategies();
     selectStrategy(created);
   };
