@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 
 const API = "https://stairs-production.up.railway.app";
 
-// â•â•â• DESIGN CONSTANTS â•â•â•
+// ═══ DESIGN CONSTANTS ═══
 const GOLD = "#B8904A";
 const GOLD_L = "#e8b94a";
 const TEAL = "#2A5C5C";
@@ -18,7 +18,7 @@ const glass = (op = 0.6) => ({ background: `rgba(22, 37, 68, ${op})`, border: `1
 const inputCls = "w-full px-3 py-2.5 rounded-lg bg-[#0a1628]/80 border border-[#1e3a5f] text-white placeholder-gray-600 focus:border-amber-500/40 focus:outline-none transition text-sm";
 const labelCls = "text-gray-400 text-xs uppercase tracking-wider mb-1.5 block";
 
-// â•â•â• SIMPLE MARKDOWN RENDERER â•â•â•
+// ═══ SIMPLE MARKDOWN RENDERER ═══
 const Markdown = ({ text }) => {
   if (!text) return null;
   const lines = text.split("\n");
@@ -50,7 +50,7 @@ const Markdown = ({ text }) => {
   return <div>{elements}</div>;
 };
 
-// â•â•â• API CLIENT â•â•â•
+// ═══ API CLIENT ═══
 class StairsAPI {
   constructor() {
     this.token = localStorage.getItem("stairs_token");
@@ -77,7 +77,7 @@ class StairsAPI {
 }
 const api = new StairsAPI();
 
-// â•â•â• CONVERSATION STORE â•â•â•
+// ═══ CONVERSATION STORE ═══
 class ConvStore {
   constructor(uid) { this.p = `stairs_c_${uid}`; }
   _k(k) { return `${this.p}_${k}`; }
@@ -91,7 +91,7 @@ class ConvStore {
   setActive(id) { if (id) localStorage.setItem(this._k("a"), id); else localStorage.removeItem(this._k("a")); }
 }
 
-// â•â•â• STRATEGY STORE â•â•â•
+// ═══ STRATEGY STORE ═══
 class StratStore {
   constructor(uid) { this.k = `stairs_s_${uid}`; }
   list() { try { return JSON.parse(localStorage.getItem(this.k) || "[]"); } catch { return []; } }
@@ -104,15 +104,14 @@ class StratStore {
   ensureDefaults() {
     if (this.list().length === 0) {
       this.add({ id: "rootrise", name: "RootRise Vision 2026", description: "DEVONEERS strategic roadmap — MENA AI market leadership", company: "DEVONEERS / RootRise", icon: "🌱", color: GOLD, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), source: "server" });
-      this.setActive("rootrise");
     }
   }
 }
 
-// â•â•â• SHARED COMPONENTS â•â•â•
+// ═══ SHARED COMPONENTS ═══
 const HealthBadge = ({ health, size = "sm" }) => {
   const c = { on_track: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30", at_risk: "bg-amber-500/20 text-amber-300 border-amber-500/30", off_track: "bg-red-500/20 text-red-300 border-red-500/30", achieved: "bg-blue-500/20 text-blue-300 border-blue-500/30" };
-  const d = { on_track: "â—", at_risk: "â—", off_track: "○", achieved: "★" };
+  const d = { on_track: "●", at_risk: "●", off_track: "○", achieved: "★" };
   const s = size === "sm" ? "text-[10px] px-2 py-0.5" : "text-xs px-3 py-1";
   return <span className={`${s} rounded-full border font-medium whitespace-nowrap ${c[health] || c.at_risk}`}>{d[health] || "?"} {health?.replace("_", " ").toUpperCase()}</span>;
 };
@@ -146,7 +145,7 @@ const Modal = ({ open, onClose, title, children, wide }) => {
   );
 };
 
-// â•â•â• LOGIN â•â•â•
+// ═══ LOGIN ═══
 const LoginScreen = ({ onLogin, lang }) => {
   const [email, setEmail] = useState(""); const [pass, setPass] = useState("");
   const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
@@ -157,25 +156,25 @@ const LoginScreen = ({ onLogin, lang }) => {
   };
   return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${DEEP} 0%, #162544 40%, #1a3055 70%, #0f1f3a 100%)` }}>
-      <form onSubmit={go} className="relative z-10 w-full max-w-md p-8 rounded-2xl backdrop-blur-xl" style={{ background: "rgba(22, 37, 68, 0.8)", border: `1px solid ${GOLD}33` }}>
+      <form onSubmit={go} className="relative z-10 w-full max-w-md p-10 rounded-2xl backdrop-blur-xl" style={{ background: "rgba(22, 37, 68, 0.8)", border: `1px solid ${GOLD}33` }}>
         <div className="text-center mb-8">
           <div className="text-5xl font-bold tracking-tight mb-1" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L}, ${CHAMPAGNE})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "'Instrument Serif', Georgia, serif" }}>ST.AIRS</div>
           <div className="text-gray-400 text-sm tracking-widest uppercase mt-1">Strategic Staircase</div>
           <div className="w-12 h-0.5 mx-auto mt-3" style={{ background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
         </div>
-        <div className="space-y-4">
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" required className={inputCls} />
-          <input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Password" required className={inputCls} />
+        <div className="space-y-5">
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" required className={inputCls} style={{ padding: "12px 16px", fontSize: "15px" }} />
+          <input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Password" required className={inputCls} style={{ padding: "12px 16px", fontSize: "15px" }} />
         </div>
         {err && <div className="mt-3 text-red-400 text-sm text-center">{err}</div>}
-        <button type="submit" disabled={busy} className="w-full mt-6 py-3 rounded-lg font-semibold text-[#0a1628] transition-all hover:scale-[1.02] disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>{busy ? "..." : "Sign In"}</button>
+        <button type="submit" disabled={busy} className="w-full mt-8 py-3.5 rounded-lg font-semibold text-[#0a1628] transition-all hover:scale-[1.02] disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, fontSize: "16px" }}>{busy ? "..." : "Sign In"}</button>
         <div className="text-center mt-6 text-gray-600 text-xs">By DEVONEERS</div>
       </form>
     </div>
   );
 };
 
-// â•â•â• STRATEGY LANDING PAGE â•â•â•
+// ═══ STRATEGY LANDING PAGE ═══
 const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, userName, onLogout, onLangToggle, lang }) => {
   const [showWizard, setShowWizard] = useState(false);
   return (
@@ -190,15 +189,15 @@ const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, userName, o
           <button onClick={onLogout} className="text-xs text-gray-600 hover:text-gray-300 transition">{userName} ↗</button>
         </div>
       </header>
-      <div className="max-w-4xl mx-auto px-6 pt-12 pb-8 text-center">
-        <h1 className="text-3xl font-bold text-white mb-2" style={{ fontFamily: "'Instrument Serif', Georgia, serif" }}>Your Strategies</h1>
-        <p className="text-gray-500 text-sm max-w-lg mx-auto">Each strategy is an independent staircase for a company, product, or project. The AI advisor knows the context of whichever strategy you're working in.</p>
+      <div className="max-w-5xl mx-auto px-6 pt-16 pb-8 text-center">
+        <h1 className="text-3xl font-bold text-white mb-3" style={{ fontFamily: "'Instrument Serif', Georgia, serif" }}>Your Strategies</h1>
+        <p className="text-gray-500 text-sm max-w-lg mx-auto">Each strategy is an independent staircase for a company, product, or project.<br/>The AI advisor knows the context of whichever strategy you're working in.</p>
       </div>
-      <div className="max-w-4xl mx-auto px-6 pb-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 justify-items-center">
+      <div className="max-w-5xl mx-auto px-6 pb-12">
+        <div className="flex flex-wrap justify-center gap-6">
           {/* Create new */}
           <button onClick={() => setShowWizard(true)}
-            className="group p-6 rounded-2xl border-2 border-dashed border-[#1e3a5f] hover:border-amber-500/40 transition-all hover:scale-[1.02] min-h-[200px] flex flex-col items-center justify-center gap-3">
+            className="group p-8 rounded-2xl border-2 border-dashed border-[#1e3a5f] hover:border-amber-500/40 transition-all hover:scale-[1.02] flex flex-col items-center justify-center gap-4" style={{ width: "320px", minHeight: "260px" }}>
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-all group-hover:scale-110" style={{ background: `${GOLD}15`, border: `1px solid ${GOLD}30` }}>+</div>
             <div className="text-center">
               <div className="text-white font-medium text-sm">Create New Strategy</div>
@@ -207,8 +206,8 @@ const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, userName, o
           </button>
           {/* Cards */}
           {strategies.map(s => (
-            <div key={s.id} className="group relative p-6 rounded-2xl transition-all hover:scale-[1.02] cursor-pointer min-h-[200px] flex flex-col"
-              style={{ ...glass(0.5), borderColor: `${s.color || GOLD}30` }} onClick={() => onSelect(s)}>
+            <div key={s.id} className="group relative p-8 rounded-2xl transition-all hover:scale-[1.02] cursor-pointer flex flex-col"
+              style={{ ...glass(0.5), borderColor: `${s.color || GOLD}30`, width: "320px", minHeight: "260px" }} onClick={() => onSelect(s)}>
               {s.source !== "server" && (
                 <button onClick={e => { e.stopPropagation(); onDelete(s.id); }}
                   className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 text-xs transition p-1.5 rounded-lg hover:bg-red-500/10">✕</button>
@@ -222,7 +221,7 @@ const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, userName, o
               <div className="flex items-center justify-between mt-4 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
                 <div className="text-gray-600 text-[10px]">{new Date(s.updated_at).toLocaleDateString()}</div>
                 <div className="text-xs font-medium" style={{ color: s.color || GOLD }}>
-                  {s.source === "server" ? "â— Connected" : "â— Draft"}
+                  {s.source === "server" ? "● Connected" : "● Draft"}
                 </div>
               </div>
             </div>
@@ -236,7 +235,7 @@ const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, userName, o
   );
 };
 
-// â•â•â• AI STRATEGY WIZARD — Conversational strategy builder â•â•â•
+// ═══ AI STRATEGY WIZARD — Conversational strategy builder ═══
 const StrategyWizard = ({ open, onClose, onCreate }) => {
   const [step, setStep] = useState(0); // 0=info, 1=ai-chat, 2=review
   const [info, setInfo] = useState({ name: "", company: "", industry: "", description: "", icon: "🎯", color: GOLD });
@@ -466,7 +465,7 @@ const StrategyWizard = ({ open, onClose, onCreate }) => {
 
           {/* Skip option */}
           <div className="flex justify-between mt-3">
-            <button onClick={() => setStep(0)} className="text-xs text-gray-500 hover:text-gray-300 transition">â† Back</button>
+            <button onClick={() => setStep(0)} className="text-xs text-gray-500 hover:text-gray-300 transition">← Back</button>
             <button onClick={() => { setStep(2); }}
               className="text-xs text-gray-500 hover:text-gray-300 transition">
               Skip AI → Create empty strategy
@@ -503,7 +502,7 @@ const StrategyWizard = ({ open, onClose, onCreate }) => {
             <div className="text-gray-500 text-sm text-center py-6">No elements generated. You can add them manually after creation.</div>
           )}
           <div className="flex justify-end gap-3 pt-4" style={{ borderTop: `1px solid ${BORDER}` }}>
-            <button onClick={() => setStep(1)} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition">â† Back to AI</button>
+            <button onClick={() => setStep(1)} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition">← Back to AI</button>
             <button onClick={finishWizard}
               className="px-5 py-2 rounded-lg text-sm font-semibold text-[#0a1628] transition-all hover:scale-[1.02]"
               style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>
@@ -516,7 +515,7 @@ const StrategyWizard = ({ open, onClose, onCreate }) => {
   );
 };
 
-// â•â•â• STAIR EDITOR â•â•â•
+// ═══ STAIR EDITOR ═══
 const StairEditor = ({ open, onClose, stair, allStairs, onSave, onDelete, lang }) => {
   const isNew = !stair?.id;
   const [form, setForm] = useState({ title: "", title_ar: "", description: "", element_type: "objective", health: "on_track", progress_percent: 0, parent_id: null, code: "" });
@@ -584,7 +583,7 @@ const StairEditor = ({ open, onClose, stair, allStairs, onSave, onDelete, lang }
   );
 };
 
-// â•â•â• VIEWS â•â•â•
+// ═══ VIEWS ═══
 const DashboardView = ({ data, lang }) => {
   const s = data?.stats || {};
   const stats = [
@@ -869,7 +868,7 @@ const AlertsView = ({ alerts }) => {
   return <div className="space-y-3">{alerts.map((a, i) => { const s = sc[a.severity] || sc.info; return <div key={i} className="p-4 rounded-xl" style={{ background: s.bg, border: `1px solid ${s.border}` }}><div className="flex items-start gap-3"><span className="text-lg">{s.icon}</span><div className="flex-1"><div className={`font-medium text-sm ${s.text}`}>{a.title}</div><div className="text-gray-400 text-xs mt-1">{a.description}</div></div></div></div>; })}</div>;
 };
 
-// â•â•â• PDF EXPORT â•â•â•
+// ═══ PDF EXPORT ═══
 const ExportPDF = ({ open, onClose, tree, dashboard, strategyName }) => {
   const [busy, setBusy] = useState(false);
   const flat = useMemo(() => { const f = []; const w = (ns, d = 0) => { ns?.forEach(n => { f.push({ ...n.stair, depth: d }); if (n.children) w(n.children, d + 1); }); }; w(tree); return f; }, [tree]);
@@ -901,7 +900,7 @@ const ExportPDF = ({ open, onClose, tree, dashboard, strategyName }) => {
   );
 };
 
-// â•â•â• MAIN APP â•â•â•
+// ═══ MAIN APP ═══
 export default function StairsApp() {
   const [user, setUser] = useState(api.user);
   const [lang, setLang] = useState("en");
@@ -919,7 +918,7 @@ export default function StairsApp() {
     if (user) {
       const s = new StratStore(user.id || user.email); s.ensureDefaults(); stratRef.current = s;
       setStrategies(s.list());
-      const aid = s.activeId(); if (aid) { const st = s.list().find(x => x.id === aid); if (st) setActiveSt(st); }
+      // Always show strategy landing first — user picks which strategy to work on
     }
   }, [user]);
 
@@ -983,14 +982,14 @@ export default function StairsApp() {
   };
 
   if (!user) return <LoginScreen onLogin={u => setUser(u)} lang={lang} />;
-  if (!activeSt) return <StrategyLanding strategies={strategies} onSelect={selectSt} onCreate={createSt} onDelete={deleteSt} userName={user.full_name || user.email} onLogout={() => { api.logout(); setUser(null); setActiveSt(null); }} onLangToggle={() => setLang(l => l === "en" ? "ar" : "en")} lang={lang} />;
+  if (!activeSt) return <StrategyLanding strategies={strategies} onSelect={selectSt} onCreate={createSt} onDelete={deleteSt} userName={user.full_name || user.email} onLogout={() => { api.logout(); setUser(null); setActiveSt(null); stratRef.current?.setActive(null); }} onLangToggle={() => setLang(l => l === "en" ? "ar" : "en")} lang={lang} />;
 
   const navItems = [{ key: "dashboard", icon: "◫", label: "Dashboard" }, { key: "staircase", icon: "🪜", label: "Staircase" }, { key: "ai", icon: "◉", label: "AI Advisor" }, { key: "alerts", icon: "⚡", label: "Alerts" }];
 
   return (
     <div className="min-h-screen text-white" dir={lang === "ar" ? "rtl" : "ltr"} style={{ background: `linear-gradient(180deg, ${DEEP} 0%, #0f1f3a 50%, ${DEEP} 100%)`, fontFamily: lang === "ar" ? "'Noto Kufi Arabic', sans-serif" : "'DM Sans', system-ui, sans-serif" }}>
       <header className="sticky top-0 z-50 backdrop-blur-xl px-4 py-3 flex items-center gap-3" style={{ background: "rgba(10, 22, 40, 0.9)", borderBottom: `1px solid ${BORDER}` }}>
-        <button onClick={backToLanding} className="text-gray-500 hover:text-white transition p-1.5 rounded-lg hover:bg-white/5">â†</button>
+        <button onClick={backToLanding} className="text-gray-500 hover:text-white transition p-1.5 rounded-lg hover:bg-white/5">←</button>
         <div className="flex items-center gap-2 mr-2"><span className="text-lg">{activeSt.icon}</span><div><div className="text-sm font-semibold text-white leading-tight">{activeSt.name}</div><div className="text-[10px] text-gray-600">{activeSt.company}</div></div></div>
         <nav className="flex-1 flex justify-center gap-1">{navItems.map(n => <button key={n.key} onClick={() => setView(n.key)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${view === n.key ? "bg-amber-500/15 text-amber-300 border border-amber-500/20" : "text-gray-500 hover:text-gray-300"}`}><span className="mr-1">{n.icon}</span>{n.label}{n.key === "alerts" && alerts.length > 0 && <span className="ml-1 bg-red-500/80 text-white text-[9px] px-1.5 py-0.5 rounded-full">{alerts.length}</span>}</button>)}</nav>
         <div className="flex items-center gap-3">
