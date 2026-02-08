@@ -501,7 +501,7 @@ const AIChatView = ({ lang, userId, strategyContext }) => {
           {activeConv && <span className="text-sm text-gray-400 truncate">{activeConv.title}</span>}<div className="flex-1"/>
           <button onClick={newChat} className="text-xs px-3 py-1.5 rounded-lg text-amber-400/70 border border-amber-500/20 hover:bg-amber-500/10 transition">+ {isAr?"محادثة جديدة":"New Chat"}</button>
         </div>
-        <div className="flex-1 overflow-y-auto space-y-3 pb-4 px-1">
+        <div className="flex-1 overflow-y-auto space-y-3 pb-4 px-1 min-h-0">
           {messages.length===0 && <div className="text-gray-600 text-center py-12 text-sm">{isAr?"ابدأ محادثة جديدة":"Start a new conversation"}</div>}
           {messages.map((m,i) => <div key={i} className={`flex ${m.role==="user"?"justify-end":"justify-start"}`}><div className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed ${m.role==="user"?"bg-amber-500/20 text-amber-100 rounded-br-md":m.error?"bg-red-500/10 text-red-300 rounded-bl-md border border-red-500/20":"bg-[#162544] text-gray-200 rounded-bl-md border border-[#1e3a5f]"}`}>{m.role==="ai"?<Markdown text={m.text}/>:<div className="whitespace-pre-wrap">{m.text}</div>}{m.tokens>0&&<div className="text-[10px] text-gray-600 mt-2 text-right">{m.tokens} tokens</div>}</div></div>)}
           {loading && <div className="flex gap-1 px-4 py-2">{[0,1,2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-amber-500/40 animate-bounce" style={{animationDelay:`${i*0.15}s`}}/>)}</div>}
@@ -681,9 +681,12 @@ export default function App() {
               title_ar: el.title_ar || null,
               description: el.description || null,
               element_type: el.element_type,
-              strategy_id: created.id,
               parent_id: serverParentId,
             });
+            // Backend ignores strategy_id in POST — must PUT to assign it
+            if (serverEl?.id) {
+              await api.put(`/api/v1/stairs/${serverEl.id}`, { strategy_id: created.id });
+            }
             // Track the mapping so children can reference server parent IDs
             if (el.id && serverEl?.id) idMap[el.id] = serverEl.id;
           } catch (e) {
@@ -712,7 +715,9 @@ export default function App() {
     if (existingId) {
       await api.put(`/api/v1/stairs/${existingId}`, form);
     } else {
-      await api.post(`/api/v1/stairs`, { ...form, strategy_id: activeStrat.id });
+      const created = await api.post(`/api/v1/stairs`, form);
+      // Backend ignores strategy_id in POST — must PUT to assign it
+      if (created?.id) await api.put(`/api/v1/stairs/${created.id}`, { strategy_id: activeStrat.id });
     }
     // Refresh tree + dashboard
     try { const tree = await api.get(`/api/v1/strategies/${activeStrat.id}/tree`); setStairTree(tree || []); } catch {}
