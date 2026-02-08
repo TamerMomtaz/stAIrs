@@ -1,6 +1,7 @@
 """
 ST.AIRS — Pydantic Models
 Strategy AI Interactive Real-time System
+v3.5.1 — Strategy Container Edition
 """
 
 from pydantic import BaseModel, Field
@@ -46,6 +47,55 @@ class OrgOut(BaseModel):
         from_attributes = True
 
 
+# ─── STRATEGY (v3.5.1 — Strategy Container) ───
+class StrategyCreate(BaseModel):
+    name: str
+    name_ar: Optional[str] = None
+    description: Optional[str] = None
+    description_ar: Optional[str] = None
+    company: Optional[str] = None
+    industry: Optional[str] = None
+    icon: Optional[str] = "🎯"
+    color: Optional[str] = "#B8904A"
+    framework: Optional[str] = "okr"
+
+class StrategyUpdate(BaseModel):
+    name: Optional[str] = None
+    name_ar: Optional[str] = None
+    description: Optional[str] = None
+    description_ar: Optional[str] = None
+    company: Optional[str] = None
+    industry: Optional[str] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
+    framework: Optional[str] = None
+    status: Optional[str] = None
+
+class StrategyOut(BaseModel):
+    id: str
+    organization_id: str
+    name: str
+    name_ar: Optional[str] = None
+    description: Optional[str] = None
+    description_ar: Optional[str] = None
+    company: Optional[str] = None
+    industry: Optional[str] = None
+    icon: Optional[str] = "🎯"
+    color: Optional[str] = "#B8904A"
+    framework: Optional[str] = "okr"
+    status: Optional[str] = "active"
+    owner_id: Optional[str] = None
+    owner_name: Optional[str] = None
+    element_count: Optional[int] = 0
+    avg_progress: Optional[float] = 0
+    settings: Optional[dict] = {}
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
 # ─── STAIR (Core Strategy Element) ───
 class StairCreate(BaseModel):
     title: str = Field(..., max_length=500)
@@ -55,6 +105,7 @@ class StairCreate(BaseModel):
     element_type: str = Field(..., pattern="^(vision|objective|key_result|initiative|task|kpi|perspective|strategic_objective|measure|goal|strategy)$")
     parent_id: Optional[UUID] = None
     framework_id: Optional[UUID] = None
+    strategy_id: Optional[UUID] = None
     team_id: Optional[UUID] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
@@ -72,6 +123,7 @@ class StairUpdate(BaseModel):
     description_ar: Optional[str] = None
     element_type: Optional[str] = None
     parent_id: Optional[UUID] = None
+    strategy_id: Optional[UUID] = None
     status: Optional[str] = None
     health: Optional[str] = None
     progress_percent: Optional[float] = None
@@ -94,6 +146,7 @@ class StairOut(BaseModel):
     description_ar: Optional[str] = None
     element_type: str
     parent_id: Optional[UUID] = None
+    strategy_id: Optional[UUID] = None
     level: int = 0
     sort_order: int = 0
     owner_id: Optional[UUID] = None
