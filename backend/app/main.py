@@ -1,8 +1,15 @@
 """
 ═══════════════════════════════════════════════════════════
 ST.AIRS — Strategy AI Interactive Real-time System
-FastAPI Backend v3.5 — Knowledge Engine Edition
+FastAPI Backend v3.5.1 — Strategy Container Edition
 By Tee | DEVONEERS | "Human IS the Loop"
+
+v3.5.1 Changes:
+  - Strategy containers (multi-strategy per org)
+  - Strategy CRUD endpoints (list, create, get, update, delete, tree)
+  - Auto-migration: ensure_strategies_table() on startup
+  - Dynamic year in AI system prompt
+  - All v3.5 Knowledge Engine features preserved
 
 v3.5 Changes:
   - Knowledge Engine API (frameworks, books, failure patterns, measurement tools)
@@ -46,6 +53,7 @@ from app.models.schemas import (
     LoginRequest, TokenResponse, RegisterRequest,
     TeamCreate, TeamOut, TeamMemberOut,
     KPIMeasurementCreate, KPIMeasurementOut,
+    StrategyCreate, StrategyUpdate, StrategyOut,
 )
 
 # ─── CONFIG ───
@@ -196,7 +204,8 @@ async def load_knowledge_cache():
 
 
 def _build_basic_system_prompt():
-    return """You are ST.AIRS, an AI strategy assistant created by DEVONEERS.
+    return f"""You are ST.AIRS, an AI strategy assistant created by DEVONEERS.
+The current year is {datetime.now().year}.
 You help organizations build, execute, and monitor their strategic plans.
 Expert in: OKR, Balanced Scorecard, OGSM, Hoshin Kanri, Blue Ocean Strategy, Porter's frameworks.
 Philosophy: "Human IS the Loop" — you suggest, humans decide.
@@ -208,6 +217,7 @@ def _build_enriched_system_prompt():
     """Build a system prompt enriched with knowledge from the database."""
     parts = [
         "You are ST.AIRS, an AI strategy assistant created by DEVONEERS.",
+        f"The current year is {datetime.now().year}.",
         'Philosophy: "Human IS the Loop" — you suggest, humans decide.',
         "You help ANY organization build, execute, and monitor their strategic plans.",
         "Keep responses concise and actionable. Use Arabic when the user writes in Arabic.",
@@ -260,10 +270,78 @@ def _build_enriched_system_prompt():
     return "\n".join(parts)
 
 
+# ═══════════════════════════════════════════════
+# AUTO-MIGRATION: STRATEGIES TABLE
+# ═══════════════════════════════════════════════
+
+async def ensure_strategies_table():
+    """Auto-migrate: create strategies table if missing."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        exists = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'strategies')"
+        )
+        if not exists:
+            print("  → Creating strategies table...")
+            await conn.execute("""
+                CREATE TABLE strategies (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE NOT NULL,
+                    name VARCHAR(500) NOT NULL,
+                    name_ar VARCHAR(500),
+                    description TEXT,
+                    description_ar TEXT,
+                    company VARCHAR(255),
+                    industry VARCHAR(255),
+                    icon VARCHAR(10) DEFAULT '🎯',
+                    color VARCHAR(20) DEFAULT '#B8904A',
+                    framework VARCHAR(50) DEFAULT 'okr',
+                    status VARCHAR(30) DEFAULT 'active',
+                    owner_id UUID REFERENCES users(id) ON DELETE SET NULL,
+                    settings JSONB DEFAULT '{}',
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
+            await conn.execute("CREATE INDEX idx_strategies_org ON strategies(organization_id)")
+            await conn.execute("CREATE INDEX idx_strategies_owner ON strategies(owner_id)")
+            # Seed default strategy
+            await conn.execute("""
+                INSERT INTO strategies (id, organization_id, name, description, company, industry, icon, color, framework, status, owner_id)
+                VALUES ('d0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001',
+                        'RootRise Vision 2026', 'DEVONEERS strategic roadmap', 'DEVONEERS / RootRise',
+                        'Technology / AI', '🌱', '#B8904A', 'okr', 'active', 'b0000000-0000-0000-0000-000000000001')
+                ON CONFLICT (id) DO NOTHING
+            """)
+            print("  ✅ strategies table created + default seeded")
+
+        # Ensure strategy_id column on stairs
+        has_col = await conn.fetchval("""
+            SELECT EXISTS(SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'stairs' AND column_name = 'strategy_id')
+        """)
+        if not has_col:
+            await conn.execute("ALTER TABLE stairs ADD COLUMN strategy_id UUID REFERENCES strategies(id) ON DELETE SET NULL")
+            await conn.execute("CREATE INDEX IF NOT EXISTS idx_stairs_strategy ON stairs(strategy_id)")
+            await conn.execute("""
+                UPDATE stairs SET strategy_id = 'd0000000-0000-0000-0000-000000000001'
+                WHERE organization_id = 'a0000000-0000-0000-0000-000000000001' AND strategy_id IS NULL
+            """)
+            print("  ✅ stairs.strategy_id added and linked")
+
+        # Fix 2024 dates
+        await conn.execute("""
+            UPDATE stairs SET
+                description = REPLACE(description, '2024', '2026'),
+                title = REPLACE(title, '2024', '2026')
+            WHERE description LIKE '%2024%' OR title LIKE '%2024%'
+        """)
+
+
 # ─── LIFESPAN ───
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("🪜 ST.AIRS v3.5 Starting up — Knowledge Engine Edition...")
+    print("🪜 ST.AIRS v3.5.1 Starting up — Strategy Container Edition...")
     await init_db()
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -277,6 +355,10 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"  ⚠️ Knowledge Engine failed to load: {e}")
         _knowledge_cache["system_prompt"] = _build_basic_system_prompt()
+    try:
+        await ensure_strategies_table()
+    except Exception as e:
+        print(f"  ⚠️ Strategies migration: {e}")
     yield
     await close_pool()
     print("🪜 ST.AIRS Shutting down...")
@@ -285,8 +367,8 @@ async def lifespan(app: FastAPI):
 # ─── APP ───
 app = FastAPI(
     title="ST.AIRS API",
-    description="Strategy AI Interactive Real-time System — Knowledge Engine Edition — By DEVONEERS",
-    version="3.5.0",
+    description="Strategy AI Interactive Real-time System — Strategy Container Edition — By DEVONEERS",
+    version="3.5.1",
     lifespan=lifespan,
 )
 
@@ -481,8 +563,8 @@ async def refresh_token(auth: AuthContext = Depends(require_auth)):
 
 @app.get("/")
 async def root():
-    return {"name": "ST.AIRS API", "version": "3.5.0",
-            "tagline": "Climb Your Strategy — Knowledge Engine Edition",
+    return {"name": "ST.AIRS API", "version": "3.5.1",
+            "tagline": "Climb Your Strategy — Strategy Container Edition",
             "by": "Tee | DEVONEERS", "status": "operational",
             "knowledge_engine": {
                 "frameworks": len(_knowledge_cache.get("frameworks", [])),
@@ -490,14 +572,14 @@ async def root():
                 "measurement_tools": len(_knowledge_cache.get("measurement_tools", [])),
                 "loaded_at": str(_knowledge_cache.get("loaded_at", "not loaded")),
             },
-            "features": ["jwt_auth", "websocket", "multi_tenant", "knowledge_engine", "ai_strategy"]}
+            "features": ["jwt_auth", "websocket", "multi_tenant", "knowledge_engine", "ai_strategy", "strategy_containers"]}
 
 @app.get("/health")
 async def health():
     pool = await get_pool()
     async with pool.acquire() as conn:
         count = await conn.fetchval("SELECT COUNT(*) FROM stairs WHERE deleted_at IS NULL")
-    return {"status": "healthy", "stairs_count": count, "version": "3.5.0",
+    return {"status": "healthy", "stairs_count": count, "version": "3.5.1",
             "knowledge_engine": bool(_knowledge_cache.get("loaded_at"))}
 
 
@@ -899,6 +981,140 @@ async def executive_dashboard(auth: AuthContext = Depends(get_auth)):
                       "achieved": achieved, "overall_progress": overall_progress, "active_alerts": len(alerts_rows), "critical_alerts": critical_count},
             "top_risks": top_risks, "recent_progress": recent_progress, "alerts": alerts_rows,
         }
+
+
+# ═══════════════════════════════════════════════
+# STRATEGIES CRUD — v3.5.1
+# ═══════════════════════════════════════════════
+
+@app.get("/api/v1/strategies")
+async def list_strategies(auth: AuthContext = Depends(get_auth)):
+    """List all strategies for the user's organization."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT s.*,
+                   u.full_name as owner_name,
+                   (SELECT COUNT(*) FROM stairs st WHERE st.strategy_id = s.id AND st.deleted_at IS NULL) as element_count,
+                   (SELECT AVG(st.progress_percent) FROM stairs st WHERE st.strategy_id = s.id AND st.deleted_at IS NULL) as avg_progress
+            FROM strategies s
+            LEFT JOIN users u ON u.id = s.owner_id
+            WHERE s.organization_id = $1
+            ORDER BY s.updated_at DESC
+        """, auth.org_id)
+        results = rows_to_dicts(rows)
+        for r in results:
+            r["avg_progress"] = round(float(r.get("avg_progress") or 0), 1)
+        return results
+
+@app.post("/api/v1/strategies", status_code=201)
+async def create_strategy(strat: StrategyCreate, auth: AuthContext = Depends(get_auth)):
+    """Create a new strategy container."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        strat_id = str(uuid.uuid4())
+        await conn.execute("""
+            INSERT INTO strategies (id, organization_id, name, name_ar, description, description_ar,
+                                    company, industry, icon, color, framework, status, owner_id)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'active',$12)
+        """, strat_id, auth.org_id, strat.name, strat.name_ar, strat.description, strat.description_ar,
+            strat.company, strat.industry, strat.icon or "🎯", strat.color or "#B8904A",
+            strat.framework or "okr", auth.user_id)
+        row = await conn.fetchrow("""
+            SELECT s.*, u.full_name as owner_name, 0 as element_count, 0.0 as avg_progress
+            FROM strategies s LEFT JOIN users u ON u.id = s.owner_id WHERE s.id = $1
+        """, strat_id)
+        await ws_manager.broadcast_to_org(auth.org_id, {
+            "event": "strategy_created", "data": {"id": strat_id, "name": strat.name}
+        })
+        return row_to_dict(row)
+
+@app.get("/api/v1/strategies/{strategy_id}")
+async def get_strategy(strategy_id: str, auth: AuthContext = Depends(get_auth)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            SELECT s.*, u.full_name as owner_name,
+                   (SELECT COUNT(*) FROM stairs st WHERE st.strategy_id = s.id AND st.deleted_at IS NULL) as element_count,
+                   (SELECT AVG(st.progress_percent) FROM stairs st WHERE st.strategy_id = s.id AND st.deleted_at IS NULL) as avg_progress
+            FROM strategies s LEFT JOIN users u ON u.id = s.owner_id
+            WHERE s.id = $1 AND s.organization_id = $2
+        """, strategy_id, auth.org_id)
+        if not row:
+            raise HTTPException(404, "Strategy not found")
+        result = row_to_dict(row)
+        result["avg_progress"] = round(float(result.get("avg_progress") or 0), 1)
+        return result
+
+@app.put("/api/v1/strategies/{strategy_id}")
+async def update_strategy(strategy_id: str, updates: StrategyUpdate, auth: AuthContext = Depends(get_auth)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        existing = await conn.fetchrow(
+            "SELECT id FROM strategies WHERE id = $1 AND organization_id = $2", strategy_id, auth.org_id
+        )
+        if not existing:
+            raise HTTPException(404, "Strategy not found")
+        update_data = updates.model_dump(exclude_unset=True)
+        if not update_data:
+            raise HTTPException(400, "No fields to update")
+        sets, params, idx = [], [], 1
+        for k, v in update_data.items():
+            sets.append(f'"{k}" = ${idx}')
+            params.append(v)
+            idx += 1
+        sets.append(f"updated_at = ${idx}")
+        params.append(datetime.now(timezone.utc))
+        idx += 1
+        params.append(strategy_id)
+        await conn.execute(f'UPDATE strategies SET {", ".join(sets)} WHERE id = ${idx}', *params)
+        row = await conn.fetchrow("""
+            SELECT s.*, u.full_name as owner_name,
+                   (SELECT COUNT(*) FROM stairs st WHERE st.strategy_id = s.id AND st.deleted_at IS NULL) as element_count,
+                   (SELECT AVG(st.progress_percent) FROM stairs st WHERE st.strategy_id = s.id AND st.deleted_at IS NULL) as avg_progress
+            FROM strategies s LEFT JOIN users u ON u.id = s.owner_id WHERE s.id = $1
+        """, strategy_id)
+        return row_to_dict(row)
+
+@app.delete("/api/v1/strategies/{strategy_id}")
+async def delete_strategy(strategy_id: str, auth: AuthContext = Depends(get_auth)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        existing = await conn.fetchrow(
+            "SELECT id FROM strategies WHERE id = $1 AND organization_id = $2", strategy_id, auth.org_id
+        )
+        if not existing:
+            raise HTTPException(404, "Strategy not found")
+        await conn.execute(
+            "UPDATE stairs SET deleted_at = NOW() WHERE strategy_id = $1 AND deleted_at IS NULL", strategy_id
+        )
+        await conn.execute("DELETE FROM strategies WHERE id = $1", strategy_id)
+        await ws_manager.broadcast_to_org(auth.org_id, {
+            "event": "strategy_deleted", "data": {"id": strategy_id}
+        })
+        return {"deleted": True, "id": strategy_id}
+
+@app.get("/api/v1/strategies/{strategy_id}/tree")
+async def get_strategy_tree(strategy_id: str, auth: AuthContext = Depends(get_auth)):
+    """Get staircase tree for a specific strategy."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT s.*, (SELECT COUNT(*) FROM stairs c WHERE c.parent_id = s.id AND c.deleted_at IS NULL) as children_count,
+                u.full_name as owner_name
+            FROM stairs s LEFT JOIN users u ON s.owner_id = u.id
+            WHERE s.strategy_id = $1 AND s.organization_id = $2 AND s.deleted_at IS NULL
+            ORDER BY s.level, s.sort_order, s.created_at
+        """, strategy_id, auth.org_id)
+        all_stairs = rows_to_dicts(rows)
+        def build_tree(parent_id=None):
+            children = []
+            for s in all_stairs:
+                pid = str(s["parent_id"]) if s.get("parent_id") else None
+                if pid == parent_id:
+                    children.append({"stair": s, "children": build_tree(str(s["id"]))})
+            return children
+        return build_tree(None)
 
 
 # ═══════════════════════════════════════════════
