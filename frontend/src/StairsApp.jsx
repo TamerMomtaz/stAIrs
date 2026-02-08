@@ -96,7 +96,11 @@ class StrategyAPI {
     try {
       const serverStrategies = await api.get("/api/v1/strategies");
       const localDrafts = this._getLocal().filter(s => s.source === "local");
-      return [...serverStrategies.map(s => ({ ...s, id: String(s.id), source: "server" })), ...localDrafts];
+      // Remove any local entries that now exist on server (dedup)
+      const serverIds = new Set(serverStrategies.map(s => String(s.id)));
+      const cleanLocal = localDrafts.filter(s => !serverIds.has(s.id));
+      if (cleanLocal.length !== this._getLocal().length) this._saveLocal(cleanLocal);
+      return [...serverStrategies.map(s => ({ ...s, id: String(s.id), source: "server" })), ...cleanLocal];
     } catch (e) {
       console.warn("Strategy API fallback:", e.message);
       return this._getLocal();
@@ -651,12 +655,12 @@ export default function App() {
   const selectStrategy = async (strat) => {
     setActiveStrat(strat); setView("dashboard");
     if (stratApiRef.current) stratApiRef.current.setActive(strat.id);
-    // Load staircase tree
-    try { const tree = await api.get(`/api/v1/stairs/${strat.id}/tree`); setStairTree(tree || []); } catch { setStairTree([]); }
-    // Load dashboard
-    try { const dash = await api.get(`/api/v1/stairs/${strat.id}/dashboard`); setDashData(dash); } catch { setDashData({ stats: { total_elements: 0, overall_progress: 0 } }); }
-    // Load alerts
-    try { const al = await api.get(`/api/v1/stairs/${strat.id}/alerts`); setAlerts(al || []); } catch { setAlerts([]); }
+    // Load staircase tree (strategy-scoped endpoint)
+    try { const tree = await api.get(`/api/v1/strategies/${strat.id}/tree`); setStairTree(tree || []); } catch { setStairTree([]); }
+    // Load dashboard (org-wide)
+    try { const dash = await api.get(`/api/v1/dashboard`); setDashData(dash); } catch { setDashData({ stats: { total_elements: 0, overall_progress: 0 } }); }
+    // Load alerts (org-wide)
+    try { const al = await api.get(`/api/v1/alerts`); setAlerts(al || []); } catch { setAlerts([]); }
   };
 
   const createStrategy = async (stratData) => {
@@ -672,14 +676,12 @@ export default function App() {
           try {
             // Map parent_id from local to server
             const serverParentId = el.parent_id ? (idMap[el.parent_id] || null) : null;
-            const serverEl = await api.post(`/api/v1/stairs/${created.id}`, {
+            const serverEl = await api.post(`/api/v1/stairs`, {
               title: el.title,
               title_ar: el.title_ar || null,
               description: el.description || null,
               element_type: el.element_type,
-              code: el.code || null,
-              health: el.health || "on_track",
-              progress_percent: el.progress_percent || 0,
+              strategy_id: created.id,
               parent_id: serverParentId,
             });
             // Track the mapping so children can reference server parent IDs
@@ -708,24 +710,25 @@ export default function App() {
   const saveStair = async (form, existingId) => {
     if (!activeStrat) return;
     if (existingId) {
-      await api.put(`/api/v1/stairs/${activeStrat.id}/${existingId}`, form);
+      await api.put(`/api/v1/stairs/${existingId}`, form);
     } else {
-      await api.post(`/api/v1/stairs/${activeStrat.id}`, form);
+      await api.post(`/api/v1/stairs`, { ...form, strategy_id: activeStrat.id });
     }
     // Refresh tree + dashboard
-    try { const tree = await api.get(`/api/v1/stairs/${activeStrat.id}/tree`); setStairTree(tree || []); } catch {}
-    try { const dash = await api.get(`/api/v1/stairs/${activeStrat.id}/dashboard`); setDashData(dash); } catch {}
+    try { const tree = await api.get(`/api/v1/strategies/${activeStrat.id}/tree`); setStairTree(tree || []); } catch {}
+    try { const dash = await api.get(`/api/v1/dashboard`); setDashData(dash); } catch {}
   };
 
   const deleteStair = async (id) => {
     if (!activeStrat) return;
-    await api.del(`/api/v1/stairs/${activeStrat.id}/${id}`);
-    try { const tree = await api.get(`/api/v1/stairs/${activeStrat.id}/tree`); setStairTree(tree || []); } catch {}
-    try { const dash = await api.get(`/api/v1/stairs/${activeStrat.id}/dashboard`); setDashData(dash); } catch {}
+    await api.del(`/api/v1/stairs/${id}`);
+    try { const tree = await api.get(`/api/v1/strategies/${activeStrat.id}/tree`); setStairTree(tree || []); } catch {}
+    try { const dash = await api.get(`/api/v1/dashboard`); setDashData(dash); } catch {}
   };
 
   const moveStair = async (id, dir) => {
-    try { await api.post(`/api/v1/stairs/${activeStrat.id}/${id}/move`, { direction: dir }); const tree = await api.get(`/api/v1/stairs/${activeStrat.id}/tree`); setStairTree(tree || []); } catch (e) { console.warn("Move failed:", e.message); }
+    // Move endpoint not available in current backend — reorder locally only
+    console.warn("Move not yet implemented on backend");
   };
 
   const exportPDF = () => {
