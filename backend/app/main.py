@@ -1088,22 +1088,27 @@ async def update_strategy(strategy_id: str, updates: StrategyUpdate, auth: AuthC
 
 @app.delete("/api/v1/strategies/{strategy_id}")
 async def delete_strategy(strategy_id: str, auth: AuthContext = Depends(get_auth)):
+    """Archive a strategy (soft-delete). v3.5.3"""
     pool = await get_pool()
     async with pool.acquire() as conn:
         existing = await conn.fetchrow(
-            "SELECT id FROM strategies WHERE id = $1 AND organization_id = $2", strategy_id, auth.org_id
+            "SELECT id, status FROM strategies WHERE id = $1 AND organization_id = $2",
+            strategy_id, auth.org_id
         )
         if not existing:
             raise HTTPException(404, "Strategy not found")
-        await conn.execute(
-            "UPDATE stairs SET deleted_at = NOW() WHERE strategy_id = $1 AND deleted_at IS NULL", strategy_id
-        )
-        await conn.execute("DELETE FROM strategies WHERE id = $1", strategy_id)
-        await ws_manager.broadcast_to_org(auth.org_id, {
-            "event": "strategy_deleted", "data": {"id": strategy_id}
-        })
-        return {"deleted": True, "id": strategy_id}
 
+        await conn.execute(
+            "UPDATE strategies SET status = 'archived', updated_at = NOW() WHERE id = $1",
+            strategy_id
+        )
+
+        await ws_manager.broadcast_to_org(auth.org_id, {
+            "event": "strategy_archived",
+            "data": {"id": strategy_id}
+        })
+        return {"archived": True, "id": strategy_id}
+      
 @app.get("/api/v1/strategies/{strategy_id}/tree")
 async def get_strategy_tree(strategy_id: str, auth: AuthContext = Depends(get_auth)):
     """Get staircase tree for a specific strategy."""
