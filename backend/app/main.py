@@ -465,7 +465,11 @@ class AuthContext:
 
 async def get_auth(authorization: Optional[str] = Header(None)) -> AuthContext:
     if not authorization or not authorization.startswith("Bearer "):
-        return AuthContext(DEFAULT_USER_ID, DEFAULT_ORG_ID, "admin")
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     token = authorization[7:]
     payload = decode_jwt(token)
     return AuthContext(payload["sub"], payload["org"], payload.get("role", "member"))
@@ -988,11 +992,13 @@ async def executive_dashboard(auth: AuthContext = Depends(get_auth)):
 # ═══════════════════════════════════════════════
 
 @app.get("/api/v1/strategies")
-async def list_strategies(auth: AuthContext = Depends(get_auth)):
-    """List all strategies for the user's organization."""
+async def list_strategies(
+    auth: AuthContext = Depends(get_auth),
+    include_archived: bool = Query(False, description="Include archived strategies"),
+):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch("""
+        q = """
             SELECT s.*,
                    u.full_name as owner_name,
                    (SELECT COUNT(*) FROM stairs st WHERE st.strategy_id = s.id AND st.deleted_at IS NULL) as element_count,
@@ -1000,8 +1006,12 @@ async def list_strategies(auth: AuthContext = Depends(get_auth)):
             FROM strategies s
             LEFT JOIN users u ON u.id = s.owner_id
             WHERE s.organization_id = $1
-            ORDER BY s.updated_at DESC
-        """, auth.org_id)
+        """
+        if not include_archived:
+            q += " AND (s.status != 'archived' OR s.status IS NULL)"
+        q += " ORDER BY s.updated_at DESC"
+
+        rows = await conn.fetch(q, auth.org_id)
         results = rows_to_dicts(rows)
         for r in results:
             r["avg_progress"] = round(float(r.get("avg_progress") or 0), 1)
