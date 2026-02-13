@@ -1,7 +1,7 @@
 """
 ═══════════════════════════════════════════════════════════
 ST.AIRS — Strategy AI Interactive Real-time System
-FastAPI Backend v3.5.1 — Strategy Container Edition
+FastAPI Backend v3.5.3 — Strategy Container Edition
 By Tee | DEVONEERS | "Human IS the Loop"
 
 v3.5.1 Changes:
@@ -1108,6 +1108,57 @@ async def delete_strategy(strategy_id: str, auth: AuthContext = Depends(get_auth
             "data": {"id": strategy_id}
         })
         return {"archived": True, "id": strategy_id}
+@app.post("/api/v1/strategies/{strategy_id}/restore")
+async def restore_strategy(strategy_id: str, auth: AuthContext = Depends(get_auth)):
+    """Restore an archived strategy back to active status. v3.5.3"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        existing = await conn.fetchrow(
+            "SELECT id, status FROM strategies WHERE id = $1 AND organization_id = $2",
+            strategy_id, auth.org_id
+        )
+        if not existing:
+            raise HTTPException(404, "Strategy not found")
+        if existing["status"] != "archived":
+            raise HTTPException(400, "Strategy is not archived")
+
+        await conn.execute(
+            "UPDATE strategies SET status = 'active', updated_at = NOW() WHERE id = $1",
+            strategy_id
+        )
+
+        await ws_manager.broadcast_to_org(auth.org_id, {
+            "event": "strategy_restored",
+            "data": {"id": strategy_id}
+        })
+        return {"restored": True, "id": strategy_id}
+
+
+@app.delete("/api/v1/strategies/{strategy_id}/permanent")
+async def permanent_delete_strategy(strategy_id: str, auth: AuthContext = Depends(get_auth)):
+    """Permanently delete an archived strategy and all its stairs. v3.5.3"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        existing = await conn.fetchrow(
+            "SELECT id, status FROM strategies WHERE id = $1 AND organization_id = $2",
+            strategy_id, auth.org_id
+        )
+        if not existing:
+            raise HTTPException(404, "Strategy not found")
+        if existing["status"] != "archived":
+            raise HTTPException(400, "Strategy must be archived before permanent deletion")
+
+        await conn.execute(
+            "UPDATE stairs SET deleted_at = NOW() WHERE strategy_id = $1 AND deleted_at IS NULL",
+            strategy_id
+        )
+        await conn.execute("DELETE FROM strategies WHERE id = $1", strategy_id)
+
+        await ws_manager.broadcast_to_org(auth.org_id, {
+            "event": "strategy_deleted",
+            "data": {"id": strategy_id}
+        })
+        return {"deleted": True, "id": strategy_id, "permanent": True}
       
 @app.get("/api/v1/strategies/{strategy_id}/tree")
 async def get_strategy_tree(strategy_id: str, auth: AuthContext = Depends(get_auth)):
