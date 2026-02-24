@@ -7,6 +7,7 @@ Run this on your Windows machine:
 Requires: pip install psycopg2-binary
 """
 import sys
+import os
 try:
     import psycopg2
 except ImportError:
@@ -15,7 +16,11 @@ except ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "psycopg2-binary"])
     import psycopg2
 
-DB_URL = "postgresql://postgres:QloOtdpzNGPRuMZtRabjuEqcLyOPQYrD@metro.proxy.rlwy.net:21513/railway"
+DB_URL = os.environ.get("DATABASE_URL")
+if not DB_URL:
+    print("ERROR: DATABASE_URL environment variable is required.")
+    print("  Set it before running:  export DATABASE_URL='postgresql://user:pass@host:port/db'")
+    sys.exit(1)
 
 # The full migration SQL inline (so you only need this one file)
 MIGRATION_SQL = r"""
