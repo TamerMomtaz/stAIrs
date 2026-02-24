@@ -12,6 +12,7 @@ import { AlertsView } from "./components/AlertsView";
 import { KnowledgeLibrary } from "./components/KnowledgeLibrary";
 import { NotesView } from "./components/NotesView";
 import { StairEditor } from "./components/StairEditor";
+import { ExecutionRoom } from "./components/ExecutionRoom";
 
 // ═══ MAIN APP ═══
 export default function App() {
@@ -25,6 +26,7 @@ export default function App() {
   const [alerts, setAlerts] = useState([]);
   const [editStair, setEditStair] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
+  const [execRoomStair, setExecRoomStair] = useState(null);
   const [stratLoading, setStratLoading] = useState(true);
   const stratApiRef = useRef(null);
   const notesStoreRef = useRef(null);
@@ -190,7 +192,7 @@ export default function App() {
 
       <main className="max-w-6xl mx-auto px-6 py-6">
         {view === "dashboard" && <DashboardView data={dashData} lang={lang} />}
-        {view === "staircase" && <StaircaseView tree={stairTree} lang={lang} onEdit={s => { setEditStair(s); setShowEditor(true); }} onAdd={() => { setEditStair(null); setShowEditor(true); }} onExport={exportPDF} onMove={moveStair} strategyContext={activeStrat} onSaveNote={saveToNotes} />}
+        {view === "staircase" && <StaircaseView tree={stairTree} lang={lang} onEdit={s => { setEditStair(s); setShowEditor(true); }} onAdd={() => { setEditStair(null); setShowEditor(true); }} onExport={exportPDF} onMove={moveStair} strategyContext={activeStrat} onSaveNote={saveToNotes} onExecutionRoom={s => setExecRoomStair(s)} />}
         {view === "ai" && <AIChatView lang={lang} userId={user.id || user.email} strategyContext={activeStrat} onSaveNote={saveToNotes} />}
         {view === "alerts" && <AlertsView alerts={alerts} lang={lang} />}
         {view === "knowledge" && <KnowledgeLibrary lang={lang} />}
@@ -198,6 +200,8 @@ export default function App() {
       </main>
 
       <StairEditor open={showEditor} onClose={() => { setShowEditor(false); setEditStair(null); }} stair={editStair} allStairs={stairTree} onSave={saveStair} onDelete={deleteStair} lang={lang} />
+
+      {execRoomStair && <ExecutionRoom stair={execRoomStair} strategyContext={activeStrat} lang={lang} onBack={() => setExecRoomStair(null)} onSaveNote={saveToNotes} />}
 
       <footer className="text-center py-6 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • ST.AIRS v3.6.0 • "Human IS the Loop" • {new Date().getFullYear()}</footer>
     </div>

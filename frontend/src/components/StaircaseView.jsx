@@ -4,7 +4,7 @@ import { GOLD, GOLD_L, TEAL, typeColors, typeIcons } from "../constants";
 import { HealthBadge } from "./SharedUI";
 import { Markdown } from "./Markdown";
 
-export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, strategyContext, onSaveNote }) => {
+export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, strategyContext, onSaveNote, onExecutionRoom }) => {
   const [expanded, setExpanded] = useState(null); const [aiAction, setAiAction] = useState(null);
   const [aiResult, setAiResult] = useState({}); const [aiLoading, setAiLoading] = useState(false);
   const isAr = lang === "ar";
@@ -39,6 +39,7 @@ export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, str
               <div className="flex items-center gap-2 flex-wrap">
                 <button onClick={e => {e.stopPropagation();handleAI(s,"explain");}} disabled={isLd} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{borderColor:`${TEAL}60`,color:"#5eead4",background:`${TEAL}20`}}>{isLd&&aiAction?.type==="explain"?<span className="animate-spin">⟳</span>:"💡"} {isAr?"شرح":"Explain"}</button>
                 <button onClick={e => {e.stopPropagation();handleAI(s,"enhance");}} disabled={isLd} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{borderColor:`${GOLD}60`,color:GOLD,background:`${GOLD}15`}}>{isLd&&aiAction?.type==="enhance"?<span className="animate-spin">⟳</span>:"✨"} {isAr?"تحسين":"Enhance"}</button>
+                {onExecutionRoom && <button onClick={e => {e.stopPropagation();onExecutionRoom(s);}} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{borderColor:"#6366f160",color:"#a5b4fc",background:"#6366f120"}}>🚀 {isAr?"غرفة التنفيذ":"Execution Room"}</button>}
                 <button onClick={e => {e.stopPropagation();onEdit(s);}} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#1e3a5f] text-gray-400 hover:text-white transition hover:bg-white/5">✎ {isAr?"تعديل":"Edit"}</button>
               </div>
               {isLd && <div className="flex items-center gap-2 py-3"><div className="flex gap-1">{[0,1,2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-amber-500/40 animate-bounce" style={{animationDelay:`${i*0.15}s`}} />)}</div><span className="text-gray-500 text-xs">{aiAction?.type==="explain"?"Analyzing...":"Generating..."}</span></div>}
