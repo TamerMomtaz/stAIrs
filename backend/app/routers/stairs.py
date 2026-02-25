@@ -17,7 +17,7 @@ from app.models.schemas import (
     ProgressCreate, ProgressOut,
     RelationshipCreate, RelationshipOut,
     KPIMeasurementCreate, KPIMeasurementOut,
-    ActionPlanCreate, ActionPlanOut, ActionPlanSummary,
+    ActionPlanCreate, ActionPlanOut, ActionPlanSummary, ActionPlanTaskUpdate,
 )
 from app.routers.websocket import ws_manager
 
@@ -290,6 +290,25 @@ async def get_stair_action_plans(stair_id: str, auth: AuthContext = Depends(get_
             WHERE ap.stair_id = $1 AND s.organization_id = $2 AND s.deleted_at IS NULL
             ORDER BY ap.created_at DESC""", stair_id, auth.org_id)
         return rows_to_dicts(rows)
+
+
+@router.patch("/action-plans/{plan_id}/tasks", response_model=ActionPlanOut)
+async def update_action_plan_task(plan_id: str, update: ActionPlanTaskUpdate, auth: AuthContext = Depends(get_auth)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM action_plans WHERE id = $1 AND organization_id = $2",
+            plan_id, auth.org_id)
+        if not row: raise HTTPException(404, "Action plan not found")
+        tasks = json.loads(row["tasks"]) if isinstance(row["tasks"], str) else (row["tasks"] or [])
+        if update.task_index >= len(tasks):
+            raise HTTPException(400, "Task index out of range")
+        tasks[update.task_index]["done"] = update.done
+        await conn.execute(
+            "UPDATE action_plans SET tasks = $1 WHERE id = $2",
+            json.dumps(tasks), plan_id)
+        updated = await conn.fetchrow("SELECT * FROM action_plans WHERE id = $1", plan_id)
+        return row_to_dict(updated)
 
 
 @router.get("/strategies/{strategy_id}/action-plans")

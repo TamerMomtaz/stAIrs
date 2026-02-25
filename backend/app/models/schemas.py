@@ -375,6 +375,10 @@ class ActionPlanCreate(BaseModel):
     tasks: Optional[List[dict]] = []
     feedback: Optional[List[dict]] = None
 
+class ActionPlanTaskUpdate(BaseModel):
+    task_index: int = Field(..., ge=0)
+    done: bool
+
 class ActionPlanOut(BaseModel):
     id: UUID
     stair_id: UUID

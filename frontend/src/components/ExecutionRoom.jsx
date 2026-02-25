@@ -27,6 +27,8 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   const [showExportModal, setShowExportModal] = useState(false);
   const [planView, setPlanView] = useState("recommended"); // "recommended" | "customized" | "comparison"
   const [hasSavedPlan, setHasSavedPlan] = useState(false);
+  const [savedPlanId, setSavedPlanId] = useState(null);
+  const [savedCustomPlanId, setSavedCustomPlanId] = useState(null);
   const isAr = lang === "ar";
   const color = typeColors[stair.element_type] || "#94a3b8";
 
@@ -38,11 +40,51 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   useEffect(() => { actionChatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [actionChats, actionChatTaskId]);
 
   useEffect(() => {
-    ActionPlansAPI.getForStair(stair.id).then(plans => {
-      if (plans && plans.length > 0) setHasSavedPlan(true);
-      else setHasSavedPlan(false);
-    }).catch(() => setHasSavedPlan(false));
-    generateActionPlan();
+    const loadOrGenerate = async () => {
+      try {
+        const plans = await ActionPlansAPI.getForStair(stair.id);
+        if (plans && plans.length > 0) {
+          setHasSavedPlan(true);
+          const recommended = plans.find(p => p.plan_type === "recommended");
+          const customized = plans.find(p => p.plan_type === "customized");
+          if (recommended) {
+            setActionPlan(recommended.raw_text);
+            const loadedTasks = (recommended.tasks || []).map((t, i) => ({
+              id: t.id || `task_${i}_${Date.now()}`,
+              name: t.name || `Task ${i + 1}`,
+              owner: t.owner || "TBD",
+              timeline: t.timeline || "TBD",
+              priority: t.priority || "Medium",
+              details: t.details || "",
+              done: !!t.done,
+            }));
+            setTasks(loadedTasks);
+            setSavedPlanId(recommended.id);
+          } else {
+            generateActionPlan();
+          }
+          if (customized) {
+            setCustomPlan(customized.raw_text);
+            const loadedCustomTasks = (customized.tasks || []).map((t, i) => ({
+              id: t.id || `ctask_${i}_${Date.now()}`,
+              name: t.name || `Task ${i + 1}`,
+              owner: t.owner || "TBD",
+              timeline: t.timeline || "TBD",
+              priority: t.priority || "Medium",
+              details: t.details || "",
+              done: !!t.done,
+            }));
+            setCustomTasks(loadedCustomTasks);
+            setSavedCustomPlanId(customized.id);
+          }
+        } else {
+          generateActionPlan();
+        }
+      } catch {
+        generateActionPlan();
+      }
+    };
+    loadOrGenerate();
     generateSolutions();
     setMessages([{ role: "ai", text: `Welcome to the Execution Room for **${stair.title}**.\n\nI have full context of your strategy and this specific step. Ask me anything about execution, risks, resources, timelines, or alternative approaches.`, ts: new Date().toISOString() }]);
   }, [stair.id]);
@@ -57,7 +99,8 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
       setTasks(parsed);
       try {
         const taskData = parsed.map(t => ({ name: t.name, owner: t.owner, timeline: t.timeline, priority: t.priority, details: t.details, done: false }));
-        await ActionPlansAPI.save(stair.id, "recommended", res.response, taskData);
+        const saved = await ActionPlansAPI.save(stair.id, "recommended", res.response, taskData);
+        setSavedPlanId(saved.id);
         setHasSavedPlan(true);
       } catch (saveErr) { console.warn("Auto-save action plan failed:", saveErr.message); }
     } catch (e) { setActionPlan(`Error generating plan: ${e.message}`); }
@@ -96,7 +139,17 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   };
 
   const toggleTask = (id) => {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
+    setTasks(prev => {
+      const updated = prev.map(t => t.id === id ? { ...t, done: !t.done } : t);
+      if (savedPlanId) {
+        const idx = prev.findIndex(t => t.id === id);
+        if (idx >= 0) {
+          ActionPlansAPI.updateTaskDone(savedPlanId, idx, !prev[idx].done)
+            .catch(err => console.warn("Failed to persist task toggle:", err.message));
+        }
+      }
+      return updated;
+    });
   };
 
   const sendChat = async () => {
@@ -204,7 +257,8 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
       setPlanView("customized");
       try {
         const taskData = parsedCustom.map(t => ({ name: t.name, owner: t.owner, timeline: t.timeline, priority: t.priority, details: t.details, done: false }));
-        await ActionPlansAPI.save(stair.id, "customized", res.response, taskData, feedback);
+        const saved = await ActionPlansAPI.save(stair.id, "customized", res.response, taskData, feedback);
+        setSavedCustomPlanId(saved.id);
         setHasSavedPlan(true);
       } catch (saveErr) { console.warn("Auto-save customized plan failed:", saveErr.message); }
     } catch (e) { setCustomPlan(`Error generating customized plan: ${e.message}`); }
@@ -212,7 +266,17 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   };
 
   const toggleCustomTask = (id) => {
-    setCustomTasks(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
+    setCustomTasks(prev => {
+      const updated = prev.map(t => t.id === id ? { ...t, done: !t.done } : t);
+      if (savedCustomPlanId) {
+        const idx = prev.findIndex(t => t.id === id);
+        if (idx >= 0) {
+          ActionPlansAPI.updateTaskDone(savedCustomPlanId, idx, !prev[idx].done)
+            .catch(err => console.warn("Failed to persist custom task toggle:", err.message));
+        }
+      }
+      return updated;
+    });
   };
 
   const exportPlan = (mode) => {
