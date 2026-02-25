@@ -16,6 +16,11 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   const [chatLoading, setChatLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("plan");
   const chatEndRef = useRef(null);
+  const [actionChatTaskId, setActionChatTaskId] = useState(null);
+  const [actionChats, setActionChats] = useState({});
+  const [actionChatInput, setActionChatInput] = useState("");
+  const [actionChatLoading, setActionChatLoading] = useState(false);
+  const actionChatEndRef = useRef(null);
   const isAr = lang === "ar";
   const color = typeColors[stair.element_type] || "#94a3b8";
 
@@ -24,6 +29,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   const sourceRef = "When citing frameworks, books, or statistics, include a brief source reference.";
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  useEffect(() => { actionChatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [actionChats, actionChatTaskId]);
 
   useEffect(() => {
     generateActionPlan();
@@ -95,6 +101,48 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
       setMessages(prev => [...prev, { role: "ai", text: `Error: ${e.message}`, error: true, ts: new Date().toISOString() }]);
     }
     setChatLoading(false);
+  };
+
+  const toggleActionChat = (task) => {
+    if (actionChatTaskId === task.id) {
+      setActionChatTaskId(null);
+      setActionChatInput("");
+      return;
+    }
+    setActionChatTaskId(task.id);
+    setActionChatInput("");
+    if (!actionChats[task.id]) {
+      setActionChats(prev => ({
+        ...prev,
+        [task.id]: [{
+          role: "ai",
+          text: isAr
+            ? `دعنا نقيّم قدرتك على تنفيذ: **${task.name}**\n\nهل تستطيع تنفيذ هذا الإجراء:\n- **بالكامل** — لديك كل ما تحتاجه\n- **جزئياً** — بعض المتطلبات متوفرة\n- **لا أستطيع حالياً** — توجد عوائق\n\nأخبرني أيضاً عن أي قيود تواجهها (ميزانية، وقت، فريق، أدوات، صلاحيات).`
+            : `Let's assess your ability to execute: **${task.name}**\n\nCan you carry out this action:\n- **Fully** — you have everything needed\n- **Partially** — some requirements are in place\n- **Not currently** — there are blockers\n\nAlso tell me about any constraints you're facing (budget, time, team, tools, permissions).`,
+          ts: new Date().toISOString(),
+        }],
+      }));
+    }
+  };
+
+  const sendActionChat = async (taskId) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!actionChatInput.trim() || actionChatLoading || !task) return;
+    const msg = actionChatInput.trim();
+    setActionChatInput("");
+    const userMsg = { role: "user", text: msg, ts: new Date().toISOString() };
+    setActionChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), userMsg] }));
+    setActionChatLoading(true);
+    try {
+      const history = (actionChats[taskId] || []).map(m => `${m.role === "user" ? "User" : "AI"}: ${m.text}`).join("\n\n");
+      const contextMsg = `[${stratCtx} Execution Room for: ${stairCtx}]\n\nThe user is assessing their ability to execute this specific action item:\n- Task: ${task.name}\n- Owner: ${task.owner}\n- Timeline: ${task.timeline}\n- Priority: ${task.priority}\n- Details: ${task.details}\n\nYour role: Help the user honestly assess how far they can go with this action. Ask clarifying questions about their constraints (budget, time, skills, tools, authority). If they can only do it partially, help them identify what portion is achievable and what needs external help or resources. Be practical and specific.\n\nConversation so far:\n${history}\n\nUser: ${msg}`;
+      const res = await api.post("/api/v1/ai/chat", { message: contextMsg });
+      const aiMsg = { role: "ai", text: res.response, tokens: res.tokens_used, ts: new Date().toISOString() };
+      setActionChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), aiMsg] }));
+    } catch (e) {
+      setActionChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), { role: "ai", text: `Error: ${e.message}`, error: true, ts: new Date().toISOString() }] }));
+    }
+    setActionChatLoading(false);
   };
 
   const exportPlan = () => {
@@ -215,8 +263,8 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
             ) : tasks.length > 0 ? (
               <div className="space-y-2">
                 {tasks.map(t => (
-                  <div key={t.id} className={`rounded-xl p-4 transition-all ${t.done ? "opacity-60" : ""}`} style={glass(0.4)}>
-                    <div className="flex items-start gap-3">
+                  <div key={t.id} className={`rounded-xl transition-all ${t.done ? "opacity-60" : ""}`} style={glass(0.4)}>
+                    <div className="flex items-start gap-3 p-4">
                       <button onClick={() => toggleTask(t.id)} className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-gray-600 hover:border-amber-500/50"}`}>
                         {t.done && <span className="text-xs">✓</span>}
                       </button>
@@ -233,9 +281,74 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
                           <span className="text-[10px] text-gray-600">
                             <span className="text-gray-500">⏱</span> {t.timeline}
                           </span>
+                          <button
+                            onClick={() => toggleActionChat(t)}
+                            className={`ml-auto text-[11px] px-2.5 py-1 rounded-lg border transition font-medium ${
+                              actionChatTaskId === t.id
+                                ? "bg-teal-500/20 text-teal-300 border-teal-500/30"
+                                : "border-amber-500/20 text-amber-400/70 hover:text-amber-400 hover:bg-amber-500/10"
+                            }`}
+                          >
+                            {actionChatTaskId === t.id
+                              ? (isAr ? "✕ إغلاق" : "✕ Close")
+                              : (isAr ? "إلى أي مدى أستطيع؟" : "How far can I do this?")}
+                          </button>
                         </div>
                       </div>
                     </div>
+
+                    {actionChatTaskId === t.id && (
+                      <div className="border-t border-[#1e3a5f] px-4 pb-4 pt-3">
+                        <div className="max-h-64 overflow-y-auto space-y-2 mb-3">
+                          {(actionChats[t.id] || []).map((m, i) => (
+                            <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                              <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed ${
+                                m.role === "user"
+                                  ? "bg-amber-500/20 text-amber-100 rounded-br-sm"
+                                  : m.error
+                                    ? "bg-red-500/10 text-red-300 rounded-bl-sm border border-red-500/20"
+                                    : "bg-[#0a1628]/60 text-gray-300 rounded-bl-sm border border-[#1e3a5f]"
+                              }`}>
+                                {m.role === "ai" ? <Markdown text={m.text} /> : <span className="whitespace-pre-wrap">{m.text}</span>}
+                              </div>
+                            </div>
+                          ))}
+                          {actionChatLoading && actionChatTaskId === t.id && (
+                            <div className="flex gap-1 px-2 py-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-teal-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
+                          )}
+                          <div ref={actionChatEndRef} />
+                        </div>
+                        {(actionChats[t.id] || []).length <= 1 && (
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                            {(isAr
+                              ? ["أستطيع بالكامل", "جزئياً فقط", "لا أستطيع حالياً"]
+                              : ["I can do this fully", "Only partially", "I can't right now"]
+                            ).map((q, i) => (
+                              <button key={i} onClick={() => setActionChatInput(q)} className="text-[10px] px-2.5 py-1 rounded-full border border-teal-500/20 text-teal-400/70 hover:bg-teal-500/10 transition">{q}</button>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={actionChatTaskId === t.id ? actionChatInput : ""}
+                            onChange={e => setActionChatInput(e.target.value)}
+                            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendActionChat(t.id); } }}
+                            placeholder={isAr ? "أخبرني عن قدرتك وقيودك..." : "Tell me about your ability and constraints..."}
+                            disabled={actionChatLoading}
+                            className="flex-1 px-3 py-2 rounded-lg bg-[#0a1628]/60 border border-[#1e3a5f] text-white placeholder-gray-600 focus:border-teal-500/40 focus:outline-none transition text-xs"
+                          />
+                          <button
+                            onClick={() => sendActionChat(t.id)}
+                            disabled={actionChatLoading || !actionChatInput.trim()}
+                            className="px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-30 transition-all hover:scale-105"
+                            style={{ background: `linear-gradient(135deg, ${TEAL}, #2dd4bf)`, color: DEEP }}
+                          >
+                            {isAr ? "إرسال" : "Send"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
