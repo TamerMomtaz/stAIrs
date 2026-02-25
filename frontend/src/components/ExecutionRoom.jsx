@@ -24,6 +24,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   const [customPlan, setCustomPlan] = useState(null);
   const [customTasks, setCustomTasks] = useState([]);
   const [customPlanLoading, setCustomPlanLoading] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const isAr = lang === "ar";
   const color = typeColors[stair.element_type] || "#94a3b8";
 
@@ -196,11 +197,12 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
     setCustomTasks(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
   };
 
-  const exportPlan = () => {
+  const exportPlan = (mode) => {
+    setShowExportModal(false);
     const w = window.open("", "_blank");
     if (!w) return;
     const priorityColor = p => ({ High: "#dc2626", Medium: "#d97706", Low: "#059669" }[p] || "#64748b");
-    const taskRows = tasks.map((t, i) => `
+    const buildTaskRows = (taskList) => taskList.map(t => `
       <tr style="border-bottom:1px solid #e5e7eb">
         <td style="padding:10px 8px;text-align:center;vertical-align:middle;font-size:16px">${t.done ? "&#9745;" : "&#9744;"}</td>
         <td style="padding:10px 8px;vertical-align:top">
@@ -213,23 +215,84 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
           <span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;color:white;background:${priorityColor(t.priority)}">${t.priority}</span>
         </td>
       </tr>`).join("");
-    const completedCount = tasks.filter(t => t.done).length;
+    const buildTaskTable = (taskList) => `<table><thead><tr><th style="width:40px;text-align:center">Done</th><th>Task</th><th style="text-align:center">Owner</th><th style="text-align:center">Timeline</th><th style="text-align:center">Priority</th></tr></thead><tbody>${buildTaskRows(taskList)}</tbody></table>`;
+    const buildProgress = (taskList) => {
+      const done = taskList.filter(t => t.done).length;
+      const total = taskList.length;
+      const pct = total ? Math.round((done / total) * 100) : 0;
+      return `<div style="margin-top:12px;display:flex;align-items:center;gap:10px"><div style="flex:1;height:8px;border-radius:4px;background:#e5e7eb;overflow:hidden"><div style="height:100%;border-radius:4px;background:#B8904A;width:${pct}%"></div></div><span style="font-size:12px;color:#64748b">${done}/${total} completed (${pct}%)</span></div>`;
+    };
+    const buildFeedbackNotes = () => {
+      const entries = [];
+      for (const task of tasks) {
+        const chat = actionChats[task.id];
+        if (!chat || chat.length <= 1) continue;
+        const userMsgs = chat.filter(m => m.role === "user").map(m => m.text);
+        const aiMsgs = chat.filter((m, i) => m.role === "ai" && i > 0).map(m => m.text);
+        if (userMsgs.length > 0) entries.push({ taskName: task.name, priority: task.priority, userMsgs, aiMsgs });
+      }
+      if (entries.length === 0) return "";
+      const feedbackHtml = entries.map(e => `
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:10px">
+          <div style="font-weight:600;font-size:13px;color:#1e293b;margin-bottom:6px">${e.taskName} <span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:600;color:white;background:${priorityColor(e.priority)};vertical-align:middle;margin-left:6px">${e.priority}</span></div>
+          ${e.userMsgs.map(m => `<div style="font-size:12px;color:#475569;margin-bottom:4px"><span style="color:#B8904A;font-weight:600">User:</span> ${m}</div>`).join("")}
+          ${e.aiMsgs.map(m => `<div style="font-size:12px;color:#475569;margin-bottom:4px"><span style="color:#0d9488;font-weight:600">AI Assessment:</span> ${m.replace(/\*\*/g, "").slice(0, 400)}${m.length > 400 ? "..." : ""}</div>`).join("")}
+        </div>`).join("");
+      return `<div class="section">Feedback Notes</div>${feedbackHtml}`;
+    };
     const chatInsights = messages.filter(m => m.role === "ai" && !m.text.startsWith("Welcome")).map(m => `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:8px"><div style="font-size:12px;color:#64748b;margin-bottom:4px">AI Insight</div><div style="font-size:13px;color:#334155;white-space:pre-wrap">${m.text.replace(/\*\*/g, "").replace(/##\s/g, "").slice(0, 500)}${m.text.length > 500 ? "..." : ""}</div></div>`).join("");
-    w.document.write(`<!DOCTYPE html><html><head><title>Execution Plan - ${stair.title}</title>
-      <style>@page{margin:20mm 15mm}*{box-sizing:border-box;margin:0;padding:0}body{background:#fff;color:#1e293b;font-family:'Segoe UI',system-ui,sans-serif;line-height:1.5}.header{padding-bottom:16px;border-bottom:2px solid #B8904A;margin-bottom:20px}table{width:100%;border-collapse:collapse}thead th{text-align:left;padding:10px 8px;border-bottom:2px solid #B8904A;color:#B8904A;font-size:11px;text-transform:uppercase;font-weight:600}.section{margin-top:24px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;color:#B8904A;font-size:16px;font-weight:700}.footer{text-align:center;margin-top:30px;padding-top:16px;border-top:1px solid #e5e7eb;color:#94a3b8;font-size:10px}</style></head><body>
+    const titleMap = { recommended: "Recommended Action Plan", customized: "Customized Action Plan", both: "Action Plan Comparison" };
+
+    let bodyContent = "";
+    if (mode === "recommended") {
+      bodyContent = `
+        <div class="section">Recommended Action Plan</div>
+        ${buildTaskTable(tasks)}
+        ${buildProgress(tasks)}
+        ${buildFeedbackNotes()}
+        ${solutions ? `<div class="section">Solutions &amp; Recommendations</div><div style="font-size:13px;color:#334155;white-space:pre-wrap">${solutions.replace(/\*\*/g, "").replace(/##\s/g, "").replace(/\n/g, "<br>")}</div>` : ""}
+        ${chatInsights ? `<div class="section">Chat Insights</div>${chatInsights}` : ""}`;
+    } else if (mode === "customized") {
+      bodyContent = `
+        <div class="section" style="color:#B8904A">&#10024; Customized Action Plan</div>
+        <p style="font-size:12px;color:#64748b;margin-bottom:12px">Tailored based on your feedback about capabilities and constraints.</p>
+        ${buildTaskTable(customTasks)}
+        ${buildProgress(customTasks)}
+        ${buildFeedbackNotes()}
+        ${chatInsights ? `<div class="section">Chat Insights</div>${chatInsights}` : ""}`;
+    } else {
+      bodyContent = `
+        <div class="section">Action Plan Comparison</div>
+        <div style="display:flex;gap:20px;margin-top:16px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:700;color:#1e293b;padding-bottom:8px;border-bottom:2px solid #475569;margin-bottom:12px">Recommended Action Plan</div>
+            ${buildTaskTable(tasks)}
+            ${buildProgress(tasks)}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:700;color:#B8904A;padding-bottom:8px;border-bottom:2px solid #B8904A;margin-bottom:12px">&#10024; Customized Action Plan</div>
+            <p style="font-size:11px;color:#64748b;margin-bottom:8px">Tailored to your capabilities and constraints.</p>
+            ${buildTaskTable(customTasks)}
+            ${buildProgress(customTasks)}
+          </div>
+        </div>
+        ${buildFeedbackNotes()}
+        ${solutions ? `<div class="section">Solutions &amp; Recommendations</div><div style="font-size:13px;color:#334155;white-space:pre-wrap">${solutions.replace(/\*\*/g, "").replace(/##\s/g, "").replace(/\n/g, "<br>")}</div>` : ""}
+        ${chatInsights ? `<div class="section">Chat Insights</div>${chatInsights}` : ""}`;
+    }
+
+    w.document.write(`<!DOCTYPE html><html><head><title>${titleMap[mode]} - ${stair.title}</title>
+      <style>@page{margin:20mm 15mm${mode === "both" ? ";size:landscape" : ""}}*{box-sizing:border-box;margin:0;padding:0}body{background:#fff;color:#1e293b;font-family:'Segoe UI',system-ui,sans-serif;line-height:1.5}.header{padding-bottom:16px;border-bottom:2px solid #B8904A;margin-bottom:20px}table{width:100%;border-collapse:collapse}thead th{text-align:left;padding:10px 8px;border-bottom:2px solid #B8904A;color:#B8904A;font-size:11px;text-transform:uppercase;font-weight:600}.section{margin-top:24px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;color:#B8904A;font-size:16px;font-weight:700}.footer{text-align:center;margin-top:30px;padding-top:16px;border-top:1px solid #e5e7eb;color:#94a3b8;font-size:10px}</style></head><body>
       <div class="header">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px"><span style="font-size:28px">${strategyContext?.icon || "🎯"}</span><div><h1 style="font-size:24px;font-weight:700;margin:0">${strategyContext?.name || "Strategy"}</h1><div style="font-size:12px;color:#64748b">${strategyContext?.company || ""} &middot; Exported ${new Date().toLocaleDateString()}</div></div></div>
         <div style="margin-top:12px;padding:12px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0">
           <div style="font-size:11px;color:#B8904A;text-transform:uppercase;font-weight:600;margin-bottom:4px">Execution Room: ${stair.element_type?.replace("_", " ")}</div>
           <div style="font-size:16px;font-weight:700;color:#1e293b">${stair.code ? `<span style="color:#94a3b8;font-family:monospace;font-size:12px">${stair.code}</span> ` : ""}${stair.title}</div>
           ${stair.description ? `<div style="font-size:12px;color:#64748b;margin-top:4px">${stair.description}</div>` : ""}
-          <div style="margin-top:8px;font-size:12px"><span style="color:#475569">Health:</span> ${stair.health || "N/A"} &nbsp;|&nbsp; <span style="color:#475569">Progress:</span> ${stair.progress_percent || 0}% &nbsp;|&nbsp; <span style="color:#475569">Tasks:</span> ${completedCount}/${tasks.length} completed</div>
+          <div style="margin-top:8px;font-size:12px"><span style="color:#475569">Health:</span> ${stair.health || "N/A"} &nbsp;|&nbsp; <span style="color:#475569">Progress:</span> ${stair.progress_percent || 0}%</div>
         </div>
       </div>
-      <div class="section">Action Plan</div>
-      <table><thead><tr><th style="width:40px;text-align:center">Done</th><th>Task</th><th style="text-align:center">Owner</th><th style="text-align:center">Timeline</th><th style="text-align:center">Priority</th></tr></thead><tbody>${taskRows}</tbody></table>
-      ${solutions ? `<div class="section">Solutions &amp; Recommendations</div><div style="font-size:13px;color:#334155;white-space:pre-wrap">${solutions.replace(/\*\*/g, "").replace(/##\s/g, "").replace(/\n/g, "<br>")}</div>` : ""}
-      ${chatInsights ? `<div class="section">Chat Insights</div>${chatInsights}` : ""}
+      ${bodyContent}
       <div class="footer">ST.AIRS v3.6.0 &middot; Execution Room Export &middot; By DEVONEERS &middot; "Human IS the Loop"</div></body></html>`);
     w.document.close();
     w.print();
@@ -272,7 +335,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
           <div className="text-xs font-medium" style={{ color }}>{stair.progress_percent || 0}%</div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={exportPlan} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{ borderColor: `${GOLD}60`, color: GOLD, background: `${GOLD}15` }}>
+          <button onClick={() => setShowExportModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{ borderColor: `${GOLD}60`, color: GOLD, background: `${GOLD}15` }}>
             ↓ {isAr ? "تصدير" : "Export Plan"}
           </button>
         </div>
@@ -629,6 +692,61 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
           </div>
         )}
       </main>
+
+      {/* Export Options Modal */}
+      {showExportModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
+          <div className="rounded-2xl border p-6 w-full max-w-md mx-4" style={{ background: DEEP, borderColor: BORDER }}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-white text-lg font-semibold">{isAr ? "خيارات التصدير" : "Export Options"}</h3>
+              <button onClick={() => setShowExportModal(false)} className="text-gray-500 hover:text-white transition text-lg">✕</button>
+            </div>
+            <div className="space-y-3">
+              <button
+                onClick={() => exportPlan("recommended")}
+                disabled={tasks.length === 0}
+                className="w-full text-left p-4 rounded-xl border transition hover:scale-[1.01] disabled:opacity-30 disabled:cursor-not-allowed"
+                style={{ borderColor: `${BORDER}`, background: "rgba(255,255,255,0.03)" }}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-base">📋</span>
+                  <span className="text-white text-sm font-semibold">{isAr ? "خطة العمل الموصى بها" : "Recommended Action Plan"}</span>
+                </div>
+                <p className="text-gray-500 text-xs ml-7">{isAr ? "تصدير خطة العمل المقترحة من الذكاء الاصطناعي مع الحلول والملاحظات" : "Export the AI-suggested action plan with solutions and feedback notes"}</p>
+              </button>
+              <button
+                onClick={() => exportPlan("customized")}
+                disabled={customTasks.length === 0}
+                className="w-full text-left p-4 rounded-xl border transition hover:scale-[1.01] disabled:opacity-30 disabled:cursor-not-allowed"
+                style={{ borderColor: `${GOLD}40`, background: `${GOLD}08` }}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-base">✨</span>
+                  <span className="text-amber-300 text-sm font-semibold">{isAr ? "خطة العمل المخصصة" : "Customized Action Plan"}</span>
+                </div>
+                <p className="text-gray-500 text-xs ml-7">{isAr ? "تصدير خطتك المخصصة بناءً على ملاحظاتك وقدراتك" : "Export your tailored plan based on your feedback and capabilities"}</p>
+                {customTasks.length === 0 && <p className="text-amber-500/60 text-[10px] ml-7 mt-1">{isAr ? "أنشئ خطة مخصصة أولاً" : "Generate a customized plan first"}</p>}
+              </button>
+              <button
+                onClick={() => exportPlan("both")}
+                disabled={tasks.length === 0 || customTasks.length === 0}
+                className="w-full text-left p-4 rounded-xl border transition hover:scale-[1.01] disabled:opacity-30 disabled:cursor-not-allowed"
+                style={{ borderColor: `${BORDER}`, background: "rgba(255,255,255,0.03)" }}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-base">⚖️</span>
+                  <span className="text-white text-sm font-semibold">{isAr ? "مقارنة الخطتين" : "Both — Side-by-Side Comparison"}</span>
+                </div>
+                <p className="text-gray-500 text-xs ml-7">{isAr ? "تصدير الخطتين جنباً إلى جنب للمقارنة مع الملاحظات والحلول" : "Export both plans side-by-side for comparison with feedback notes and solutions"}</p>
+                {(tasks.length === 0 || customTasks.length === 0) && <p className="text-amber-500/60 text-[10px] ml-7 mt-1">{isAr ? "يتطلب وجود كلتا الخطتين" : "Requires both plans to be generated"}</p>}
+              </button>
+            </div>
+            <button onClick={() => setShowExportModal(false)} className="w-full mt-4 py-2 rounded-lg text-xs text-gray-500 hover:text-gray-300 transition">
+              {isAr ? "إلغاء" : "Cancel"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
