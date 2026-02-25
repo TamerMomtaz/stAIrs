@@ -26,6 +26,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   const [customPlanLoading, setCustomPlanLoading] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [planView, setPlanView] = useState("recommended"); // "recommended" | "customized" | "comparison"
+  const [hasSavedPlan, setHasSavedPlan] = useState(false);
   const isAr = lang === "ar";
   const color = typeColors[stair.element_type] || "#94a3b8";
 
@@ -37,6 +38,10 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   useEffect(() => { actionChatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [actionChats, actionChatTaskId]);
 
   useEffect(() => {
+    ActionPlansAPI.getForStair(stair.id).then(plans => {
+      if (plans && plans.length > 0) setHasSavedPlan(true);
+      else setHasSavedPlan(false);
+    }).catch(() => setHasSavedPlan(false));
     generateActionPlan();
     generateSolutions();
     setMessages([{ role: "ai", text: `Welcome to the Execution Room for **${stair.title}**.\n\nI have full context of your strategy and this specific step. Ask me anything about execution, risks, resources, timelines, or alternative approaches.`, ts: new Date().toISOString() }]);
@@ -53,6 +58,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
       try {
         const taskData = parsed.map(t => ({ name: t.name, owner: t.owner, timeline: t.timeline, priority: t.priority, details: t.details, done: false }));
         await ActionPlansAPI.save(stair.id, "recommended", res.response, taskData);
+        setHasSavedPlan(true);
       } catch (saveErr) { console.warn("Auto-save action plan failed:", saveErr.message); }
     } catch (e) { setActionPlan(`Error generating plan: ${e.message}`); }
     setPlanLoading(false);
@@ -199,6 +205,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
       try {
         const taskData = parsedCustom.map(t => ({ name: t.name, owner: t.owner, timeline: t.timeline, priority: t.priority, details: t.details, done: false }));
         await ActionPlansAPI.save(stair.id, "customized", res.response, taskData, feedback);
+        setHasSavedPlan(true);
       } catch (saveErr) { console.warn("Auto-save customized plan failed:", saveErr.message); }
     } catch (e) { setCustomPlan(`Error generating customized plan: ${e.message}`); }
     setCustomPlanLoading(false);
@@ -346,6 +353,11 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
           <div className="text-xs font-medium" style={{ color }}>{stair.progress_percent || 0}%</div>
         </div>
         <div className="flex items-center gap-2">
+          {hasSavedPlan && (
+            <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+              <span className="text-emerald-400">✓</span> {isAr ? "الخطة محفوظة" : "Plan saved"}
+            </span>
+          )}
           <button onClick={() => setShowExportModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{ borderColor: `${GOLD}60`, color: GOLD, background: `${GOLD}15` }}>
             ↓ {isAr ? "تصدير" : "Export Plan"}
           </button>
