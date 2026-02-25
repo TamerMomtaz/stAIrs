@@ -1,6 +1,8 @@
 """ST.AIRS — AI Engine Router"""
 
+import asyncio
 import json
+import logging
 import uuid
 
 from fastapi import APIRouter, HTTPException, Depends
@@ -18,7 +20,12 @@ from app.models.schemas import (
 )
 from app.routers.websocket import ws_manager
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/v1/ai", tags=["ai"])
+
+AI_RETRY_MAX = 3
+AI_RETRY_DELAY = 5  # seconds
 
 
 async def call_claude(messages: list, system: str = None, max_tokens: int = 1024) -> dict:
@@ -28,14 +35,24 @@ async def call_claude(messages: list, system: str = None, max_tokens: int = 1024
     if not ANTHROPIC_API_KEY:
         return {"content": [{"type": "text", "text": "⚙️ AI features require an Anthropic API key. Set ANTHROPIC_API_KEY to enable ST.AIRS AI."}],
                 "usage": {"input_tokens": 0, "output_tokens": 0}}
+    last_status = None
     async with httpx.AsyncClient(timeout=60) as client:
-        resp = await client.post("https://api.anthropic.com/v1/messages",
-            headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-            json={"model": CLAUDE_MODEL, "max_tokens": max_tokens, "system": system, "messages": messages})
-        if resp.status_code != 200:
-            return {"content": [{"type": "text", "text": f"AI service returned status {resp.status_code}. Please try again."}],
-                    "usage": {"input_tokens": 0, "output_tokens": 0}}
-        return resp.json()
+        for attempt in range(1, AI_RETRY_MAX + 1):
+            resp = await client.post("https://api.anthropic.com/v1/messages",
+                headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                json={"model": CLAUDE_MODEL, "max_tokens": max_tokens, "system": system, "messages": messages})
+            if resp.status_code == 200:
+                return resp.json()
+            last_status = resp.status_code
+            if resp.status_code == 529 and attempt < AI_RETRY_MAX:
+                logger.warning("AI service overloaded (529), retrying in %ds (attempt %d/%d)", AI_RETRY_DELAY, attempt, AI_RETRY_MAX)
+                await asyncio.sleep(AI_RETRY_DELAY)
+                continue
+            break
+    if last_status == 529:
+        raise HTTPException(status_code=529, detail="AI service is overloaded. Please try again later.")
+    return {"content": [{"type": "text", "text": f"AI service returned status {last_status}. Please try again."}],
+            "usage": {"input_tokens": 0, "output_tokens": 0}}
 
 
 @router.post("/chat", response_model=AIChatResponse)

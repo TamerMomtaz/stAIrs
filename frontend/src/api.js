@@ -29,6 +29,21 @@ class StairsAPI {
   }
   async get(p) { const r = await fetch(`${API}${p}`, { headers: this.headers() }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw new Error(`GET ${p} → ${r.status}`); return r.json(); }
   async post(p, b) { const r = await fetch(`${API}${p}`, { method: "POST", headers: this.headers(), body: JSON.stringify(b) }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw new Error(`POST ${p} → ${r.status}`); return r.json(); }
+  async aiPost(p, b, onRetry) {
+    const maxRetries = 3;
+    const retryDelay = 5000;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const r = await fetch(`${API}${p}`, { method: "POST", headers: this.headers(), body: JSON.stringify(b) });
+      if (r.status === 401) { this._handleUnauthorized(); }
+      if (r.status === 529 && attempt < maxRetries) {
+        if (onRetry) onRetry(attempt, maxRetries);
+        await new Promise(res => setTimeout(res, retryDelay));
+        continue;
+      }
+      if (!r.ok) throw new Error(`POST ${p} → ${r.status}`);
+      return r.json();
+    }
+  }
   async put(p, b) { const r = await fetch(`${API}${p}`, { method: "PUT", headers: this.headers(), body: JSON.stringify(b) }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw new Error(`PUT ${p} → ${r.status}`); return r.json(); }
   async patch(p, b) { const r = await fetch(`${API}${p}`, { method: "PATCH", headers: this.headers(), body: JSON.stringify(b) }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw new Error(`PATCH ${p} → ${r.status}`); return r.json(); }
   async del(p) { const r = await fetch(`${API}${p}`, { method: "DELETE", headers: this.headers() }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw new Error(`DELETE ${p} → ${r.status}`); return r.status === 204 ? null : r.json(); }
