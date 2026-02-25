@@ -240,7 +240,7 @@ async def ensure_strategies_table():
         """)
 
 
-# ─── AUTO-MIGRATION: ACTION PLANS TABLE ───
+# ─── AUTO-MIGRATION: PERSISTENCE TABLES ───
 
 async def ensure_action_plans_table():
     pool = await get_pool()
@@ -248,7 +248,10 @@ async def ensure_action_plans_table():
         exists = await conn.fetchval(
             "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'action_plans')"
         )
-        if not exists:
+        if exists:
+            count = await conn.fetchval("SELECT COUNT(*) FROM action_plans")
+            print(f"  ✅ action_plans table exists ({count} rows)")
+        else:
             print("  → Creating action_plans table...")
             await conn.execute("""
                 CREATE TABLE action_plans (
@@ -265,10 +268,8 @@ async def ensure_action_plans_table():
             """)
             await conn.execute("CREATE INDEX idx_action_plans_stair ON action_plans(stair_id, created_at DESC)")
             await conn.execute("CREATE INDEX idx_action_plans_org ON action_plans(organization_id)")
-            print("  ✅ action_plans table created")
+            print("  ✅ action_plans table CREATED")
 
-
-# ─── AUTO-MIGRATION: NOTES TABLE ───
 
 async def ensure_notes_table():
     pool = await get_pool()
@@ -276,7 +277,10 @@ async def ensure_notes_table():
         exists = await conn.fetchval(
             "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'notes')"
         )
-        if not exists:
+        if exists:
+            count = await conn.fetchval("SELECT COUNT(*) FROM notes")
+            print(f"  ✅ notes table exists ({count} rows)")
+        else:
             print("  → Creating notes table...")
             await conn.execute("""
                 CREATE TABLE notes (
@@ -294,13 +298,14 @@ async def ensure_notes_table():
             """)
             await conn.execute("CREATE INDEX idx_notes_user ON notes(user_id, updated_at DESC)")
             await conn.execute("CREATE INDEX idx_notes_org ON notes(organization_id)")
-            print("  ✅ notes table created")
+            print("  ✅ notes table CREATED")
 
 
 # ─── LIFESPAN ───
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("🪜 ST.AIRS v3.6.0 Starting up — Modular Router Edition...")
+    print("═══ DATABASE ═══")
     await init_db()
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -309,23 +314,49 @@ async def lifespan(app: FastAPI):
             hashed = hash_password("stairs2026")
             await conn.execute("UPDATE users SET password_hash = $1 WHERE id = $2", hashed, DEFAULT_USER_ID)
             print("  → Migrated seed user password to bcrypt")
+    print("═══ KNOWLEDGE ENGINE ═══")
     try:
         await load_knowledge_cache()
     except Exception as e:
         print(f"  ⚠️ Knowledge Engine failed to load: {e}")
         _knowledge_cache["system_prompt"] = _build_basic_system_prompt()
+    print("═══ TABLE MIGRATIONS ═══")
+    migration_results = {}
     try:
         await ensure_strategies_table()
+        migration_results["strategies"] = "ok"
     except Exception as e:
-        print(f"  ⚠️ Strategies migration: {e}")
+        print(f"  ❌ Strategies migration FAILED: {e}")
+        migration_results["strategies"] = f"FAILED: {e}"
     try:
         await ensure_action_plans_table()
+        migration_results["action_plans"] = "ok"
     except Exception as e:
-        print(f"  ⚠️ Action plans migration: {e}")
+        print(f"  ❌ Action plans migration FAILED: {e}")
+        migration_results["action_plans"] = f"FAILED: {e}"
     try:
         await ensure_notes_table()
+        migration_results["notes"] = "ok"
     except Exception as e:
-        print(f"  ⚠️ Notes migration: {e}")
+        print(f"  ❌ Notes migration FAILED: {e}")
+        migration_results["notes"] = f"FAILED: {e}"
+    # Final verification — query all three tables to confirm they are accessible
+    print("═══ PERSISTENCE VERIFICATION ═══")
+    try:
+        async with pool.acquire() as conn:
+            for tbl in ["strategies", "action_plans", "notes"]:
+                tbl_exists = await conn.fetchval(
+                    "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = $1)", tbl
+                )
+                if tbl_exists:
+                    cnt = await conn.fetchval(f"SELECT COUNT(*) FROM {tbl}")
+                    print(f"  ✅ {tbl}: accessible ({cnt} rows)")
+                else:
+                    print(f"  ❌ {tbl}: TABLE MISSING — persistence will fail for this feature")
+    except Exception as e:
+        print(f"  ❌ Verification query failed: {e}")
+    print("═══ STARTUP COMPLETE ═══")
+    print(f"🪜 ST.AIRS v3.6.0 ready — migrations: {migration_results}")
     yield
     await close_pool()
     print("🪜 ST.AIRS Shutting down...")
@@ -421,8 +452,27 @@ async def health():
     pool = await get_pool()
     async with pool.acquire() as conn:
         count = await conn.fetchval("SELECT COUNT(*) FROM stairs WHERE deleted_at IS NULL")
-    return {"status": "healthy", "stairs_count": count, "version": "3.6.0",
-            "knowledge_engine": bool(_knowledge_cache.get("loaded_at"))}
+        tables = {}
+        for tbl in ["strategies", "action_plans", "notes"]:
+            try:
+                tbl_exists = await conn.fetchval(
+                    "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = $1)", tbl
+                )
+                if tbl_exists:
+                    cnt = await conn.fetchval(f"SELECT COUNT(*) FROM {tbl}")
+                    tables[tbl] = {"exists": True, "rows": cnt}
+                else:
+                    tables[tbl] = {"exists": False, "rows": 0}
+            except Exception as e:
+                tables[tbl] = {"exists": False, "error": str(e)}
+    all_tables_ok = all(t.get("exists") for t in tables.values())
+    return {
+        "status": "healthy" if all_tables_ok else "degraded",
+        "stairs_count": count,
+        "version": "3.6.0",
+        "knowledge_engine": bool(_knowledge_cache.get("loaded_at")),
+        "persistence": tables,
+    }
 
 
 if __name__ == "__main__":
