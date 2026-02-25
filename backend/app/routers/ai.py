@@ -1,4 +1,4 @@
-"""ST.AIRS — AI Engine Router"""
+"""ST.AIRS — AI Engine Router (with multi-provider fallback)"""
 
 import asyncio
 import json
@@ -19,6 +19,9 @@ from app.models.schemas import (
     QuestionnaireGenerateRequest, QuestionnaireGenerateResponse,
 )
 from app.routers.websocket import ws_manager
+from app.ai_providers import (
+    call_ai_with_fallback, PROVIDER_DISPLAY, get_ai_status,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,31 +31,63 @@ AI_RETRY_MAX = 3
 AI_RETRY_DELAY = 5  # seconds
 
 
+async def _log_ai_usage(
+    provider: str,
+    success: bool,
+    response_time_ms: int = 0,
+    tokens_used: int = 0,
+    status_code: int = 0,
+    fallback_used: bool = False,
+    fallback_from: str = None,
+    error_message: str = None,
+):
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            table_exists = await conn.fetchval(
+                "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'ai_usage_logs')"
+            )
+            if table_exists:
+                await conn.execute(
+                    "INSERT INTO ai_usage_logs (id, provider, success, response_time_ms, tokens_used, "
+                    "status_code, fallback_used, fallback_from, error_message) "
+                    "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+                    str(uuid.uuid4()), provider, success, response_time_ms, tokens_used,
+                    status_code, fallback_used, fallback_from, error_message,
+                )
+    except Exception as e:
+        logger.warning("Failed to log AI usage: %s", e)
+
+
 async def call_claude(messages: list, system: str = None, max_tokens: int = 1024) -> dict:
-    if system is None:
-        from app.main import _knowledge_cache, _build_basic_system_prompt
-        system = _knowledge_cache.get("system_prompt") or _build_basic_system_prompt()
-    if not ANTHROPIC_API_KEY:
-        return {"content": [{"type": "text", "text": "⚙️ AI features require an Anthropic API key. Set ANTHROPIC_API_KEY to enable ST.AIRS AI."}],
-                "usage": {"input_tokens": 0, "output_tokens": 0}}
-    last_status = None
-    async with httpx.AsyncClient(timeout=60) as client:
-        for attempt in range(1, AI_RETRY_MAX + 1):
-            resp = await client.post("https://api.anthropic.com/v1/messages",
-                headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-                json={"model": CLAUDE_MODEL, "max_tokens": max_tokens, "system": system, "messages": messages})
-            if resp.status_code == 200:
-                return resp.json()
-            last_status = resp.status_code
-            if resp.status_code == 529 and attempt < AI_RETRY_MAX:
-                logger.warning("AI service overloaded (529), retrying in %ds (attempt %d/%d)", AI_RETRY_DELAY, attempt, AI_RETRY_MAX)
-                await asyncio.sleep(AI_RETRY_DELAY)
-                continue
-            break
-    if last_status == 529:
-        raise HTTPException(status_code=529, detail="AI service is overloaded. Please try again later.")
-    return {"content": [{"type": "text", "text": f"AI service returned status {last_status}. Please try again."}],
-            "usage": {"input_tokens": 0, "output_tokens": 0}}
+    """Wrapper that uses the multi-provider fallback system but returns
+    the same dict shape the rest of the codebase expects."""
+    result = await call_ai_with_fallback(
+        messages=messages,
+        system=system,
+        max_tokens=max_tokens,
+        log_callback=_log_ai_usage,
+    )
+    # Convert fallback result to the legacy format expected by existing endpoints
+    provider = result.get("provider", "none")
+    model_name = PROVIDER_DISPLAY.get(provider, provider)
+    return {
+        "content": [{"type": "text", "text": result["text"]}],
+        "usage": {"input_tokens": 0, "output_tokens": result.get("tokens", 0)},
+        "_provider": provider,
+        "_provider_display": model_name,
+        "_fallback_used": result.get("fallback_used", False),
+    }
+
+
+@router.get("/provider")
+async def get_active_provider(auth: AuthContext = Depends(get_auth)):
+    """Returns the currently active AI provider for the frontend indicator."""
+    status = get_ai_status()
+    return {
+        "provider": status["active_provider"],
+        "provider_display": status["active_provider_display"],
+    }
 
 
 @router.post("/chat", response_model=AIChatResponse)
@@ -77,6 +112,9 @@ async def ai_chat(req: AIChatRequest, auth: AuthContext = Depends(get_auth)):
     messages = [{"role": "user", "content": f"CONTEXT:\n{chr(10).join(context_parts)}\n\nUSER QUESTION:\n{req.message}"}]
     result = await call_claude(messages)
     text = result["content"][0]["text"] if result.get("content") else "No response generated"
+    provider = result.get("_provider", "claude")
+    provider_display = result.get("_provider_display", "Claude")
+    model_used = provider_display
     conv_id = str(req.conversation_id) if req.conversation_id else str(uuid.uuid4())
     async with pool.acquire() as conn:
         await conn.execute("""INSERT INTO ai_conversations (id, organization_id, user_id, context_type, context_stair_id, title)
@@ -84,10 +122,11 @@ async def ai_chat(req: AIChatRequest, auth: AuthContext = Depends(get_auth)):
             conv_id, auth.org_id, auth.user_id, str(req.context_stair_id) if req.context_stair_id else None, req.message[:100])
         total_tokens = result.get("usage", {}).get("input_tokens", 0) + result.get("usage", {}).get("output_tokens", 0)
         await conn.execute("INSERT INTO ai_messages (id, conversation_id, role, content, tokens_used, model_used) VALUES ($1,$2,'user',$3,0,$4)",
-            str(uuid.uuid4()), conv_id, req.message, CLAUDE_MODEL)
+            str(uuid.uuid4()), conv_id, req.message, model_used)
         await conn.execute("INSERT INTO ai_messages (id, conversation_id, role, content, tokens_used, model_used) VALUES ($1,$2,'assistant',$3,$4,$5)",
-            str(uuid.uuid4()), conv_id, text, total_tokens, CLAUDE_MODEL)
-    return {"response": text, "conversation_id": conv_id, "actions": [], "tokens_used": total_tokens}
+            str(uuid.uuid4()), conv_id, text, total_tokens, model_used)
+    return {"response": text, "conversation_id": conv_id, "actions": [], "tokens_used": total_tokens,
+            "provider": provider, "provider_display": provider_display}
 
 
 @router.post("/analyze/{stair_id}")

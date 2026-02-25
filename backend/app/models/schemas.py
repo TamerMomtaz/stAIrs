@@ -236,6 +236,8 @@ class AIChatResponse(BaseModel):
     conversation_id: UUID
     actions: Optional[List[dict]] = None
     tokens_used: Optional[int] = None
+    provider: Optional[str] = None
+    provider_display: Optional[str] = None
 
 class AIAnalysisResponse(BaseModel):
     risk_score: float

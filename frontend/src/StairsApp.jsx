@@ -35,6 +35,7 @@ export default function App() {
   const [tutorialNewSteps, setTutorialNewSteps] = useState(false);
   const [tutorialCustomSteps, setTutorialCustomSteps] = useState(null);
   const [showFeaturesBadge, setShowFeaturesBadge] = useState(false);
+  const [aiProvider, setAiProvider] = useState(null);
   const stratApiRef = useRef(null);
   const notesStoreRef = useRef(null);
   const saveToNotes = (title, content, source) => {
@@ -56,6 +57,15 @@ export default function App() {
   useEffect(() => {
     if (user) { stratApiRef.current = new StrategyAPI(user.id || user.email); loadStrategies(); }
     else { stratApiRef.current = null; setStrategies([]); }
+  }, [user]);
+
+  // Fetch active AI provider on login and periodically
+  useEffect(() => {
+    if (!user) return;
+    const fetchProvider = () => { api.get("/api/v1/ai/provider").then(d => setAiProvider(d)).catch(() => {}); };
+    fetchProvider();
+    const interval = setInterval(fetchProvider, 60000);
+    return () => clearInterval(interval);
   }, [user]);
 
   // Tutorial: auto-show on first login or prompt for new steps
@@ -210,6 +220,7 @@ export default function App() {
           <span className="text-sm text-white font-medium">{activeStrat.icon} {isAr && activeStrat.name_ar ? activeStrat.name_ar : activeStrat.name}</span>
         </div>
         <div className="flex items-center gap-3">
+          {aiProvider && <span className="text-[10px] text-gray-500 flex items-center gap-1 px-2 py-1 rounded-md border border-gray-700/50 bg-gray-800/30" title={`AI powered by ${aiProvider.provider_display}`}>⚡ {aiProvider.provider_display}</span>}
           <button onClick={startTutorial} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition uppercase tracking-wider" title="How to Climb These Stairs Guide" data-tutorial="guide-btn">
             <span className="text-sm">🪜</span> <span className="hidden sm:inline">{isAr ? "دليل الاستخدام" : "Guide"}</span>
           </button>
