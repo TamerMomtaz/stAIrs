@@ -12,7 +12,7 @@ export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, str
   const handleAI = async (stair, action) => {
     setAiAction({ id: stair.id, type: action }); setAiLoading(true);
     try {
-      const ctx = strategyContext ? `[Strategy: "${strategyContext.name}" for "${strategyContext.company}". Industry: ${strategyContext.industry||"unspecified"}.]\n\n` : "";
+      const ctx = strategyContext ? `[Strategy: "${strategyContext.name}" for "${strategyContext.company || strategyContext.name}". Industry: ${strategyContext.industry||"unspecified"}.]\n\n` : "";
       const prompt = action === "explain"
         ? `${ctx}${sourceRef}\n\nExplain: ${stair.element_type} "${stair.title}" (${stair.code||""}), health: ${stair.health}, progress: ${stair.progress_percent}%.\n${stair.description||""}\n\nExplain meaning, importance, success criteria, and risks.`
         : `${ctx}${sourceRef}\n\nEnhance: ${stair.element_type} "${stair.title}" (${stair.code||""}), health: ${stair.health}, progress: ${stair.progress_percent}%.\n${stair.description||""}\n\nSuggest: 1) Better definition, 2) KPIs, 3) Next actions, 4) Sub-elements.`;

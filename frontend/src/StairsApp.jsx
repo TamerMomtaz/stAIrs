@@ -37,6 +37,16 @@ export default function App() {
   const isAr = lang === "ar";
 
   useEffect(() => {
+    api.setOnAuthExpired(() => {
+      setUser(null);
+      setActiveStrat(null);
+      setStrategies([]);
+      setStairTree([]);
+      setDashData(null);
+    });
+  }, []);
+
+  useEffect(() => {
     if (user) { stratApiRef.current = new StrategyAPI(user.id || user.email); loadStrategies(); }
     else { stratApiRef.current = null; setStrategies([]); }
   }, [user]);
