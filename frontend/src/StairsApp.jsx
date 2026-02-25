@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { api, StrategyAPI, NotesStore } from "./api";
+import { api, StrategyAPI, NotesStore, NotesAPI } from "./api";
 import { GOLD, GOLD_L, DEEP, BORDER, typeIcons } from "./constants";
 
 // Components
@@ -38,8 +38,12 @@ export default function App() {
   const stratApiRef = useRef(null);
   const notesStoreRef = useRef(null);
   const saveToNotes = (title, content, source) => {
-    if (!notesStoreRef.current && user) notesStoreRef.current = new NotesStore(user.id || user.email);
-    if (notesStoreRef.current) { notesStoreRef.current.create(title, content, source); alert("📌 Saved to Notes!"); }
+    NotesAPI.create(title, content, source).catch(err => {
+      console.warn("Note backend save failed:", err.message);
+      if (!notesStoreRef.current && user) notesStoreRef.current = new NotesStore(user.id || user.email);
+      if (notesStoreRef.current) notesStoreRef.current.create(title, content, source);
+    });
+    alert("📌 Saved to Notes!");
   };
   const isAr = lang === "ar";
 

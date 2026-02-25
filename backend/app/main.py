@@ -43,6 +43,7 @@ from app.routers.strategies import router as strategies_router
 from app.routers.knowledge import router as knowledge_router
 from app.routers.ai import router as ai_router
 from app.routers.dashboard import router as dashboard_router
+from app.routers.notes import router as notes_router
 from app.routers.websocket import router as ws_router
 
 
@@ -267,6 +268,35 @@ async def ensure_action_plans_table():
             print("  ✅ action_plans table created")
 
 
+# ─── AUTO-MIGRATION: NOTES TABLE ───
+
+async def ensure_notes_table():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        exists = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'notes')"
+        )
+        if not exists:
+            print("  → Creating notes table...")
+            await conn.execute("""
+                CREATE TABLE notes (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE NOT NULL,
+                    user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+                    title VARCHAR(500) NOT NULL,
+                    content TEXT DEFAULT '',
+                    source VARCHAR(50) DEFAULT 'manual',
+                    tags JSONB DEFAULT '[]',
+                    pinned BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
+            await conn.execute("CREATE INDEX idx_notes_user ON notes(user_id, updated_at DESC)")
+            await conn.execute("CREATE INDEX idx_notes_org ON notes(organization_id)")
+            print("  ✅ notes table created")
+
+
 # ─── LIFESPAN ───
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -292,6 +322,10 @@ async def lifespan(app: FastAPI):
         await ensure_action_plans_table()
     except Exception as e:
         print(f"  ⚠️ Action plans migration: {e}")
+    try:
+        await ensure_notes_table()
+    except Exception as e:
+        print(f"  ⚠️ Notes migration: {e}")
     yield
     await close_pool()
     print("🪜 ST.AIRS Shutting down...")
@@ -362,6 +396,7 @@ app.include_router(strategies_router)
 app.include_router(knowledge_router)
 app.include_router(ai_router)
 app.include_router(dashboard_router)
+app.include_router(notes_router)
 app.include_router(ws_router)
 
 

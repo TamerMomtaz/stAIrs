@@ -389,6 +389,40 @@ CREATE TRIGGER trg_user_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE F
 CREATE TRIGGER trg_stairs_updated_at BEFORE UPDATE ON stairs FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_ai_conv_updated_at BEFORE UPDATE ON ai_conversations FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
+-- Action Plans (AI-generated execution plans per stair step)
+CREATE TABLE IF NOT EXISTS action_plans (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    stair_id UUID REFERENCES stairs(id) ON DELETE CASCADE NOT NULL,
+    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE NOT NULL,
+    plan_type VARCHAR(30) NOT NULL DEFAULT 'recommended',
+    raw_text TEXT NOT NULL,
+    tasks JSONB DEFAULT '[]',
+    feedback JSONB,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_action_plans_stair ON action_plans(stair_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_action_plans_org ON action_plans(organization_id);
+
+-- Notes (user notes and AI-saved insights)
+CREATE TABLE IF NOT EXISTS notes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE NOT NULL,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+    title VARCHAR(500) NOT NULL,
+    content TEXT DEFAULT '',
+    source VARCHAR(50) DEFAULT 'manual',
+    tags JSONB DEFAULT '[]',
+    pinned BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_notes_user ON notes(user_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notes_org ON notes(organization_id);
+
+CREATE TRIGGER trg_notes_updated_at BEFORE UPDATE ON notes FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+
 -- ═══════════════════════════════════════════════════════════
 -- SEED DATA — DEVONEERS / RootRise
 -- ═══════════════════════════════════════════════════════════

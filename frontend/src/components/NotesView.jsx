@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { NotesStore } from "../api";
+import { NotesStore, NotesAPI } from "../api";
 import { GOLD, GOLD_L, glass, inputCls } from "../constants";
 
 export const NotesView = ({ lang, userId, strategyName }) => {
@@ -8,18 +8,50 @@ export const NotesView = ({ lang, userId, strategyName }) => {
   const [title, setTitle] = useState(""); const [content, setContent] = useState("");
   const [search, setSearch] = useState(""); const [confirmDel, setConfirmDel] = useState(null);
   const isAr = lang === "ar";
-  useEffect(() => { if (store) setNotes(store.list()); }, [store]);
-  const refresh = () => { if (store) setNotes(store.list()); };
+  useEffect(() => {
+    NotesAPI.list().then(serverNotes => {
+      setNotes(serverNotes || []);
+      if (store) store._saveLocal(serverNotes || []);
+    }).catch(() => {
+      if (store) setNotes(store.list());
+    });
+  }, [store]);
+  const refresh = () => {
+    NotesAPI.list().then(serverNotes => {
+      setNotes(serverNotes || []);
+      if (store) store._saveLocal(serverNotes || []);
+    }).catch(() => {
+      if (store) setNotes(store.list());
+    });
+  };
   const startNew = () => { setEditing("new"); setTitle(""); setContent(""); };
   const startEdit = (n) => { setEditing(n.id); setTitle(n.title); setContent(n.content); };
-  const saveNote = () => {
-    if (!store || !title.trim()) return;
-    if (editing === "new") { store.create(title.trim(), content, "manual"); }
-    else { const n = notes.find(x => x.id === editing); if (n) { n.title = title.trim(); n.content = content; n.updated_at = new Date().toISOString(); store.save(n); } }
+  const saveNote = async () => {
+    if (!title.trim()) return;
+    try {
+      if (editing === "new") {
+        await NotesAPI.create(title.trim(), content, "manual");
+      } else {
+        await NotesAPI.update(editing, { title: title.trim(), content });
+      }
+    } catch (err) {
+      console.warn("Note save failed:", err.message);
+      if (store) {
+        if (editing === "new") { store.create(title.trim(), content, "manual"); }
+        else { const n = notes.find(x => x.id === editing); if (n) { n.title = title.trim(); n.content = content; n.updated_at = new Date().toISOString(); store.save(n); } }
+      }
+    }
     setEditing(null); setTitle(""); setContent(""); refresh();
   };
-  const deleteNote = (id) => { if (!store) return; store.remove(id); setConfirmDel(null); refresh(); };
-  const togglePin = (n) => { if (!store) return; n.pinned = !n.pinned; n.updated_at = new Date().toISOString(); store.save(n); refresh(); };
+  const deleteNote = async (id) => {
+    try { await NotesAPI.remove(id); } catch { if (store) store.remove(id); }
+    setConfirmDel(null); refresh();
+  };
+  const togglePin = async (n) => {
+    const newPinned = !n.pinned;
+    try { await NotesAPI.update(n.id, { pinned: newPinned }); } catch { if (store) { n.pinned = newPinned; n.updated_at = new Date().toISOString(); store.save(n); } }
+    refresh();
+  };
   const exportNote = (n) => {
     const w = window.open("", "_blank"); if (!w) return;
     w.document.write(`<!DOCTYPE html><html><head><title>${n.title}</title><style>body{font-family:system-ui;padding:40px;max-width:700px;margin:0 auto;color:#1e293b;line-height:1.7}h1{color:#B8904A;border-bottom:2px solid #B8904A;padding-bottom:8px}pre{background:#f1f5f9;padding:16px;border-radius:8px;overflow-x:auto;font-size:13px;white-space:pre-wrap}.meta{color:#94a3b8;font-size:12px;margin-bottom:24px}.source{display:inline-block;background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:4px;font-size:11px}</style></head><body><h1>${n.title}</h1><div class="meta">${strategyName ? `Strategy: ${strategyName} · ` : ""}${new Date(n.created_at).toLocaleString()} · <span class="source">${n.source}</span></div><pre>${n.content}</pre><div style="margin-top:30px;text-align:center;color:#94a3b8;font-size:10px">ST.AIRS Notes · By DEVONEERS</div></body></html>`);

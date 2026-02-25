@@ -368,6 +368,36 @@ class FrameworkOut(BaseModel):
         from_attributes = True
 
 
+# ─── NOTES ───
+class NoteCreate(BaseModel):
+    title: str
+    content: str = ""
+    source: str = "manual"
+    tags: Optional[List[str]] = []
+    pinned: bool = False
+
+class NoteUpdate(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    tags: Optional[List[str]] = None
+    pinned: Optional[bool] = None
+
+class NoteOut(BaseModel):
+    id: UUID
+    organization_id: UUID
+    user_id: UUID
+    title: str
+    content: str
+    source: str
+    tags: Optional[list] = []
+    pinned: bool = False
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
 # ─── ACTION PLANS ───
 class ActionPlanCreate(BaseModel):
     plan_type: str = Field("recommended", pattern="^(recommended|customized)$")

@@ -119,11 +119,34 @@ export class StrategyAPI {
 }
 
 
-// ═══ NOTES STORE ═══
+// ═══ NOTES API ═══
+export const NotesAPI = {
+  async list() {
+    return api.get("/api/v1/notes");
+  },
+  async create(title, content, source, pinned = false, tags = []) {
+    return api.post("/api/v1/notes", { title, content, source: source || "manual", pinned, tags });
+  },
+  async update(noteId, updates) {
+    return api.put(`/api/v1/notes/${noteId}`, updates);
+  },
+  async remove(noteId) {
+    return api.del(`/api/v1/notes/${noteId}`);
+  },
+};
+
+
+// ═══ NOTES STORE (localStorage cache + backend sync) ═══
 export class NotesStore {
   constructor(uid) { this.key = `stairs_notes_${uid}`; }
   list() { try { return JSON.parse(localStorage.getItem(this.key) || "[]").sort((a,b) => b.updated_at.localeCompare(a.updated_at)); } catch { return []; } }
-  save(note) { const all = this.list(); const i = all.findIndex(n => n.id === note.id); if (i >= 0) all[i] = note; else all.unshift(note); localStorage.setItem(this.key, JSON.stringify(all)); }
-  remove(id) { localStorage.setItem(this.key, JSON.stringify(this.list().filter(n => n.id !== id))); }
-  create(title, content, source) { const n = { id: `n_${Date.now()}_${Math.random().toString(36).slice(2,5)}`, title, content, source: source || "manual", tags: [], pinned: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }; this.save(n); return n; }
+  _saveLocal(all) { localStorage.setItem(this.key, JSON.stringify(all)); }
+  save(note) { const all = this.list(); const i = all.findIndex(n => n.id === note.id); if (i >= 0) all[i] = note; else all.unshift(note); this._saveLocal(all); }
+  remove(id) { this._saveLocal(this.list().filter(n => n.id !== id)); }
+  create(title, content, source) {
+    const n = { id: `n_${Date.now()}_${Math.random().toString(36).slice(2,5)}`, title, content, source: source || "manual", tags: [], pinned: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    this.save(n);
+    NotesAPI.create(title, content, source).catch(err => console.warn("Note backend save failed:", err.message));
+    return n;
+  }
 }

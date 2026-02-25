@@ -31,6 +31,7 @@ JSONB_FIELDS = frozenset({
     'metadata', 'ai_insights', 'settings', 'preferences',
     'hierarchy_template', 'recommended_actions', 'changes', 'actions_taken',
     'template_structure', 'scoring_guide', 'example_factors', 'framework_mappings',
+    'tasks', 'feedback', 'tags',
 })
 
 
