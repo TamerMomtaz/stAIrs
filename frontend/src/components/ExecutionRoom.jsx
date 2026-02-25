@@ -25,6 +25,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   const [customTasks, setCustomTasks] = useState([]);
   const [customPlanLoading, setCustomPlanLoading] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [planView, setPlanView] = useState("recommended"); // "recommended" | "customized" | "comparison"
   const isAr = lang === "ar";
   const color = typeColors[stair.element_type] || "#94a3b8";
 
@@ -189,6 +190,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
       const res = await api.post("/api/v1/ai/chat", { message: prompt });
       setCustomPlan(res.response);
       setCustomTasks(parseTasks(res.response));
+      setPlanView("customized");
     } catch (e) { setCustomPlan(`Error generating customized plan: ${e.message}`); }
     setCustomPlanLoading(false);
   };
@@ -361,193 +363,220 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">{isAr ? "خطة العمل" : "Action Plan"}</h2>
               <div className="flex items-center gap-3">
-                {tasks.length > 0 && (
+                {planView === "recommended" && tasks.length > 0 && (
                   <span className="text-xs text-gray-500">
                     {tasks.filter(t => t.done).length}/{tasks.length} {isAr ? "مكتمل" : "completed"}
                   </span>
                 )}
-                <button onClick={generateActionPlan} disabled={planLoading} className="text-xs text-amber-400/70 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10">
-                  {planLoading ? "..." : `↻ ${isAr ? "تجديد" : "Regenerate"}`}
-                </button>
+                {planView === "customized" && customTasks.length > 0 && (
+                  <span className="text-xs text-gray-500">
+                    {customTasks.filter(t => t.done).length}/{customTasks.length} {isAr ? "مكتمل" : "completed"}
+                  </span>
+                )}
+                {planView === "recommended" && (
+                  <button onClick={generateActionPlan} disabled={planLoading} className="text-xs text-amber-400/70 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10">
+                    {planLoading ? "..." : `↻ ${isAr ? "تجديد" : "Regenerate"}`}
+                  </button>
+                )}
+                {planView === "customized" && (
+                  <button onClick={generateCustomPlan} disabled={customPlanLoading || !hasFeedback()} className="text-xs text-amber-400/70 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10 disabled:opacity-30">
+                    {customPlanLoading ? "..." : `↻ ${isAr ? "تجديد" : "Regenerate"}`}
+                  </button>
+                )}
               </div>
             </div>
 
-            {planLoading && !actionPlan ? (
-              <LoadingDots label={isAr ? "جاري إنشاء خطة العمل..." : "Generating action plan..."} />
-            ) : tasks.length > 0 ? (
-              <div className="space-y-2">
-                {tasks.map(t => (
-                  <div key={t.id} className={`rounded-xl transition-all ${t.done ? "opacity-60" : ""}`} style={glass(0.4)}>
-                    <div className="flex items-start gap-3 p-4">
-                      <button onClick={() => toggleTask(t.id)} className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-gray-600 hover:border-amber-500/50"}`}>
-                        {t.done && <span className="text-xs">✓</span>}
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`text-sm font-medium ${t.done ? "line-through text-gray-500" : "text-white"}`}>{t.name}</span>
-                          <PriorityBadge priority={t.priority} />
-                        </div>
-                        {t.details && <div className="text-gray-400 text-xs mt-1">{t.details}</div>}
-                        <div className="flex items-center gap-4 mt-2">
-                          <span className="text-[10px] text-gray-600">
-                            <span className="text-gray-500">👤</span> {t.owner}
-                          </span>
-                          <span className="text-[10px] text-gray-600">
-                            <span className="text-gray-500">⏱</span> {t.timeline}
-                          </span>
-                          <button
-                            onClick={() => toggleActionChat(t)}
-                            className={`ml-auto text-[11px] px-2.5 py-1 rounded-lg border transition font-medium ${
-                              actionChatTaskId === t.id
-                                ? "bg-teal-500/20 text-teal-300 border-teal-500/30"
-                                : "border-amber-500/20 text-amber-400/70 hover:text-amber-400 hover:bg-amber-500/10"
-                            }`}
-                          >
-                            {actionChatTaskId === t.id
-                              ? (isAr ? "✕ إغلاق" : "✕ Close")
-                              : (isAr ? "إلى أي مدى أستطيع؟" : "How far can I do this?")}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {actionChatTaskId === t.id && (
-                      <div className="border-t border-[#1e3a5f] px-4 pb-4 pt-3">
-                        <div className="max-h-64 overflow-y-auto space-y-2 mb-3">
-                          {(actionChats[t.id] || []).map((m, i) => (
-                            <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                              <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed ${
-                                m.role === "user"
-                                  ? "bg-amber-500/20 text-amber-100 rounded-br-sm"
-                                  : m.error
-                                    ? "bg-red-500/10 text-red-300 rounded-bl-sm border border-red-500/20"
-                                    : "bg-[#0a1628]/60 text-gray-300 rounded-bl-sm border border-[#1e3a5f]"
-                              }`}>
-                                {m.role === "ai" ? <Markdown text={m.text} /> : <span className="whitespace-pre-wrap">{m.text}</span>}
-                              </div>
-                            </div>
-                          ))}
-                          {actionChatLoading && actionChatTaskId === t.id && (
-                            <div className="flex gap-1 px-2 py-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-teal-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
-                          )}
-                          <div ref={actionChatEndRef} />
-                        </div>
-                        {(actionChats[t.id] || []).length <= 1 && (
-                          <div className="flex flex-wrap gap-1.5 mb-2">
-                            {(isAr
-                              ? ["أستطيع بالكامل", "جزئياً فقط", "لا أستطيع حالياً"]
-                              : ["I can do this fully", "Only partially", "I can't right now"]
-                            ).map((q, i) => (
-                              <button key={i} onClick={() => setActionChatInput(q)} className="text-[10px] px-2.5 py-1 rounded-full border border-teal-500/20 text-teal-400/70 hover:bg-teal-500/10 transition">{q}</button>
-                            ))}
-                          </div>
-                        )}
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={actionChatTaskId === t.id ? actionChatInput : ""}
-                            onChange={e => setActionChatInput(e.target.value)}
-                            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendActionChat(t.id); } }}
-                            placeholder={isAr ? "أخبرني عن قدرتك وقيودك..." : "Tell me about your ability and constraints..."}
-                            disabled={actionChatLoading}
-                            className="flex-1 px-3 py-2 rounded-lg bg-[#0a1628]/60 border border-[#1e3a5f] text-white placeholder-gray-600 focus:border-teal-500/40 focus:outline-none transition text-xs"
-                          />
-                          <button
-                            onClick={() => sendActionChat(t.id)}
-                            disabled={actionChatLoading || !actionChatInput.trim()}
-                            className="px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-30 transition-all hover:scale-105"
-                            style={{ background: `linear-gradient(135deg, ${TEAL}, #2dd4bf)`, color: DEEP }}
-                          >
-                            {isAr ? "إرسال" : "Send"}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+            {/* Plan View Toggle — visible once a customized plan exists */}
+            {(customPlan || customPlanLoading) && (
+              <div className="flex items-center gap-1 mb-5 p-1 rounded-xl" style={glass(0.3)}>
+                {[
+                  { key: "recommended", icon: "📋", label: isAr ? "الخطة الموصى بها" : "Recommended Plan" },
+                  { key: "customized", icon: "✨", label: isAr ? "الخطة المخصصة" : "Customized Plan" },
+                  { key: "comparison", icon: "⚖️", label: isAr ? "مقارنة جنباً إلى جنب" : "Side by Side" },
+                ].map(v => (
+                  <button
+                    key={v.key}
+                    onClick={() => setPlanView(v.key)}
+                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
+                      planView === v.key
+                        ? v.key === "customized"
+                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-sm"
+                          : v.key === "comparison"
+                            ? "bg-teal-500/20 text-teal-300 border border-teal-500/30 shadow-sm"
+                            : "bg-white/10 text-white border border-white/15 shadow-sm"
+                        : "text-gray-500 hover:text-gray-300 border border-transparent"
+                    }`}
+                  >
+                    <span>{v.icon}</span> {v.label}
+                  </button>
                 ))}
               </div>
-            ) : actionPlan ? (
-              <div className="rounded-xl p-4" style={glass(0.4)}>
-                <Markdown text={actionPlan} />
-              </div>
-            ) : null}
-
-            {tasks.length > 0 && (
-              <div className="mt-4 flex items-center gap-3">
-                <div className="flex-1 h-2 rounded-full bg-[#1e3a5f] overflow-hidden">
-                  <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${tasks.length ? (tasks.filter(t => t.done).length / tasks.length) * 100 : 0}%` }} />
-                </div>
-                <span className="text-xs text-gray-500">{Math.round(tasks.length ? (tasks.filter(t => t.done).length / tasks.length) * 100 : 0)}%</span>
-              </div>
             )}
 
-            {actionPlan && onSaveNote && (
-              <div className="mt-4">
-                <button onClick={() => onSaveNote(`📋 Action Plan: ${stair.title}`, actionPlan, "execution_plan")} className="text-xs text-gray-600 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10">
-                  📌 {isAr ? "حفظ في الملاحظات" : "Save to Notes"}
-                </button>
-              </div>
-            )}
+            {/* ─── Recommended Plan View ─── */}
+            {(planView === "recommended" || !customPlan) && planView !== "customized" && planView !== "comparison" && (
+              <>
+                {planLoading && !actionPlan ? (
+                  <LoadingDots label={isAr ? "جاري إنشاء خطة العمل..." : "Generating action plan..."} />
+                ) : tasks.length > 0 ? (
+                  <div className="space-y-2">
+                    {tasks.map(t => (
+                      <div key={t.id} className={`rounded-xl transition-all ${t.done ? "opacity-60" : ""}`} style={glass(0.4)}>
+                        <div className="flex items-start gap-3 p-4">
+                          <button onClick={() => toggleTask(t.id)} className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-gray-600 hover:border-amber-500/50"}`}>
+                            {t.done && <span className="text-xs">✓</span>}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`text-sm font-medium ${t.done ? "line-through text-gray-500" : "text-white"}`}>{t.name}</span>
+                              <PriorityBadge priority={t.priority} />
+                            </div>
+                            {t.details && <div className="text-gray-400 text-xs mt-1">{t.details}</div>}
+                            <div className="flex items-center gap-4 mt-2">
+                              <span className="text-[10px] text-gray-600">
+                                <span className="text-gray-500">👤</span> {t.owner}
+                              </span>
+                              <span className="text-[10px] text-gray-600">
+                                <span className="text-gray-500">⏱</span> {t.timeline}
+                              </span>
+                              <button
+                                onClick={() => toggleActionChat(t)}
+                                className={`ml-auto text-[11px] px-2.5 py-1 rounded-lg border transition font-medium ${
+                                  actionChatTaskId === t.id
+                                    ? "bg-teal-500/20 text-teal-300 border-teal-500/30"
+                                    : "border-amber-500/20 text-amber-400/70 hover:text-amber-400 hover:bg-amber-500/10"
+                                }`}
+                              >
+                                {actionChatTaskId === t.id
+                                  ? (isAr ? "✕ إغلاق" : "✕ Close")
+                                  : (isAr ? "إلى أي مدى أستطيع؟" : "How far can I do this?")}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
 
-            {/* Generate Customized Action Plan Button */}
-            {tasks.length > 0 && (
-              <div className="mt-6 flex justify-center">
-                <button
-                  onClick={generateCustomPlan}
-                  disabled={customPlanLoading || !hasFeedback()}
-                  className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
-                  style={{
-                    background: hasFeedback()
-                      ? `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`
-                      : `${GOLD}30`,
-                    color: hasFeedback() ? DEEP : "#94a3b8",
-                    border: `1px solid ${hasFeedback() ? GOLD : GOLD + "40"}`,
-                    boxShadow: hasFeedback() ? `0 4px 20px ${GOLD}30` : "none",
-                  }}
-                  title={!hasFeedback() ? (isAr ? "أضف ملاحظاتك على المهام أولاً باستخدام زر \"إلى أي مدى أستطيع؟\"" : "Add your feedback on tasks first using the \"How far can I do this?\" button") : ""}
-                >
-                  {customPlanLoading ? (
-                    <>
-                      <span className="flex gap-1">{[0, 1, 2].map(i => <span key={i} className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</span>
-                      {isAr ? "جاري إنشاء خطتك المخصصة..." : "Generating your customized plan..."}
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-base">✨</span>
-                      {isAr ? "إنشاء خطة عمل مخصصة لي" : "Generate My Customized Action Plan"}
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-            {tasks.length > 0 && !hasFeedback() && (
-              <p className="text-center text-[11px] text-gray-600 mt-2">
-                {isAr
-                  ? "💡 استخدم زر \"إلى أي مدى أستطيع؟\" على المهام أعلاه لإضافة ملاحظاتك أولاً"
-                  : "💡 Use the \"How far can I do this?\" button on tasks above to add your feedback first"}
-              </p>
-            )}
-
-            {/* Customized Action Plan Section */}
-            {(customPlanLoading || customPlan) && (
-              <div className="mt-8 pt-6" style={{ borderTop: `1px solid ${GOLD}30` }}>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">✨</span>
-                    <h2 className="text-lg font-semibold text-amber-300">{isAr ? "خطة العمل المخصصة لك" : "Your Customized Action Plan"}</h2>
+                        {actionChatTaskId === t.id && (
+                          <div className="border-t border-[#1e3a5f] px-4 pb-4 pt-3">
+                            <div className="max-h-64 overflow-y-auto space-y-2 mb-3">
+                              {(actionChats[t.id] || []).map((m, i) => (
+                                <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                                  <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed ${
+                                    m.role === "user"
+                                      ? "bg-amber-500/20 text-amber-100 rounded-br-sm"
+                                      : m.error
+                                        ? "bg-red-500/10 text-red-300 rounded-bl-sm border border-red-500/20"
+                                        : "bg-[#0a1628]/60 text-gray-300 rounded-bl-sm border border-[#1e3a5f]"
+                                  }`}>
+                                    {m.role === "ai" ? <Markdown text={m.text} /> : <span className="whitespace-pre-wrap">{m.text}</span>}
+                                  </div>
+                                </div>
+                              ))}
+                              {actionChatLoading && actionChatTaskId === t.id && (
+                                <div className="flex gap-1 px-2 py-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-teal-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
+                              )}
+                              <div ref={actionChatEndRef} />
+                            </div>
+                            {(actionChats[t.id] || []).length <= 1 && (
+                              <div className="flex flex-wrap gap-1.5 mb-2">
+                                {(isAr
+                                  ? ["أستطيع بالكامل", "جزئياً فقط", "لا أستطيع حالياً"]
+                                  : ["I can do this fully", "Only partially", "I can't right now"]
+                                ).map((q, i) => (
+                                  <button key={i} onClick={() => setActionChatInput(q)} className="text-[10px] px-2.5 py-1 rounded-full border border-teal-500/20 text-teal-400/70 hover:bg-teal-500/10 transition">{q}</button>
+                                ))}
+                              </div>
+                            )}
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={actionChatTaskId === t.id ? actionChatInput : ""}
+                                onChange={e => setActionChatInput(e.target.value)}
+                                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendActionChat(t.id); } }}
+                                placeholder={isAr ? "أخبرني عن قدرتك وقيودك..." : "Tell me about your ability and constraints..."}
+                                disabled={actionChatLoading}
+                                className="flex-1 px-3 py-2 rounded-lg bg-[#0a1628]/60 border border-[#1e3a5f] text-white placeholder-gray-600 focus:border-teal-500/40 focus:outline-none transition text-xs"
+                              />
+                              <button
+                                onClick={() => sendActionChat(t.id)}
+                                disabled={actionChatLoading || !actionChatInput.trim()}
+                                className="px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-30 transition-all hover:scale-105"
+                                style={{ background: `linear-gradient(135deg, ${TEAL}, #2dd4bf)`, color: DEEP }}
+                              >
+                                {isAr ? "إرسال" : "Send"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex items-center gap-3">
-                    {customTasks.length > 0 && (
-                      <span className="text-xs text-gray-500">
-                        {customTasks.filter(t => t.done).length}/{customTasks.length} {isAr ? "مكتمل" : "completed"}
-                      </span>
-                    )}
-                    <button onClick={generateCustomPlan} disabled={customPlanLoading || !hasFeedback()} className="text-xs text-amber-400/70 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10 disabled:opacity-30">
-                      {customPlanLoading ? "..." : `↻ ${isAr ? "تجديد" : "Regenerate"}`}
+                ) : actionPlan ? (
+                  <div className="rounded-xl p-4" style={glass(0.4)}>
+                    <Markdown text={actionPlan} />
+                  </div>
+                ) : null}
+
+                {tasks.length > 0 && (
+                  <div className="mt-4 flex items-center gap-3">
+                    <div className="flex-1 h-2 rounded-full bg-[#1e3a5f] overflow-hidden">
+                      <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${tasks.length ? (tasks.filter(t => t.done).length / tasks.length) * 100 : 0}%` }} />
+                    </div>
+                    <span className="text-xs text-gray-500">{Math.round(tasks.length ? (tasks.filter(t => t.done).length / tasks.length) * 100 : 0)}%</span>
+                  </div>
+                )}
+
+                {actionPlan && onSaveNote && (
+                  <div className="mt-4">
+                    <button onClick={() => onSaveNote(`📋 Action Plan: ${stair.title}`, actionPlan, "execution_plan")} className="text-xs text-gray-600 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10">
+                      📌 {isAr ? "حفظ في الملاحظات" : "Save to Notes"}
                     </button>
                   </div>
-                </div>
+                )}
 
+                {/* Generate Customized Action Plan Button */}
+                {tasks.length > 0 && !customPlan && (
+                  <div className="mt-6 flex justify-center">
+                    <button
+                      onClick={generateCustomPlan}
+                      disabled={customPlanLoading || !hasFeedback()}
+                      className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
+                      style={{
+                        background: hasFeedback()
+                          ? `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`
+                          : `${GOLD}30`,
+                        color: hasFeedback() ? DEEP : "#94a3b8",
+                        border: `1px solid ${hasFeedback() ? GOLD : GOLD + "40"}`,
+                        boxShadow: hasFeedback() ? `0 4px 20px ${GOLD}30` : "none",
+                      }}
+                      title={!hasFeedback() ? (isAr ? "أضف ملاحظاتك على المهام أولاً باستخدام زر \"إلى أي مدى أستطيع؟\"" : "Add your feedback on tasks first using the \"How far can I do this?\" button") : ""}
+                    >
+                      {customPlanLoading ? (
+                        <>
+                          <span className="flex gap-1">{[0, 1, 2].map(i => <span key={i} className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</span>
+                          {isAr ? "جاري إنشاء خطتك المخصصة..." : "Generating your customized plan..."}
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-base">✨</span>
+                          {isAr ? "إنشاء خطة عمل مخصصة لي" : "Generate My Customized Action Plan"}
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+                {tasks.length > 0 && !hasFeedback() && !customPlan && (
+                  <p className="text-center text-[11px] text-gray-600 mt-2">
+                    {isAr
+                      ? "💡 استخدم زر \"إلى أي مدى أستطيع؟\" على المهام أعلاه لإضافة ملاحظاتك أولاً"
+                      : "💡 Use the \"How far can I do this?\" button on tasks above to add your feedback first"}
+                  </p>
+                )}
+              </>
+            )}
+
+            {/* ─── Customized Plan View ─── */}
+            {planView === "customized" && customPlan && (
+              <>
                 <p className="text-xs text-gray-500 mb-4">
                   {isAr
                     ? "هذه الخطة مصممة خصيصاً بناءً على ملاحظاتك حول قدراتك وقيودك."
@@ -601,6 +630,104 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
                     </button>
                   </div>
                 )}
+              </>
+            )}
+
+            {/* ─── Side-by-Side Comparison View ─── */}
+            {planView === "comparison" && customPlan && (
+              <div className="flex gap-4">
+                {/* Recommended column */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-3 pb-2" style={{ borderBottom: `2px solid ${BORDER}` }}>
+                    <span>📋</span>
+                    <h3 className="text-sm font-semibold text-white">{isAr ? "الخطة الموصى بها" : "Recommended Plan"}</h3>
+                    {tasks.length > 0 && (
+                      <span className="ml-auto text-[10px] text-gray-500">{tasks.filter(t => t.done).length}/{tasks.length}</span>
+                    )}
+                  </div>
+                  {tasks.length > 0 ? (
+                    <div className="space-y-2">
+                      {tasks.map(t => (
+                        <div key={t.id} className={`rounded-lg transition-all ${t.done ? "opacity-60" : ""}`} style={glass(0.4)}>
+                          <div className="flex items-start gap-2 p-3">
+                            <button onClick={() => toggleTask(t.id)} className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition text-[10px] ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-gray-600 hover:border-amber-500/50"}`}>
+                              {t.done && "✓"}
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`text-xs font-medium ${t.done ? "line-through text-gray-500" : "text-white"}`}>{t.name}</span>
+                                <PriorityBadge priority={t.priority} />
+                              </div>
+                              {t.details && <div className="text-gray-400 text-[10px] mt-0.5 line-clamp-2">{t.details}</div>}
+                              <div className="flex items-center gap-3 mt-1.5">
+                                <span className="text-[9px] text-gray-600">👤 {t.owner}</span>
+                                <span className="text-[9px] text-gray-600">⏱ {t.timeline}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-600">{isAr ? "لا توجد مهام" : "No tasks"}</p>
+                  )}
+                  {tasks.length > 0 && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <div className="flex-1 h-1.5 rounded-full bg-[#1e3a5f] overflow-hidden">
+                        <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${tasks.length ? (tasks.filter(t => t.done).length / tasks.length) * 100 : 0}%` }} />
+                      </div>
+                      <span className="text-[10px] text-gray-500">{Math.round(tasks.length ? (tasks.filter(t => t.done).length / tasks.length) * 100 : 0)}%</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Divider */}
+                <div className="w-px shrink-0" style={{ background: BORDER }} />
+
+                {/* Customized column */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-3 pb-2" style={{ borderBottom: `2px solid ${GOLD}60` }}>
+                    <span>✨</span>
+                    <h3 className="text-sm font-semibold text-amber-300">{isAr ? "الخطة المخصصة" : "Customized Plan"}</h3>
+                    {customTasks.length > 0 && (
+                      <span className="ml-auto text-[10px] text-gray-500">{customTasks.filter(t => t.done).length}/{customTasks.length}</span>
+                    )}
+                  </div>
+                  {customTasks.length > 0 ? (
+                    <div className="space-y-2">
+                      {customTasks.map(t => (
+                        <div key={t.id} className={`rounded-lg transition-all ${t.done ? "opacity-60" : ""}`} style={{ ...glass(0.4), borderLeft: `3px solid ${GOLD}60` }}>
+                          <div className="flex items-start gap-2 p-3">
+                            <button onClick={() => toggleCustomTask(t.id)} className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition text-[10px] ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-amber-500/40 hover:border-amber-500/70"}`}>
+                              {t.done && "✓"}
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`text-xs font-medium ${t.done ? "line-through text-gray-500" : "text-white"}`}>{t.name}</span>
+                                <PriorityBadge priority={t.priority} />
+                              </div>
+                              {t.details && <div className="text-gray-400 text-[10px] mt-0.5 line-clamp-2">{t.details}</div>}
+                              <div className="flex items-center gap-3 mt-1.5">
+                                <span className="text-[9px] text-gray-600">👤 {t.owner}</span>
+                                <span className="text-[9px] text-gray-600">⏱ {t.timeline}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-600">{isAr ? "لا توجد مهام" : "No tasks"}</p>
+                  )}
+                  {customTasks.length > 0 && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <div className="flex-1 h-1.5 rounded-full bg-[#1e3a5f] overflow-hidden">
+                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${customTasks.length ? (customTasks.filter(t => t.done).length / customTasks.length) * 100 : 0}%`, background: `linear-gradient(90deg, ${GOLD}, ${GOLD_L})` }} />
+                      </div>
+                      <span className="text-[10px] text-gray-500">{Math.round(customTasks.length ? (customTasks.filter(t => t.done).length / customTasks.length) * 100 : 0)}%</span>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
