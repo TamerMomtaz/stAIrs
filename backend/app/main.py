@@ -1,8 +1,13 @@
 """
 ═══════════════════════════════════════════════════════════
 ST.AIRS — Strategy AI Interactive Real-time System
-FastAPI Backend v3.6.0 — Modular Router Edition
+FastAPI Backend v3.7.0-cors-fix — Modular Router Edition
 By Tee | DEVONEERS | "Human IS the Loop"
+
+v3.7.0-cors-fix Changes:
+  - CORS: allow_origin_regex for all *.vercel.app subdomains
+  - CORS: explicit origins for production + localhost
+  - Version string in /health for deployment verification
 
 v3.6.0 Changes:
   - Split monolithic main.py into modular routers
@@ -300,7 +305,7 @@ async def ensure_action_plans_table():
 # ─── LIFESPAN ───
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("🪜 ST.AIRS v3.6.0 Starting up — Modular Router Edition...")
+    print("🪜 ST.AIRS v3.7.0-cors-fix Starting up — Modular Router Edition...")
     await init_db()
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -335,28 +340,28 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="ST.AIRS API",
     description="Strategy AI Interactive Real-time System — Modular Router Edition — By DEVONEERS",
-    version="3.6.0",
+    version="3.7.0-cors-fix",
     lifespan=lifespan,
 )
 
 # ─── CORS ───
-_raw_origins = os.getenv("ALLOWED_ORIGINS", "").strip()
-_explicit_origins = [
-    o.strip() for o in _raw_origins.split(",")
-    if o.strip() and o.strip() != "*"
-]
-# Always include the primary Vercel domain and localhost for dev
-for _required in [
+# Explicit allowed origins (production + dev)
+_cors_origins = [
     "https://st-a-irs.vercel.app",
     "http://localhost:5173",
     "http://localhost:3000",
-]:
-    if _required not in _explicit_origins:
-        _explicit_origins.append(_required)
+]
+# Merge any additional origins from ALLOWED_ORIGINS env var
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "").strip()
+if _raw_origins and _raw_origins != "*":
+    for _o in _raw_origins.split(","):
+        _o = _o.strip()
+        if _o and _o != "*" and _o not in _cors_origins:
+            _cors_origins.append(_o)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_explicit_origins,
+    allow_origins=_cors_origins,
     allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
@@ -411,7 +416,7 @@ app.include_router(ws_router)
 
 @app.get("/")
 async def root():
-    return {"name": "ST.AIRS API", "version": "3.6.0",
+    return {"name": "ST.AIRS API", "version": "3.7.0-cors-fix",
             "tagline": "Climb Your Strategy — Modular Router Edition",
             "by": "Tee | DEVONEERS", "status": "operational",
             "knowledge_engine": {
@@ -428,7 +433,7 @@ async def health():
     pool = await get_pool()
     async with pool.acquire() as conn:
         count = await conn.fetchval("SELECT COUNT(*) FROM stairs WHERE deleted_at IS NULL")
-    return {"status": "healthy", "stairs_count": count, "version": "3.6.0",
+    return {"status": "healthy", "stairs_count": count, "version": "3.7.0-cors-fix",
             "knowledge_engine": bool(_knowledge_cache.get("loaded_at"))}
 
 

@@ -53,7 +53,7 @@ const buildStairHeader = (group, plan, isAr) => {
 const openPrintWindow = (title, bodyContent) => {
   const w = window.open("", "_blank");
   if (!w) return;
-  w.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>${pdfStyles}</style></head><body>${bodyContent}<div class="footer">ST.AIRS v3.6.0 &middot; Action Plans Export &middot; By DEVONEERS &middot; "Human IS the Loop"</div></body></html>`);
+  w.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>${pdfStyles}</style></head><body>${bodyContent}<div class="footer">ST.AIRS v3.7.0 &middot; Action Plans Export &middot; By DEVONEERS &middot; "Human IS the Loop"</div></body></html>`);
   w.document.close();
   w.print();
 };

@@ -176,7 +176,7 @@ export default function App() {
     <div class="header"><span style="font-size:36px">${activeStrat?.icon||"🎯"}</span><div><h1>${activeStrat?.name||"Strategy"}</h1><div style="font-size:12px;color:#64748b">${activeStrat?.company||""} · Exported ${new Date().toLocaleDateString()}</div></div></div>
     <div class="stats-bar"><div class="stat-box"><div class="num" style="color:#2563eb">${stats.total}</div><div class="lbl">Elements</div></div><div class="stat-box"><div class="num" style="color:#059669">${stats.onTrack}</div><div class="lbl">On Track</div></div><div class="stat-box"><div class="num" style="color:#d97706">${stats.atRisk}</div><div class="lbl">At Risk</div></div><div class="stat-box"><div class="num" style="color:#dc2626">${stats.offTrack}</div><div class="lbl">Off Track</div></div><div class="stat-box"><div class="num" style="color:#7c3aed">${stats.avgProgress}%</div><div class="lbl">Avg Progress</div></div></div>
     <table><thead><tr><th style="width:60%">Element</th><th style="text-align:center">Health</th><th style="text-align:center;width:120px">Progress</th></tr></thead><tbody>${rows}</tbody></table>
-    <div class="footer">ST.AIRS v3.6.0 · By DEVONEERS · "Human IS the Loop"</div></body></html>`);
+    <div class="footer">ST.AIRS v3.7.0-cors-fix · By DEVONEERS · "Human IS the Loop"</div></body></html>`);
     w.document.close();
     w.print();
   };
@@ -205,7 +205,7 @@ export default function App() {
             <span className="text-lg group-hover:-translate-x-0.5 transition-transform">←</span>
             <span className="text-xl font-bold" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "'Instrument Serif', Georgia, serif" }}>ST.AIRS</span>
           </button>
-          <span className="text-[10px] text-gray-600 uppercase tracking-widest">v3.6.0</span>
+          <span className="text-[10px] text-gray-600 uppercase tracking-widest">v3.7.0</span>
           <span className="text-gray-600">|</span>
           <span className="text-sm text-white font-medium">{activeStrat.icon} {isAr && activeStrat.name_ar ? activeStrat.name_ar : activeStrat.name}</span>
         </div>
@@ -242,7 +242,7 @@ export default function App() {
 
       {execRoomStair && <ExecutionRoom stair={execRoomStair} strategyContext={activeStrat} lang={lang} onBack={() => setExecRoomStair(null)} onSaveNote={saveToNotes} />}
 
-      <footer className="text-center py-6 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • ST.AIRS v3.6.0 • "Human IS the Loop" • {new Date().getFullYear()}</footer>
+      <footer className="text-center py-6 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • ST.AIRS v3.7.0 • "Human IS the Loop" • {new Date().getFullYear()}</footer>
 
       <TutorialOverlay active={tutorialActive} onClose={() => setTutorialActive(false)} steps={tutorialCustomSteps} />
       {tutorialNewSteps && <TutorialUpdatePrompt onStart={startNewStepsTutorial} onDismiss={dismissNewSteps} />}
