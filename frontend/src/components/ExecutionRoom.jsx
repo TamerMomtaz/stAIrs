@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { api } from "../api";
+import { api, ActionPlansAPI } from "../api";
 import { GOLD, GOLD_L, TEAL, DEEP, BORDER, glass, typeColors, typeIcons } from "../constants";
 import { HealthBadge } from "./SharedUI";
 import { Markdown } from "./Markdown";
@@ -50,6 +50,10 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
       setActionPlan(res.response);
       const parsed = parseTasks(res.response);
       setTasks(parsed);
+      try {
+        const taskData = parsed.map(t => ({ name: t.name, owner: t.owner, timeline: t.timeline, priority: t.priority, details: t.details, done: false }));
+        await ActionPlansAPI.save(stair.id, "recommended", res.response, taskData);
+      } catch (saveErr) { console.warn("Auto-save action plan failed:", saveErr.message); }
     } catch (e) { setActionPlan(`Error generating plan: ${e.message}`); }
     setPlanLoading(false);
   };
@@ -189,8 +193,13 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
       const prompt = `[${stratCtx}]\n\n${sourceRef}\n\nYou previously generated an action plan for: ${stairCtx}\n\nOriginal tasks:\n${originalTasksSummary}\n\nThe user has provided feedback on their ability to execute these tasks. Here is all their feedback:\n\n${feedbackSummary}\n\nBased on this feedback, generate a NEW customized action plan that:\n1. Adapts tasks to the user's actual capabilities and constraints\n2. Breaks down tasks the user can only partially do into achievable sub-steps\n3. Suggests alternatives for tasks the user cannot currently do\n4. Prioritizes tasks the user CAN do to build momentum\n5. Adds specific workarounds for the constraints they mentioned\n\nFormat your response EXACTLY as follows:\n\n## Your Customized Action Plan\n\nFor each task, use this format:\n- **Task:** [task name]\n- **Owner:** [suggested role/team]\n- **Timeline:** [estimated duration]\n- **Priority:** [High/Medium/Low]\n- **Details:** [brief description tailored to the user's constraints and abilities]\n\n---\n\n(Repeat for each task. Generate 5-8 concrete tasks. Make them realistic based on what the user told you they can and cannot do.)`;
       const res = await api.post("/api/v1/ai/chat", { message: prompt });
       setCustomPlan(res.response);
-      setCustomTasks(parseTasks(res.response));
+      const parsedCustom = parseTasks(res.response);
+      setCustomTasks(parsedCustom);
       setPlanView("customized");
+      try {
+        const taskData = parsedCustom.map(t => ({ name: t.name, owner: t.owner, timeline: t.timeline, priority: t.priority, details: t.details, done: false }));
+        await ActionPlansAPI.save(stair.id, "customized", res.response, taskData, feedback);
+      } catch (saveErr) { console.warn("Auto-save customized plan failed:", saveErr.message); }
     } catch (e) { setCustomPlan(`Error generating customized plan: ${e.message}`); }
     setCustomPlanLoading(false);
   };

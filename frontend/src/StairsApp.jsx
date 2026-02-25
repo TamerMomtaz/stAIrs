@@ -11,6 +11,7 @@ import { AIChatView } from "./components/AIChatView";
 import { AlertsView } from "./components/AlertsView";
 import { KnowledgeLibrary } from "./components/KnowledgeLibrary";
 import { NotesView } from "./components/NotesView";
+import { ActionPlansView } from "./components/ActionPlansView";
 import { StairEditor } from "./components/StairEditor";
 import { ExecutionRoom } from "./components/ExecutionRoom";
 
@@ -169,6 +170,7 @@ export default function App() {
     { key: "staircase", icon: "🪜", label: isAr ? "السلم" : "Staircase" },
     { key: "ai", icon: "🤖", label: isAr ? "المستشار" : "AI Advisor" },
     { key: "alerts", icon: "🔔", label: isAr ? "تنبيهات" : "Alerts" },
+    { key: "actionplans", icon: "📋", label: isAr ? "خطط العمل" : "Action Plans" },
     { key: "knowledge", icon: "📖", label: isAr ? "المعرفة" : "Knowledge" },
     { key: "notes", icon: "📝", label: isAr ? "ملاحظات" : "Notes" },
   ];
@@ -204,6 +206,7 @@ export default function App() {
         {view === "dashboard" && <DashboardView data={dashData} lang={lang} />}
         {view === "staircase" && <StaircaseView tree={stairTree} lang={lang} onEdit={s => { setEditStair(s); setShowEditor(true); }} onAdd={() => { setEditStair(null); setShowEditor(true); }} onExport={exportPDF} onMove={moveStair} strategyContext={activeStrat} onSaveNote={saveToNotes} onExecutionRoom={s => setExecRoomStair(s)} />}
         {view === "ai" && <AIChatView lang={lang} userId={user.id || user.email} strategyContext={activeStrat} onSaveNote={saveToNotes} />}
+        {view === "actionplans" && <ActionPlansView strategyContext={activeStrat} lang={lang} />}
         {view === "alerts" && <AlertsView alerts={alerts} lang={lang} />}
         {view === "knowledge" && <KnowledgeLibrary lang={lang} />}
         {view === "notes" && <NotesView lang={lang} userId={user.id || user.email} strategyName={activeStrat?.name} />}

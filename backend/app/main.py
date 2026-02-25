@@ -239,6 +239,34 @@ async def ensure_strategies_table():
         """)
 
 
+# ─── AUTO-MIGRATION: ACTION PLANS TABLE ───
+
+async def ensure_action_plans_table():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        exists = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'action_plans')"
+        )
+        if not exists:
+            print("  → Creating action_plans table...")
+            await conn.execute("""
+                CREATE TABLE action_plans (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    stair_id UUID REFERENCES stairs(id) ON DELETE CASCADE NOT NULL,
+                    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE NOT NULL,
+                    plan_type VARCHAR(30) NOT NULL DEFAULT 'recommended',
+                    raw_text TEXT NOT NULL,
+                    tasks JSONB DEFAULT '[]',
+                    feedback JSONB,
+                    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
+            await conn.execute("CREATE INDEX idx_action_plans_stair ON action_plans(stair_id, created_at DESC)")
+            await conn.execute("CREATE INDEX idx_action_plans_org ON action_plans(organization_id)")
+            print("  ✅ action_plans table created")
+
+
 # ─── LIFESPAN ───
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -260,6 +288,10 @@ async def lifespan(app: FastAPI):
         await ensure_strategies_table()
     except Exception as e:
         print(f"  ⚠️ Strategies migration: {e}")
+    try:
+        await ensure_action_plans_table()
+    except Exception as e:
+        print(f"  ⚠️ Action plans migration: {e}")
     yield
     await close_pool()
     print("🪜 ST.AIRS Shutting down...")

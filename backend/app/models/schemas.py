@@ -368,6 +368,44 @@ class FrameworkOut(BaseModel):
         from_attributes = True
 
 
+# ─── ACTION PLANS ───
+class ActionPlanCreate(BaseModel):
+    plan_type: str = Field("recommended", pattern="^(recommended|customized)$")
+    raw_text: str
+    tasks: Optional[List[dict]] = []
+    feedback: Optional[List[dict]] = None
+
+class ActionPlanOut(BaseModel):
+    id: UUID
+    stair_id: UUID
+    organization_id: UUID
+    plan_type: str
+    raw_text: str
+    tasks: Optional[list] = []
+    feedback: Optional[list] = None
+    created_by: Optional[UUID] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class ActionPlanSummary(BaseModel):
+    stair_id: UUID
+    stair_title: str
+    stair_title_ar: Optional[str] = None
+    stair_code: Optional[str] = None
+    element_type: str
+    has_recommended: bool = False
+    has_customized: bool = False
+    latest_recommended_at: Optional[datetime] = None
+    latest_customized_at: Optional[datetime] = None
+    recommended_task_count: int = 0
+    customized_task_count: int = 0
+    recommended_completed: int = 0
+    customized_completed: int = 0
+    plans: List[ActionPlanOut] = []
+
+
 # Fix forward references
 StairTree.model_rebuild()
 TokenResponse.model_rebuild()

@@ -17,6 +17,7 @@ from app.models.schemas import (
     ProgressCreate, ProgressOut,
     RelationshipCreate, RelationshipOut,
     KPIMeasurementCreate, KPIMeasurementOut,
+    ActionPlanCreate, ActionPlanOut, ActionPlanSummary,
 )
 from app.routers.websocket import ws_manager
 
@@ -260,3 +261,91 @@ async def kpi_summary(auth: AuthContext = Depends(get_auth)):
             (SELECT measured_at FROM kpi_measurements km WHERE km.stair_id = s.id ORDER BY measured_at DESC LIMIT 1) as latest_at,
             (SELECT COUNT(*) FROM kpi_measurements km WHERE km.stair_id = s.id) as measurement_count
             FROM stairs s WHERE s.organization_id = $1 AND s.element_type IN ('kpi','key_result','measure') AND s.deleted_at IS NULL ORDER BY s.code""", auth.org_id))
+
+
+# ─── ACTION PLANS ───
+
+@router.post("/stairs/{stair_id}/action-plans", response_model=ActionPlanOut, status_code=201)
+async def save_action_plan(stair_id: str, plan: ActionPlanCreate, auth: AuthContext = Depends(get_auth)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        stair = await conn.fetchrow("SELECT id FROM stairs WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL", stair_id, auth.org_id)
+        if not stair: raise HTTPException(404, "Stair not found")
+        plan_id = str(uuid.uuid4())
+        await conn.execute("""INSERT INTO action_plans (id, stair_id, organization_id, plan_type, raw_text, tasks, feedback, created_by)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8)""",
+            plan_id, stair_id, auth.org_id, plan.plan_type, plan.raw_text,
+            json.dumps(plan.tasks) if plan.tasks else "[]",
+            json.dumps(plan.feedback) if plan.feedback else None,
+            auth.user_id)
+        row = await conn.fetchrow("SELECT * FROM action_plans WHERE id = $1", plan_id)
+        return row_to_dict(row)
+
+
+@router.get("/stairs/{stair_id}/action-plans", response_model=List[ActionPlanOut])
+async def get_stair_action_plans(stair_id: str, auth: AuthContext = Depends(get_auth)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""SELECT ap.* FROM action_plans ap JOIN stairs s ON s.id = ap.stair_id
+            WHERE ap.stair_id = $1 AND s.organization_id = $2 AND s.deleted_at IS NULL
+            ORDER BY ap.created_at DESC""", stair_id, auth.org_id)
+        return rows_to_dicts(rows)
+
+
+@router.get("/strategies/{strategy_id}/action-plans")
+async def get_strategy_action_plans(strategy_id: str, auth: AuthContext = Depends(get_auth)):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT ap.*, s.title as stair_title, s.title_ar as stair_title_ar,
+                   s.code as stair_code, s.element_type as stair_element_type
+            FROM action_plans ap
+            JOIN stairs s ON s.id = ap.stair_id
+            WHERE s.strategy_id = $1 AND s.organization_id = $2 AND s.deleted_at IS NULL
+            ORDER BY s.level, s.sort_order, ap.created_at DESC
+        """, strategy_id, auth.org_id)
+        plans_by_stair = {}
+        for r in rows:
+            d = row_to_dict(r)
+            sid = str(d["stair_id"])
+            if sid not in plans_by_stair:
+                tasks_rec = []
+                tasks_cust = []
+                plans_by_stair[sid] = {
+                    "stair_id": sid,
+                    "stair_title": d.get("stair_title", ""),
+                    "stair_title_ar": d.get("stair_title_ar"),
+                    "stair_code": d.get("stair_code"),
+                    "element_type": d.get("stair_element_type", ""),
+                    "has_recommended": False,
+                    "has_customized": False,
+                    "latest_recommended_at": None,
+                    "latest_customized_at": None,
+                    "recommended_task_count": 0,
+                    "customized_task_count": 0,
+                    "recommended_completed": 0,
+                    "customized_completed": 0,
+                    "plans": [],
+                }
+            plan_out = {
+                "id": d["id"], "stair_id": d["stair_id"], "organization_id": d["organization_id"],
+                "plan_type": d["plan_type"], "raw_text": d["raw_text"],
+                "tasks": d.get("tasks", []), "feedback": d.get("feedback"),
+                "created_by": d.get("created_by"), "created_at": d.get("created_at"),
+            }
+            entry = plans_by_stair[sid]
+            entry["plans"].append(plan_out)
+            plan_tasks = d.get("tasks") or []
+            if d["plan_type"] == "recommended":
+                if not entry["has_recommended"]:
+                    entry["has_recommended"] = True
+                    entry["latest_recommended_at"] = d.get("created_at")
+                    entry["recommended_task_count"] = len(plan_tasks)
+                    entry["recommended_completed"] = sum(1 for t in plan_tasks if t.get("done"))
+            elif d["plan_type"] == "customized":
+                if not entry["has_customized"]:
+                    entry["has_customized"] = True
+                    entry["latest_customized_at"] = d.get("created_at")
+                    entry["customized_task_count"] = len(plan_tasks)
+                    entry["customized_completed"] = sum(1 for t in plan_tasks if t.get("done"))
+        return list(plans_by_stair.values())
