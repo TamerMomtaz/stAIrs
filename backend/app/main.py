@@ -1,10 +1,10 @@
 """
 ═══════════════════════════════════════════════════════════
 ST.AIRS — Strategy AI Interactive Real-time System
-FastAPI Backend v3.7.0-cors-fix — Modular Router Edition
+FastAPI Backend v3.7.1 — Modular Router Edition
 By Tee | DEVONEERS | "Human IS the Loop"
 
-v3.7.0-cors-fix Changes:
+v3.7.1 Changes:
   - CORS: allow_origin_regex for all *.vercel.app subdomains
   - CORS: explicit origins for production + localhost
   - Version string in /health for deployment verification
@@ -305,7 +305,7 @@ async def ensure_action_plans_table():
 # ─── LIFESPAN ───
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("🪜 ST.AIRS v3.7.0-cors-fix Starting up — Modular Router Edition...")
+    print("🪜 ST.AIRS v3.7.1 Starting up — Modular Router Edition...")
     await init_db()
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -340,32 +340,18 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="ST.AIRS API",
     description="Strategy AI Interactive Real-time System — Modular Router Edition — By DEVONEERS",
-    version="3.7.0-cors-fix",
+    version="3.7.1",
     lifespan=lifespan,
 )
 
 # ─── CORS ───
-# Explicit allowed origins (production + dev)
-_cors_origins = [
-    "https://st-a-irs.vercel.app",
-    "http://localhost:5173",
-    "http://localhost:3000",
-]
-# Merge any additional origins from ALLOWED_ORIGINS env var
-_raw_origins = os.getenv("ALLOWED_ORIGINS", "").strip()
-if _raw_origins and _raw_origins != "*":
-    for _o in _raw_origins.split(","):
-        _o = _o.strip()
-        if _o and _o != "*" and _o not in _cors_origins:
-            _cors_origins.append(_o)
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins,
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origin_regex=r'https://.*\.vercel\.app',
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=['*'],
+    allow_headers=['*'],
+    expose_headers=['*'],
 )
 
 # ─── RATE LIMITER (in-memory, per-IP) ───
@@ -412,11 +398,18 @@ app.include_router(notes_router)
 app.include_router(ws_router)
 
 
+# ─── CORS TEST ───
+
+@app.get("/api/cors-test")
+def cors_test():
+    return {"cors": "working", "version": "v3.7.1"}
+
+
 # ─── HEALTH & ROOT ───
 
 @app.get("/")
 async def root():
-    return {"name": "ST.AIRS API", "version": "3.7.0-cors-fix",
+    return {"name": "ST.AIRS API", "version": "3.7.1",
             "tagline": "Climb Your Strategy — Modular Router Edition",
             "by": "Tee | DEVONEERS", "status": "operational",
             "knowledge_engine": {
@@ -433,7 +426,7 @@ async def health():
     pool = await get_pool()
     async with pool.acquire() as conn:
         count = await conn.fetchval("SELECT COUNT(*) FROM stairs WHERE deleted_at IS NULL")
-    return {"status": "healthy", "stairs_count": count, "version": "3.7.0-cors-fix",
+    return {"status": "healthy", "stairs_count": count, "version": "3.7.1",
             "knowledge_engine": bool(_knowledge_cache.get("loaded_at"))}
 
 
