@@ -252,6 +252,29 @@ class AIGenerateRequest(BaseModel):
     parent_id: Optional[UUID] = None
 
 
+# ─── QUESTIONNAIRE ───
+class QuestionnaireGenerateRequest(BaseModel):
+    company_name: str
+    company_brief: Optional[str] = None
+    industry: Optional[str] = None
+    strategy_type: str
+
+class QuestionnaireQuestion(BaseModel):
+    id: str
+    question: str
+    type: str  # multiple_choice, short_text, yes_no, scale
+    explanation: str
+    options: Optional[List[str]] = None
+    conditional_on: Optional[dict] = None
+
+class QuestionnaireGroup(BaseModel):
+    name: str
+    questions: List[QuestionnaireQuestion]
+
+class QuestionnaireGenerateResponse(BaseModel):
+    groups: List[QuestionnaireGroup]
+
+
 # ─── ALERTS ───
 class AlertOut(BaseModel):
     id: UUID
