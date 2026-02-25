@@ -1,1 +1,118 @@
 @import "tailwindcss";
+
+/* ═══ TUTORIAL ANIMATIONS ═══ */
+
+/* Tooltip entrance */
+.tutorial-tooltip {
+  animation: tutorialFadeIn 0.3s ease-out;
+}
+
+@keyframes tutorialFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Centered tooltip needs different transform origin */
+.tutorial-tooltip[style*="translate(-50%"] {
+  animation: tutorialFadeInCenter 0.3s ease-out;
+}
+
+@keyframes tutorialFadeInCenter {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* Spotlight ring pulse */
+.tutorial-spotlight-ring {
+  animation: tutorialPulse 2s ease-in-out infinite;
+}
+
+@keyframes tutorialPulse {
+  0%, 100% { box-shadow: 0 0 20px #B8904A44, 0 0 40px #B8904A22; }
+  50% { box-shadow: 0 0 28px #B8904A66, 0 0 56px #B8904A33; }
+}
+
+/* Step reward checkmark */
+.tutorial-reward {
+  position: absolute;
+  top: -16px;
+  right: -16px;
+  animation: tutorialRewardPop 0.6s ease-out forwards;
+}
+
+.tutorial-reward-svg {
+  filter: drop-shadow(0 0 8px #B8904A88);
+}
+
+.tutorial-reward-circle {
+  stroke-dasharray: 88;
+  stroke-dashoffset: 88;
+  animation: tutorialCircleDraw 0.4s ease-out 0.1s forwards;
+}
+
+.tutorial-reward-check {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+  animation: tutorialCheckDraw 0.3s ease-out 0.35s forwards;
+}
+
+@keyframes tutorialRewardPop {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes tutorialCircleDraw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes tutorialCheckDraw {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Completion screen */
+.tutorial-completion {
+  animation: tutorialCompletionIn 0.4s ease-out;
+}
+
+@keyframes tutorialCompletionIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.tutorial-completion-icon {
+  animation: tutorialIconBounce 0.6s ease-out 0.2s both;
+}
+
+@keyframes tutorialIconBounce {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.3); }
+  80% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+/* Confetti particles */
+.tutorial-confetti-particle {
+  position: absolute;
+  top: -10px;
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  animation: tutorialConfettiFall 2.5s ease-in forwards;
+}
+
+@keyframes tutorialConfettiFall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  25% { opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+/* Slide up for prompts/badges */
+.tutorial-slide-up {
+  animation: tutorialSlideUp 0.35s ease-out;
+}
+
+@keyframes tutorialSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}

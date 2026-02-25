@@ -17,7 +17,7 @@ export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, user
           <button onClick={onLogout} className="text-xs text-gray-600 hover:text-gray-300 transition">{userName} ↗</button>
         </div>
       </header>
-      <div className="max-w-5xl mx-auto px-6 pt-16 pb-8 text-center">
+      <div className="max-w-5xl mx-auto px-6 pt-16 pb-8 text-center" data-tutorial="strategy-landing">
         <h1 className="text-3xl font-bold text-white mb-3" style={{ fontFamily: "'Instrument Serif', Georgia, serif" }}>{isAr ? "استراتيجياتك" : "Your Strategies"}</h1>
         <p className="text-gray-500 text-sm max-w-lg mx-auto">{isAr ? "كل استراتيجية هي سلم مستقل." : "Each strategy is an independent staircase for a company, product, or project."}</p>
       </div>
