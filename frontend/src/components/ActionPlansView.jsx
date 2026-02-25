@@ -138,7 +138,7 @@ const exportAllPlans = (planGroups, strategyContext, isAr) => {
 
 
 // ═══ ACTION PLANS VIEW ═══
-export const ActionPlansView = ({ strategyContext, lang }) => {
+export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
   const [planGroups, setPlanGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedStair, setExpandedStair] = useState(null);
@@ -376,7 +376,7 @@ export const ActionPlansView = ({ strategyContext, lang }) => {
                                   </div>
                                 ) : (
                                   <div className="rounded-lg p-3" style={glass(0.2)}>
-                                    <Markdown text={plan.raw_text} />
+                                    <Markdown text={plan.raw_text} onMatrixClick={onMatrixClick} />
                                   </div>
                                 )}
 

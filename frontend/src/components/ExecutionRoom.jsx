@@ -5,7 +5,7 @@ import { HealthBadge } from "./SharedUI";
 import { Markdown } from "./Markdown";
 
 // ═══ EXECUTION ROOM ═══
-export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote }) => {
+export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote, onMatrixClick }) => {
   const [actionPlan, setActionPlan] = useState(null);
   const [solutions, setSolutions] = useState(null);
   const [planLoading, setPlanLoading] = useState(false);
@@ -561,7 +561,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
                                         ? "bg-red-500/10 text-red-300 rounded-bl-sm border border-red-500/20"
                                         : "bg-[#0a1628]/60 text-gray-300 rounded-bl-sm border border-[#1e3a5f]"
                                   }`}>
-                                    {m.role === "ai" ? <Markdown text={m.text} /> : <span className="whitespace-pre-wrap">{m.text}</span>}
+                                    {m.role === "ai" ? <Markdown text={m.text} onMatrixClick={onMatrixClick} /> : <span className="whitespace-pre-wrap">{m.text}</span>}
                                   </div>
                                 </div>
                               ))}
@@ -606,7 +606,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
                   </div>
                 ) : actionPlan ? (
                   <div className="rounded-xl p-4" style={glass(0.4)}>
-                    <Markdown text={actionPlan} />
+                    <Markdown text={actionPlan} onMatrixClick={onMatrixClick} />
                   </div>
                 ) : null}
 
@@ -704,7 +704,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
                   </div>
                 ) : customPlan ? (
                   <div className="rounded-xl p-4" style={{ ...glass(0.4), borderLeft: `3px solid ${GOLD}60` }}>
-                    <Markdown text={customPlan} />
+                    <Markdown text={customPlan} onMatrixClick={onMatrixClick} />
                   </div>
                 ) : null}
 
@@ -841,7 +841,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
               <LoadingDots label={isAr ? "جاري إنشاء الحلول..." : "Generating solutions..."} />
             ) : solutions ? (
               <div className="rounded-xl p-5" style={glass(0.4)}>
-                <Markdown text={solutions} />
+                <Markdown text={solutions} onMatrixClick={onMatrixClick} />
               </div>
             ) : null}
 
@@ -868,7 +868,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
                         ? "bg-red-500/10 text-red-300 rounded-bl-md border border-red-500/20"
                         : "bg-[#162544] text-gray-200 rounded-bl-md border border-[#1e3a5f]"
                   }`}>
-                    {m.role === "ai" ? <Markdown text={m.text} /> : <div className="whitespace-pre-wrap">{m.text}</div>}
+                    {m.role === "ai" ? <Markdown text={m.text} onMatrixClick={onMatrixClick} /> : <div className="whitespace-pre-wrap">{m.text}</div>}
                     {m.role === "ai" && !m.error && (
                       <div className="flex items-center gap-2 mt-2">
                         {m.tokens > 0 && <span className="text-[10px] text-gray-600">{m.tokens} tokens</span>}
