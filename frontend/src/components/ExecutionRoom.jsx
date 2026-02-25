@@ -462,6 +462,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
                               </span>
                               <button
                                 onClick={() => toggleActionChat(t)}
+                                data-tutorial="how-far"
                                 className={`ml-auto text-[11px] px-2.5 py-1 rounded-lg border transition font-medium ${
                                   actionChatTaskId === t.id
                                     ? "bg-teal-500/20 text-teal-300 border-teal-500/30"
@@ -556,7 +557,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
 
                 {/* Generate Customized Action Plan Button */}
                 {tasks.length > 0 && !customPlan && (
-                  <div className="mt-6 flex justify-center">
+                  <div className="mt-6 flex justify-center" data-tutorial="custom-plan">
                     <button
                       onClick={generateCustomPlan}
                       disabled={customPlanLoading || !hasFeedback()}

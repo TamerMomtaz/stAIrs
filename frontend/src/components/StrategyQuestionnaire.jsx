@@ -84,7 +84,7 @@ export const StrategyQuestionnaire = ({ groups, answers, onAnswer, strategyType 
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-tutorial="questionnaire">
       {/* Progress bar */}
       <div className="flex items-center gap-3 mb-2">
         <div className="flex-1 h-2 rounded-full bg-[#0a1628]/80 border border-[#1e3a5f] overflow-hidden">

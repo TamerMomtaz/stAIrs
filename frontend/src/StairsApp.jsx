@@ -14,6 +14,8 @@ import { NotesView } from "./components/NotesView";
 import { ActionPlansView } from "./components/ActionPlansView";
 import { StairEditor } from "./components/StairEditor";
 import { ExecutionRoom } from "./components/ExecutionRoom";
+import { TutorialOverlay, TutorialUpdatePrompt, FeaturesExploredBadge } from "./components/TutorialOverlay";
+import { shouldShowTutorial, hasNewTutorialSteps, getNewSteps, markFeatureUsed, getTutorialState, saveTutorialState, getDefaultTutorialState } from "./tutorialConfig";
 
 // ═══ MAIN APP ═══
 export default function App() {
@@ -29,6 +31,10 @@ export default function App() {
   const [showEditor, setShowEditor] = useState(false);
   const [execRoomStair, setExecRoomStair] = useState(null);
   const [stratLoading, setStratLoading] = useState(true);
+  const [tutorialActive, setTutorialActive] = useState(false);
+  const [tutorialNewSteps, setTutorialNewSteps] = useState(false);
+  const [tutorialCustomSteps, setTutorialCustomSteps] = useState(null);
+  const [showFeaturesBadge, setShowFeaturesBadge] = useState(false);
   const stratApiRef = useRef(null);
   const notesStoreRef = useRef(null);
   const saveToNotes = (title, content, source) => {
@@ -52,6 +58,17 @@ export default function App() {
     else { stratApiRef.current = null; setStrategies([]); }
   }, [user]);
 
+  // Tutorial: auto-show on first login or prompt for new steps
+  useEffect(() => {
+    if (user) {
+      if (shouldShowTutorial()) {
+        setTutorialActive(true);
+      } else if (hasNewTutorialSteps()) {
+        setTutorialNewSteps(true);
+      }
+    }
+  }, [user]);
+
   const loadStrategies = async () => {
     if (!stratApiRef.current) return;
     setStratLoading(true);
@@ -60,6 +77,11 @@ export default function App() {
   };
 
   const toggleLang = () => { const n = lang === "en" ? "ar" : "en"; setLang(n); localStorage.setItem("stairs_lang", n); };
+
+  const startTutorial = () => { setTutorialCustomSteps(null); setTutorialActive(true); setTutorialNewSteps(false); };
+  const startNewStepsTutorial = () => { setTutorialCustomSteps(getNewSteps()); setTutorialActive(true); setTutorialNewSteps(false); };
+  const dismissNewSteps = () => { const s = getTutorialState() || getDefaultTutorialState(); s.completedVersion = (getTutorialState()?.completedVersion || 0); saveTutorialState(s); setTutorialNewSteps(false); };
+  const trackFeature = (key) => { if (key) markFeatureUsed(key); };
 
   const selectStrategy = async (strat) => {
     setActiveStrat(strat); setView("dashboard");
@@ -166,13 +188,13 @@ export default function App() {
   if (!activeStrat) return <StrategyLanding strategies={strategies} onSelect={selectStrategy} onCreate={createStrategy} onDelete={deleteStrategy} userName={user.name||user.email} onLogout={logout} onLangToggle={toggleLang} lang={lang} loading={stratLoading} />;
 
   const navItems = [
-    { key: "dashboard", icon: "📊", label: isAr ? "لوحة القيادة" : "Dashboard" },
-    { key: "staircase", icon: "🪜", label: isAr ? "السلم" : "Staircase" },
-    { key: "ai", icon: "🤖", label: isAr ? "المستشار" : "AI Advisor" },
-    { key: "alerts", icon: "🔔", label: isAr ? "تنبيهات" : "Alerts" },
-    { key: "actionplans", icon: "📋", label: isAr ? "خطط العمل" : "Action Plans" },
-    { key: "knowledge", icon: "📖", label: isAr ? "المعرفة" : "Knowledge" },
-    { key: "notes", icon: "📝", label: isAr ? "ملاحظات" : "Notes" },
+    { key: "dashboard", icon: "📊", label: isAr ? "لوحة القيادة" : "Dashboard", tutorial: "nav-dashboard" },
+    { key: "staircase", icon: "🪜", label: isAr ? "السلم" : "Staircase", tutorial: "nav-staircase" },
+    { key: "ai", icon: "🤖", label: isAr ? "المستشار" : "AI Advisor", tutorial: "nav-ai" },
+    { key: "alerts", icon: "🔔", label: isAr ? "تنبيهات" : "Alerts", tutorial: "nav-alerts" },
+    { key: "actionplans", icon: "📋", label: isAr ? "خطط العمل" : "Action Plans", tutorial: "nav-actionplans" },
+    { key: "knowledge", icon: "📖", label: isAr ? "المعرفة" : "Knowledge", tutorial: "nav-knowledge" },
+    { key: "notes", icon: "📝", label: isAr ? "ملاحظات" : "Notes", tutorial: "nav-notes" },
   ];
 
   return (
@@ -188,6 +210,10 @@ export default function App() {
           <span className="text-sm text-white font-medium">{activeStrat.icon} {isAr && activeStrat.name_ar ? activeStrat.name_ar : activeStrat.name}</span>
         </div>
         <div className="flex items-center gap-3">
+          <button onClick={startTutorial} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition uppercase tracking-wider" title="How to Climb These Stairs Guide" data-tutorial="guide-btn">
+            <span className="text-sm">🪜</span> <span className="hidden sm:inline">{isAr ? "دليل الاستخدام" : "Guide"}</span>
+          </button>
+          <button onClick={() => setShowFeaturesBadge(v => !v)} className="text-[10px] text-gray-600 hover:text-amber-400 transition" title="Features Explored">📊</button>
           <button onClick={toggleLang} className="text-xs text-gray-500 hover:text-amber-400 transition">{isAr ? "EN" : "عربي"}</button>
           <button onClick={logout} className="text-xs text-gray-600 hover:text-gray-300 transition">{user.name || user.email} ↗</button>
         </div>
@@ -195,7 +221,7 @@ export default function App() {
 
       <nav className="flex items-center gap-1 px-6 py-2 overflow-x-auto" style={{ borderBottom: `1px solid ${BORDER}` }}>
         {navItems.map(n => (
-          <button key={n.key} onClick={() => setView(n.key)}
+          <button key={n.key} onClick={() => { setView(n.key); trackFeature(n.key); }} data-tutorial={n.tutorial}
             className={`px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition ${view === n.key ? "bg-amber-500/15 text-amber-300 border border-amber-500/20" : "text-gray-500 hover:text-gray-300 border border-transparent"}`}>
             {n.icon} {n.label}
           </button>
@@ -217,6 +243,10 @@ export default function App() {
       {execRoomStair && <ExecutionRoom stair={execRoomStair} strategyContext={activeStrat} lang={lang} onBack={() => setExecRoomStair(null)} onSaveNote={saveToNotes} />}
 
       <footer className="text-center py-6 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • ST.AIRS v3.6.0 • "Human IS the Loop" • {new Date().getFullYear()}</footer>
+
+      <TutorialOverlay active={tutorialActive} onClose={() => setTutorialActive(false)} steps={tutorialCustomSteps} />
+      {tutorialNewSteps && <TutorialUpdatePrompt onStart={startNewStepsTutorial} onDismiss={dismissNewSteps} />}
+      <FeaturesExploredBadge show={showFeaturesBadge} onClose={() => setShowFeaturesBadge(false)} />
     </div>
   );
 }

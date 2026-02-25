@@ -157,7 +157,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
   const stepTitles = ["New Strategy", "Strategy Questionnaire", "AI Strategy Builder", "Review & Create"];
 
   return (
-    <Modal open={open} onClose={onClose} title={stepTitles[step] || "New Strategy"} wide={step > 0}>
+    <Modal open={open} onClose={onClose} title={stepTitles[step] || "New Strategy"} wide={step > 0} data-tutorial="strategy-wizard">
       {/* ═══ STEP 0: Company Brief + Strategy Type ═══ */}
       {step === 0 && (
         <div className="space-y-4">
