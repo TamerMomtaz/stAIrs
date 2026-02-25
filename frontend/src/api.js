@@ -36,6 +36,25 @@ class StairsAPI {
 export const api = new StairsAPI();
 
 
+// ═══ ACTION PLANS API ═══
+export const ActionPlansAPI = {
+  async save(stairId, planType, rawText, tasks, feedback) {
+    return api.post(`/api/v1/stairs/${stairId}/action-plans`, {
+      plan_type: planType,
+      raw_text: rawText,
+      tasks: tasks || [],
+      feedback: feedback || null,
+    });
+  },
+  async getForStair(stairId) {
+    return api.get(`/api/v1/stairs/${stairId}/action-plans`);
+  },
+  async getForStrategy(strategyId) {
+    return api.get(`/api/v1/strategies/${strategyId}/action-plans`);
+  },
+};
+
+
 // ═══ CONVERSATION STORE ═══
 export class ConvStore {
   constructor(uid) { this.p = `stairs_c_${uid}`; }
