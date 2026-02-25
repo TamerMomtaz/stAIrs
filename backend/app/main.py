@@ -27,13 +27,16 @@ v3.5.1 Changes:
 """
 
 import os
+import re as re_module
 import time
+import logging
+import traceback as tb_module
 from datetime import datetime, timezone
 from collections import defaultdict
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import Response, JSONResponse
 from contextlib import asynccontextmanager
 
 from app.db.connection import get_pool, init_db, close_pool
@@ -50,6 +53,14 @@ from app.routers.ai import router as ai_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.notes import router as notes_router
 from app.routers.websocket import router as ws_router
+
+
+# ─── LOGGING ───
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger("stairs")
 
 
 # ─── KNOWLEDGE ENGINE CACHE ───
@@ -345,14 +356,71 @@ app = FastAPI(
 )
 
 # ─── CORS ───
+ALLOWED_ORIGINS_ENV = os.getenv("ALLOWED_ORIGINS", "")
+_cors_origins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+]
+if ALLOWED_ORIGINS_ENV and ALLOWED_ORIGINS_ENV != "*":
+    _cors_origins.extend(o.strip() for o in ALLOWED_ORIGINS_ENV.split(",") if o.strip())
+
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=_cors_origins,
     allow_origin_regex=r'https://.*\.vercel\.app',
     allow_credentials=True,
     allow_methods=['*'],
     allow_headers=['*'],
     expose_headers=['*'],
 )
+
+
+def _is_origin_allowed(origin: str) -> bool:
+    """Check if a request origin is allowed for CORS."""
+    if not origin:
+        return False
+    if re_module.match(r'https://.*\.vercel\.app$', origin):
+        return True
+    if origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1"):
+        return True
+    if ALLOWED_ORIGINS_ENV == "*":
+        return True
+    if ALLOWED_ORIGINS_ENV:
+        for o in ALLOWED_ORIGINS_ENV.split(","):
+            if origin == o.strip():
+                return True
+    return False
+
+
+# ─── GLOBAL EXCEPTION HANDLER ───
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Catch unhandled exceptions, log full traceback, return JSON with CORS headers."""
+    tb = tb_module.format_exc()
+    logger.error(
+        "Unhandled %s on %s %s:\n%s",
+        type(exc).__name__, request.method, request.url.path, tb,
+    )
+    # Also print to stdout for platforms that capture stdout (Railway, Docker)
+    print(f"500 ERROR on {request.method} {request.url.path}: {exc}\n{tb}")
+    # Add CORS headers directly as safety net (in case CORSMiddleware doesn't run)
+    origin = request.headers.get("origin", "")
+    headers = {}
+    if _is_origin_allowed(origin):
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal Server Error",
+            "error": str(exc),
+            "type": type(exc).__name__,
+        },
+        headers=headers,
+    )
 
 # ─── RATE LIMITER (in-memory, per-IP) ───
 _rate_limit_store: dict[str, list[float]] = defaultdict(list)
