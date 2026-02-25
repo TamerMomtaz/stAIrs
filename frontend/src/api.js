@@ -5,7 +5,9 @@ class StairsAPI {
   constructor() {
     this.token = localStorage.getItem("stairs_token");
     this.user = JSON.parse(localStorage.getItem("stairs_user") || "null");
+    this._onAuthExpired = null;
   }
+  setOnAuthExpired(callback) { this._onAuthExpired = callback; }
   headers() {
     const h = { "Content-Type": "application/json" };
     if (this.token) h["Authorization"] = `Bearer ${this.token}`;
@@ -20,10 +22,15 @@ class StairsAPI {
     return d;
   }
   logout() { this.token = null; this.user = null; localStorage.removeItem("stairs_token"); localStorage.removeItem("stairs_user"); }
-  async get(p) { const r = await fetch(`${API}${p}`, { headers: this.headers() }); if (r.status === 401) { this.logout(); throw new Error("Session expired"); } if (!r.ok) throw new Error(`GET ${p} → ${r.status}`); return r.json(); }
-  async post(p, b) { const r = await fetch(`${API}${p}`, { method: "POST", headers: this.headers(), body: JSON.stringify(b) }); if (r.status === 401) { this.logout(); throw new Error("Session expired"); } if (!r.ok) throw new Error(`POST ${p} → ${r.status}`); return r.json(); }
-  async put(p, b) { const r = await fetch(`${API}${p}`, { method: "PUT", headers: this.headers(), body: JSON.stringify(b) }); if (r.status === 401) { this.logout(); throw new Error("Session expired"); } if (!r.ok) throw new Error(`PUT ${p} → ${r.status}`); return r.json(); }
-  async del(p) { const r = await fetch(`${API}${p}`, { method: "DELETE", headers: this.headers() }); if (r.status === 401) { this.logout(); throw new Error("Session expired"); } if (!r.ok) throw new Error(`DELETE ${p} → ${r.status}`); return r.status === 204 ? null : r.json(); }
+  _handleUnauthorized() {
+    this.logout();
+    if (this._onAuthExpired) this._onAuthExpired();
+    throw new Error("Session expired");
+  }
+  async get(p) { const r = await fetch(`${API}${p}`, { headers: this.headers() }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw new Error(`GET ${p} → ${r.status}`); return r.json(); }
+  async post(p, b) { const r = await fetch(`${API}${p}`, { method: "POST", headers: this.headers(), body: JSON.stringify(b) }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw new Error(`POST ${p} → ${r.status}`); return r.json(); }
+  async put(p, b) { const r = await fetch(`${API}${p}`, { method: "PUT", headers: this.headers(), body: JSON.stringify(b) }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw new Error(`PUT ${p} → ${r.status}`); return r.json(); }
+  async del(p) { const r = await fetch(`${API}${p}`, { method: "DELETE", headers: this.headers() }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw new Error(`DELETE ${p} → ${r.status}`); return r.status === 204 ? null : r.json(); }
 }
 
 export const api = new StairsAPI();
@@ -56,6 +63,7 @@ export class StrategyAPI {
       if (cleanLocal.length !== this._getLocal().length) this._saveLocal(cleanLocal);
       return [...serverStrategies.map(s => ({ ...s, id: String(s.id), source: "server" })), ...cleanLocal];
     } catch (e) {
+      if (e.message === "Session expired") throw e;
       console.warn("Strategy API fallback:", e.message);
       return this._getLocal();
     }
@@ -70,6 +78,7 @@ export class StrategyAPI {
       });
       return { ...serverResult, id: String(serverResult.id), source: "server" };
     } catch (e) {
+      if (e.message === "Session expired") throw e;
       console.warn("Strategy create fallback:", e.message);
       const local = { ...stratData, id: `s_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, source: "local", created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
       const list = this._getLocal(); list.push(local); this._saveLocal(list); return local;
