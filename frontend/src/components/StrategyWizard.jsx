@@ -53,6 +53,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
   const [questionnaireAnswers, setQuestionnaireAnswers] = useState({});
   const [questionnaireLoading, setQuestionnaireLoading] = useState(false);
   const [questionnaireError, setQuestionnaireError] = useState(null);
+  const [retryMsg, setRetryMsg] = useState(null);
   const endRef = useRef(null);
   const iconOpts = ["🎯","🌱","🚀","🗝️","💡","🏭","📊","🌍","⚡","🔬","🛡️","🌐"];
   const colorOpts = [GOLD, TEAL, "#60a5fa", "#a78bfa", "#f87171", "#34d399", "#fbbf24", "#ec4899"];
@@ -67,14 +68,16 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
     setQuestionnaireLoading(true);
     setQuestionnaireError(null);
     try {
-      const res = await api.post("/api/v1/ai/questionnaire", {
+      const res = await api.aiPost("/api/v1/ai/questionnaire", {
         company_name: info.company || info.name,
         company_brief: info.description || null,
         industry: info.industry || null,
         strategy_type: info.strategyType,
-      });
+      }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+      setRetryMsg(null);
       setQuestionnaireData(res);
     } catch (e) {
+      setRetryMsg(null);
       setQuestionnaireError(e.message);
     }
     setQuestionnaireLoading(false);
@@ -101,11 +104,12 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
     try {
       const qContext = formatQuestionnaireContext(questionnaireData, questionnaireAnswers);
       const contextMessage = `[CONTEXT: Creating ${typeLabel} strategy "${info.name}" for "${info.company || info.name}" in ${info.industry || "unspecified"} industry. ${info.description || ""}${qContext}\nGenerate structured strategy elements. Cite sources when referencing frameworks or research.]\n\nUser: ${msg}`;
-      const res = await api.post("/api/v1/ai/chat", { message: contextMessage });
+      const res = await api.aiPost("/api/v1/ai/chat", { message: contextMessage }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+      setRetryMsg(null);
       setAiMessages(prev => [...prev, { role: "ai", text: res.response, tokens: res.tokens_used }]);
       const extracted = extractElements(res.response);
       if (extracted.length > 0) setGeneratedElements(prev => [...prev, ...extracted]);
-    } catch (e) { setAiMessages(prev => [...prev, { role: "ai", text: `Warning: ${e.message}`, error: true }]); }
+    } catch (e) { setRetryMsg(null); setAiMessages(prev => [...prev, { role: "ai", text: `Warning: ${e.message}`, error: true }]); }
     setAiLoading(false);
   };
 
@@ -199,7 +203,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
           {questionnaireLoading ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-4 py-12">
               <div className="w-10 h-10 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
-              <div className="text-gray-400 text-sm">Generating tailored questions for your <span className="text-amber-300">{typeLabel}</span> strategy...</div>
+              <div className="text-gray-400 text-sm">{retryMsg || <>Generating tailored questions for your <span className="text-amber-300">{typeLabel}</span> strategy...</>}</div>
             </div>
           ) : questionnaireError ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-4 py-12">
@@ -248,7 +252,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
         <div className="flex flex-col" style={{ height: "60vh" }}>
           <div className="flex-1 overflow-y-auto space-y-3 pb-4 min-h-0">
             {aiMessages.map((m, i) => (<div key={i} className={`flex ${m.role==="user"?"justify-end":"justify-start"}`}><div className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed ${m.role==="user"?"bg-amber-500/20 text-amber-100 rounded-br-md":m.error?"bg-red-500/10 text-red-300 rounded-bl-md border border-red-500/20":"bg-[#162544] text-gray-200 rounded-bl-md border border-[#1e3a5f]"}`}>{m.role==="ai"?<Markdown text={m.text}/>:<div className="whitespace-pre-wrap">{m.text}</div>}</div></div>))}
-            {aiLoading && <div className="flex gap-1 px-4 py-2">{[0,1,2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-amber-500/40 animate-bounce" style={{ animationDelay:`${i*0.15}s` }} />)}</div>}
+            {aiLoading && <div className="flex items-center gap-2 px-4 py-2">{[0,1,2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-amber-500/40 animate-bounce" style={{ animationDelay:`${i*0.15}s` }} />)}{retryMsg && <span className="text-amber-400/80 text-xs ml-1">{retryMsg}</span>}</div>}
             <div ref={endRef} />
           </div>
           {generatedElements.length > 0 && (<div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-lg" style={glass(0.3)}><span className="text-amber-400 text-xs">✓ {generatedElements.length} elements captured</span><div className="flex-1"/><button onClick={() => setStep(3)} className="text-xs px-3 py-1 rounded-md bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition">Review & Create →</button></div>)}

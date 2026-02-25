@@ -28,6 +28,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   const [planView, setPlanView] = useState("recommended"); // "recommended" | "customized" | "comparison"
   const [hasSavedPlan, setHasSavedPlan] = useState(false);
   const [savedPlanId, setSavedPlanId] = useState(null);
+  const [retryMsg, setRetryMsg] = useState(null);
   const [savedCustomPlanId, setSavedCustomPlanId] = useState(null);
   const isAr = lang === "ar";
   const color = typeColors[stair.element_type] || "#94a3b8";
@@ -93,7 +94,8 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
     setPlanLoading(true);
     try {
       const prompt = `[${stratCtx}]\n\n${sourceRef}\n\nGenerate a detailed, actionable execution plan for: ${stairCtx}\n\nFormat your response EXACTLY as follows:\n\n## Action Plan\n\nFor each task, use this format:\n- **Task:** [task name]\n- **Owner:** [suggested role/team]\n- **Timeline:** [estimated duration]\n- **Priority:** [High/Medium/Low]\n- **Details:** [brief description of what needs to be done]\n\n---\n\n(Repeat for each task. Generate 5-8 concrete tasks. Make them specific, measurable, and directly related to executing this strategic element.)`;
-      const res = await api.post("/api/v1/ai/chat", { message: prompt });
+      const res = await api.aiPost("/api/v1/ai/chat", { message: prompt }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+      setRetryMsg(null);
       setActionPlan(res.response);
       const parsed = parseTasks(res.response);
       setTasks(parsed);
@@ -103,7 +105,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
         setSavedPlanId(saved.id);
         setHasSavedPlan(true);
       } catch (saveErr) { console.warn("Auto-save action plan failed:", saveErr.message); }
-    } catch (e) { setActionPlan(`Error generating plan: ${e.message}`); }
+    } catch (e) { setRetryMsg(null); setActionPlan(`Error generating plan: ${e.message}`); }
     setPlanLoading(false);
   };
 
@@ -111,9 +113,10 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
     setSolLoading(true);
     try {
       const prompt = `[${stratCtx}]\n\n${sourceRef}\n\nProvide practical, specific solutions and recommendations for executing: ${stairCtx}\n\nInclude:\n## Solutions & Recommendations\n\n1. **Quick Wins** — Actions that can be taken immediately with minimal resources\n2. **Strategic Moves** — Medium-term initiatives that drive significant progress\n3. **Risk Mitigation** — Specific ways to address potential obstacles\n4. **Resource Optimization** — How to maximize impact with available resources\n5. **Success Metrics** — How to measure successful execution\n\nBe specific and practical. Provide concrete examples where possible.`;
-      const res = await api.post("/api/v1/ai/chat", { message: prompt });
+      const res = await api.aiPost("/api/v1/ai/chat", { message: prompt }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+      setRetryMsg(null);
       setSolutions(res.response);
-    } catch (e) { setSolutions(`Error generating solutions: ${e.message}`); }
+    } catch (e) { setRetryMsg(null); setSolutions(`Error generating solutions: ${e.message}`); }
     setSolLoading(false);
   };
 
@@ -162,10 +165,12 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
     setChatLoading(true);
     try {
       const contextMsg = `[${stratCtx} Currently in Execution Room for: ${stairCtx}]\n\nThe user has an action plan and solutions generated. They are asking follow-up questions about execution.\n\n${sourceRef}\n\n${msg}`;
-      const res = await api.post("/api/v1/ai/chat", { message: contextMsg });
+      const res = await api.aiPost("/api/v1/ai/chat", { message: contextMsg }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+      setRetryMsg(null);
       const aiMsg = { role: "ai", text: res.response, tokens: res.tokens_used, ts: new Date().toISOString() };
       setMessages(prev => [...prev, aiMsg]);
     } catch (e) {
+      setRetryMsg(null);
       setMessages(prev => [...prev, { role: "ai", text: `Error: ${e.message}`, error: true, ts: new Date().toISOString() }]);
     }
     setChatLoading(false);
@@ -204,10 +209,12 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
     try {
       const history = (actionChats[taskId] || []).map(m => `${m.role === "user" ? "User" : "AI"}: ${m.text}`).join("\n\n");
       const contextMsg = `[${stratCtx} Execution Room for: ${stairCtx}]\n\nThe user is assessing their ability to execute this specific action item:\n- Task: ${task.name}\n- Owner: ${task.owner}\n- Timeline: ${task.timeline}\n- Priority: ${task.priority}\n- Details: ${task.details}\n\nYour role: Help the user honestly assess how far they can go with this action. Ask clarifying questions about their constraints (budget, time, skills, tools, authority). If they can only do it partially, help them identify what portion is achievable and what needs external help or resources. Be practical and specific.\n\nConversation so far:\n${history}\n\nUser: ${msg}`;
-      const res = await api.post("/api/v1/ai/chat", { message: contextMsg });
+      const res = await api.aiPost("/api/v1/ai/chat", { message: contextMsg }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+      setRetryMsg(null);
       const aiMsg = { role: "ai", text: res.response, tokens: res.tokens_used, ts: new Date().toISOString() };
       setActionChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), aiMsg] }));
     } catch (e) {
+      setRetryMsg(null);
       setActionChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), { role: "ai", text: `Error: ${e.message}`, error: true, ts: new Date().toISOString() }] }));
     }
     setActionChatLoading(false);
@@ -250,7 +257,8 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
         `- ${t.name} [${t.priority}] — ${t.details} (Owner: ${t.owner}, Timeline: ${t.timeline})${t.done ? " [COMPLETED]" : ""}`
       ).join("\n");
       const prompt = `[${stratCtx}]\n\n${sourceRef}\n\nYou previously generated an action plan for: ${stairCtx}\n\nOriginal tasks:\n${originalTasksSummary}\n\nThe user has provided feedback on their ability to execute these tasks. Here is all their feedback:\n\n${feedbackSummary}\n\nBased on this feedback, generate a NEW customized action plan that:\n1. Adapts tasks to the user's actual capabilities and constraints\n2. Breaks down tasks the user can only partially do into achievable sub-steps\n3. Suggests alternatives for tasks the user cannot currently do\n4. Prioritizes tasks the user CAN do to build momentum\n5. Adds specific workarounds for the constraints they mentioned\n\nFormat your response EXACTLY as follows:\n\n## Your Customized Action Plan\n\nFor each task, use this format:\n- **Task:** [task name]\n- **Owner:** [suggested role/team]\n- **Timeline:** [estimated duration]\n- **Priority:** [High/Medium/Low]\n- **Details:** [brief description tailored to the user's constraints and abilities]\n\n---\n\n(Repeat for each task. Generate 5-8 concrete tasks. Make them realistic based on what the user told you they can and cannot do.)`;
-      const res = await api.post("/api/v1/ai/chat", { message: prompt });
+      const res = await api.aiPost("/api/v1/ai/chat", { message: prompt }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+      setRetryMsg(null);
       setCustomPlan(res.response);
       const parsedCustom = parseTasks(res.response);
       setCustomTasks(parsedCustom);
@@ -261,7 +269,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
         setSavedCustomPlanId(saved.id);
         setHasSavedPlan(true);
       } catch (saveErr) { console.warn("Auto-save customized plan failed:", saveErr.message); }
-    } catch (e) { setCustomPlan(`Error generating customized plan: ${e.message}`); }
+    } catch (e) { setRetryMsg(null); setCustomPlan(`Error generating customized plan: ${e.message}`); }
     setCustomPlanLoading(false);
   };
 
@@ -383,7 +391,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   const LoadingDots = ({ label }) => (
     <div className="flex items-center gap-2 py-6 justify-center">
       <div className="flex gap-1">{[0, 1, 2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-amber-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
-      <span className="text-gray-500 text-xs">{label}</span>
+      <span className="text-gray-500 text-xs">{retryMsg || label}</span>
     </div>
   );
 
@@ -872,7 +880,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
                 </div>
               ))}
               {chatLoading && (
-                <div className="flex gap-1 px-4 py-2">{[0, 1, 2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-amber-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
+                <div className="flex items-center gap-2 px-4 py-2">{[0, 1, 2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-amber-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}{retryMsg && <span className="text-amber-400/80 text-xs ml-1">{retryMsg}</span>}</div>
               )}
               <div ref={chatEndRef} />
             </div>
