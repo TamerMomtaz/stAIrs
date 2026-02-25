@@ -143,6 +143,7 @@ export const ActionPlansView = ({ strategyContext, lang }) => {
   const [loading, setLoading] = useState(true);
   const [expandedStair, setExpandedStair] = useState(null);
   const [expandedPlan, setExpandedPlan] = useState(null);
+  const [taskOverrides, setTaskOverrides] = useState({});
   const isAr = lang === "ar";
 
   useEffect(() => {
@@ -154,11 +155,24 @@ export const ActionPlansView = ({ strategyContext, lang }) => {
     try {
       const data = await ActionPlansAPI.getForStrategy(strategyContext.id);
       setPlanGroups(data || []);
+      setTaskOverrides({});
     } catch (e) {
       console.error("Load action plans:", e);
       setPlanGroups([]);
     }
     setLoading(false);
+  };
+
+  const getTasksForPlan = (plan) => {
+    if (taskOverrides[plan.id]) return taskOverrides[plan.id];
+    return plan.tasks || [];
+  };
+
+  const toggleTask = (plan, taskIndex) => {
+    const current = getTasksForPlan(plan);
+    const updated = current.map((t, i) => i === taskIndex ? { ...t, done: !t.done } : t);
+    setTaskOverrides(prev => ({ ...prev, [plan.id]: updated }));
+    ActionPlansAPI.updateTasks(plan.id, updated).catch(e => console.warn("Save task toggle:", e.message));
   };
 
   const formatDate = (dateStr) => {
@@ -289,7 +303,7 @@ export const ActionPlansView = ({ strategyContext, lang }) => {
                     <div className="space-y-3">
                       {group.plans.map((plan) => {
                         const isPlanExpanded = expandedPlan === plan.id;
-                        const planTasks = plan.tasks || [];
+                        const planTasks = getTasksForPlan(plan);
                         const doneCount = planTasks.filter(t => t.done).length;
                         const progress = planTasks.length ? Math.round((doneCount / planTasks.length) * 100) : 0;
                         const isCustom = plan.plan_type === "customized";
@@ -332,9 +346,9 @@ export const ActionPlansView = ({ strategyContext, lang }) => {
                                   <div className="space-y-2">
                                     {planTasks.map((t, ti) => (
                                       <div key={ti} className={`flex items-start gap-2.5 py-2 ${t.done ? "opacity-50" : ""}`}>
-                                        <span className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 text-[10px] ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-gray-600"}`}>
+                                        <button onClick={(e) => { e.stopPropagation(); toggleTask(plan, ti); }} className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 text-[10px] transition cursor-pointer ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-gray-600 hover:border-amber-500/50"}`}>
                                           {t.done && "✓"}
-                                        </span>
+                                        </button>
                                         <div className="flex-1 min-w-0">
                                           <div className="flex items-center gap-2 flex-wrap">
                                             <span className={`text-xs font-medium ${t.done ? "line-through text-gray-500" : "text-white"}`}>{t.name}</span>

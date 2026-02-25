@@ -690,6 +690,10 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
                         </div>
                       ))}
                     </div>
+                  ) : actionPlan ? (
+                    <div className="rounded-xl p-4" style={glass(0.4)}>
+                      <Markdown text={actionPlan} />
+                    </div>
                   ) : (
                     <p className="text-xs text-gray-600">{isAr ? "لا توجد مهام" : "No tasks"}</p>
                   )}
@@ -737,6 +741,10 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
                           </div>
                         </div>
                       ))}
+                    </div>
+                  ) : customPlan ? (
+                    <div className="rounded-xl p-4" style={glass(0.4)}>
+                      <Markdown text={customPlan} />
                     </div>
                   ) : (
                     <p className="text-xs text-gray-600">{isAr ? "لا توجد مهام" : "No tasks"}</p>
