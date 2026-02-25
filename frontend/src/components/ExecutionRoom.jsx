@@ -21,6 +21,9 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   const [actionChatInput, setActionChatInput] = useState("");
   const [actionChatLoading, setActionChatLoading] = useState(false);
   const actionChatEndRef = useRef(null);
+  const [customPlan, setCustomPlan] = useState(null);
+  const [customTasks, setCustomTasks] = useState([]);
+  const [customPlanLoading, setCustomPlanLoading] = useState(false);
   const isAr = lang === "ar";
   const color = typeColors[stair.element_type] || "#94a3b8";
 
@@ -143,6 +146,54 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
       setActionChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), { role: "ai", text: `Error: ${e.message}`, error: true, ts: new Date().toISOString() }] }));
     }
     setActionChatLoading(false);
+  };
+
+  const collectAllFeedback = () => {
+    const feedbackEntries = [];
+    for (const task of tasks) {
+      const chat = actionChats[task.id];
+      if (!chat || chat.length <= 1) continue;
+      const userMessages = chat.filter(m => m.role === "user").map(m => m.text);
+      const aiMessages = chat.filter(m => m.role === "ai" && chat.indexOf(m) > 0).map(m => m.text);
+      if (userMessages.length > 0) {
+        feedbackEntries.push({
+          taskName: task.name,
+          priority: task.priority,
+          userFeedback: userMessages,
+          aiAssessment: aiMessages,
+        });
+      }
+    }
+    return feedbackEntries;
+  };
+
+  const hasFeedback = () => {
+    return tasks.some(t => {
+      const chat = actionChats[t.id];
+      return chat && chat.length > 1 && chat.some(m => m.role === "user");
+    });
+  };
+
+  const generateCustomPlan = async () => {
+    setCustomPlanLoading(true);
+    try {
+      const feedback = collectAllFeedback();
+      const feedbackSummary = feedback.map(f =>
+        `Task: "${f.taskName}" (${f.priority} priority)\n  User said: ${f.userFeedback.join(" | ")}\n  AI assessed: ${f.aiAssessment.map(a => a.slice(0, 300)).join(" | ")}`
+      ).join("\n\n");
+      const originalTasksSummary = tasks.map(t =>
+        `- ${t.name} [${t.priority}] — ${t.details} (Owner: ${t.owner}, Timeline: ${t.timeline})${t.done ? " [COMPLETED]" : ""}`
+      ).join("\n");
+      const prompt = `[${stratCtx}]\n\n${sourceRef}\n\nYou previously generated an action plan for: ${stairCtx}\n\nOriginal tasks:\n${originalTasksSummary}\n\nThe user has provided feedback on their ability to execute these tasks. Here is all their feedback:\n\n${feedbackSummary}\n\nBased on this feedback, generate a NEW customized action plan that:\n1. Adapts tasks to the user's actual capabilities and constraints\n2. Breaks down tasks the user can only partially do into achievable sub-steps\n3. Suggests alternatives for tasks the user cannot currently do\n4. Prioritizes tasks the user CAN do to build momentum\n5. Adds specific workarounds for the constraints they mentioned\n\nFormat your response EXACTLY as follows:\n\n## Your Customized Action Plan\n\nFor each task, use this format:\n- **Task:** [task name]\n- **Owner:** [suggested role/team]\n- **Timeline:** [estimated duration]\n- **Priority:** [High/Medium/Low]\n- **Details:** [brief description tailored to the user's constraints and abilities]\n\n---\n\n(Repeat for each task. Generate 5-8 concrete tasks. Make them realistic based on what the user told you they can and cannot do.)`;
+      const res = await api.post("/api/v1/ai/chat", { message: prompt });
+      setCustomPlan(res.response);
+      setCustomTasks(parseTasks(res.response));
+    } catch (e) { setCustomPlan(`Error generating customized plan: ${e.message}`); }
+    setCustomPlanLoading(false);
+  };
+
+  const toggleCustomTask = (id) => {
+    setCustomTasks(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
   };
 
   const exportPlan = () => {
@@ -372,6 +423,121 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
                 <button onClick={() => onSaveNote(`📋 Action Plan: ${stair.title}`, actionPlan, "execution_plan")} className="text-xs text-gray-600 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10">
                   📌 {isAr ? "حفظ في الملاحظات" : "Save to Notes"}
                 </button>
+              </div>
+            )}
+
+            {/* Generate Customized Action Plan Button */}
+            {tasks.length > 0 && (
+              <div className="mt-6 flex justify-center">
+                <button
+                  onClick={generateCustomPlan}
+                  disabled={customPlanLoading || !hasFeedback()}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  style={{
+                    background: hasFeedback()
+                      ? `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`
+                      : `${GOLD}30`,
+                    color: hasFeedback() ? DEEP : "#94a3b8",
+                    border: `1px solid ${hasFeedback() ? GOLD : GOLD + "40"}`,
+                    boxShadow: hasFeedback() ? `0 4px 20px ${GOLD}30` : "none",
+                  }}
+                  title={!hasFeedback() ? (isAr ? "أضف ملاحظاتك على المهام أولاً باستخدام زر \"إلى أي مدى أستطيع؟\"" : "Add your feedback on tasks first using the \"How far can I do this?\" button") : ""}
+                >
+                  {customPlanLoading ? (
+                    <>
+                      <span className="flex gap-1">{[0, 1, 2].map(i => <span key={i} className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</span>
+                      {isAr ? "جاري إنشاء خطتك المخصصة..." : "Generating your customized plan..."}
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-base">✨</span>
+                      {isAr ? "إنشاء خطة عمل مخصصة لي" : "Generate My Customized Action Plan"}
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+            {tasks.length > 0 && !hasFeedback() && (
+              <p className="text-center text-[11px] text-gray-600 mt-2">
+                {isAr
+                  ? "💡 استخدم زر \"إلى أي مدى أستطيع؟\" على المهام أعلاه لإضافة ملاحظاتك أولاً"
+                  : "💡 Use the \"How far can I do this?\" button on tasks above to add your feedback first"}
+              </p>
+            )}
+
+            {/* Customized Action Plan Section */}
+            {(customPlanLoading || customPlan) && (
+              <div className="mt-8 pt-6" style={{ borderTop: `1px solid ${GOLD}30` }}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">✨</span>
+                    <h2 className="text-lg font-semibold text-amber-300">{isAr ? "خطة العمل المخصصة لك" : "Your Customized Action Plan"}</h2>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {customTasks.length > 0 && (
+                      <span className="text-xs text-gray-500">
+                        {customTasks.filter(t => t.done).length}/{customTasks.length} {isAr ? "مكتمل" : "completed"}
+                      </span>
+                    )}
+                    <button onClick={generateCustomPlan} disabled={customPlanLoading || !hasFeedback()} className="text-xs text-amber-400/70 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10 disabled:opacity-30">
+                      {customPlanLoading ? "..." : `↻ ${isAr ? "تجديد" : "Regenerate"}`}
+                    </button>
+                  </div>
+                </div>
+
+                <p className="text-xs text-gray-500 mb-4">
+                  {isAr
+                    ? "هذه الخطة مصممة خصيصاً بناءً على ملاحظاتك حول قدراتك وقيودك."
+                    : "This plan is tailored based on your feedback about your capabilities and constraints."}
+                </p>
+
+                {customPlanLoading && !customPlan ? (
+                  <LoadingDots label={isAr ? "جاري إنشاء خطتك المخصصة..." : "Generating your customized plan..."} />
+                ) : customTasks.length > 0 ? (
+                  <div className="space-y-2">
+                    {customTasks.map(t => (
+                      <div key={t.id} className={`rounded-xl transition-all ${t.done ? "opacity-60" : ""}`} style={{ ...glass(0.4), borderLeft: `3px solid ${GOLD}60` }}>
+                        <div className="flex items-start gap-3 p-4">
+                          <button onClick={() => toggleCustomTask(t.id)} className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-amber-500/40 hover:border-amber-500/70"}`}>
+                            {t.done && <span className="text-xs">✓</span>}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`text-sm font-medium ${t.done ? "line-through text-gray-500" : "text-white"}`}>{t.name}</span>
+                              <PriorityBadge priority={t.priority} />
+                            </div>
+                            {t.details && <div className="text-gray-400 text-xs mt-1">{t.details}</div>}
+                            <div className="flex items-center gap-4 mt-2">
+                              <span className="text-[10px] text-gray-600"><span className="text-gray-500">👤</span> {t.owner}</span>
+                              <span className="text-[10px] text-gray-600"><span className="text-gray-500">⏱</span> {t.timeline}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : customPlan ? (
+                  <div className="rounded-xl p-4" style={{ ...glass(0.4), borderLeft: `3px solid ${GOLD}60` }}>
+                    <Markdown text={customPlan} />
+                  </div>
+                ) : null}
+
+                {customTasks.length > 0 && (
+                  <div className="mt-4 flex items-center gap-3">
+                    <div className="flex-1 h-2 rounded-full bg-[#1e3a5f] overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${customTasks.length ? (customTasks.filter(t => t.done).length / customTasks.length) * 100 : 0}%`, background: `linear-gradient(90deg, ${GOLD}, ${GOLD_L})` }} />
+                    </div>
+                    <span className="text-xs text-gray-500">{Math.round(customTasks.length ? (customTasks.filter(t => t.done).length / customTasks.length) * 100 : 0)}%</span>
+                  </div>
+                )}
+
+                {customPlan && onSaveNote && (
+                  <div className="mt-4">
+                    <button onClick={() => onSaveNote(`✨ Customized Plan: ${stair.title}`, customPlan, "custom_plan")} className="text-xs text-gray-600 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10">
+                      📌 {isAr ? "حفظ في الملاحظات" : "Save to Notes"}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
