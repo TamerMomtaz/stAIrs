@@ -361,7 +361,25 @@ CREATE TABLE activity_log (
 CREATE INDEX idx_activity_entity ON activity_log(entity_type, entity_id);
 CREATE INDEX idx_activity_org ON activity_log(organization_id, created_at DESC);
 
--- ─── 14. INTEGRATIONS ───
+-- ─── 14. AI USAGE LOGS (Multi-provider fallback monitoring) ───
+CREATE TABLE ai_usage_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider VARCHAR(20) NOT NULL,         -- claude, openai, gemini
+    success BOOLEAN NOT NULL,
+    response_time_ms INTEGER,
+    tokens_used INTEGER DEFAULT 0,
+    status_code INTEGER,
+    fallback_used BOOLEAN DEFAULT FALSE,
+    fallback_from VARCHAR(20),             -- which provider we fell back from
+    error_message TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_ai_usage_logs_created ON ai_usage_logs(created_at DESC);
+CREATE INDEX idx_ai_usage_logs_provider ON ai_usage_logs(provider, created_at DESC);
+CREATE INDEX idx_ai_usage_logs_fallback ON ai_usage_logs(fallback_used) WHERE fallback_used = TRUE;
+
+-- ─── 15. INTEGRATIONS ───
 CREATE TABLE integrations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
@@ -375,7 +393,7 @@ CREATE TABLE integrations (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ─── 15. AUTO-UPDATE updated_at TRIGGER ───
+-- ─── 16. AUTO-UPDATE updated_at TRIGGER ───
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN

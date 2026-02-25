@@ -53,6 +53,7 @@ from app.routers.ai import router as ai_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.notes import router as notes_router
 from app.routers.websocket import router as ws_router
+from app.routers.admin import router as admin_router
 
 
 # ─── LOGGING ───
@@ -313,6 +314,36 @@ async def ensure_action_plans_table():
             print("  ✅ action_plans table created")
 
 
+# ─── AUTO-MIGRATION: AI USAGE LOGS TABLE ───
+
+async def ensure_ai_usage_logs_table():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        exists = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'ai_usage_logs')"
+        )
+        if not exists:
+            print("  → Creating ai_usage_logs table...")
+            await conn.execute("""
+                CREATE TABLE ai_usage_logs (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    provider VARCHAR(20) NOT NULL,
+                    success BOOLEAN NOT NULL,
+                    response_time_ms INTEGER,
+                    tokens_used INTEGER DEFAULT 0,
+                    status_code INTEGER,
+                    fallback_used BOOLEAN DEFAULT FALSE,
+                    fallback_from VARCHAR(20),
+                    error_message TEXT,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
+            await conn.execute("CREATE INDEX idx_ai_usage_logs_created ON ai_usage_logs(created_at DESC)")
+            await conn.execute("CREATE INDEX idx_ai_usage_logs_provider ON ai_usage_logs(provider, created_at DESC)")
+            await conn.execute("CREATE INDEX idx_ai_usage_logs_fallback ON ai_usage_logs(fallback_used) WHERE fallback_used = TRUE")
+            print("  ✅ ai_usage_logs table created")
+
+
 # ─── LIFESPAN ───
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -342,6 +373,10 @@ async def lifespan(app: FastAPI):
         await ensure_action_plans_table()
     except Exception as e:
         print(f"  ⚠️ Action plans migration: {e}")
+    try:
+        await ensure_ai_usage_logs_table()
+    except Exception as e:
+        print(f"  ⚠️ AI usage logs migration: {e}")
     yield
     await close_pool()
     print("🪜 ST.AIRS Shutting down...")
@@ -464,6 +499,7 @@ app.include_router(ai_router)
 app.include_router(dashboard_router)
 app.include_router(notes_router)
 app.include_router(ws_router)
+app.include_router(admin_router)
 
 
 # ─── CORS TEST ───
@@ -486,7 +522,7 @@ async def root():
                 "measurement_tools": len(_knowledge_cache.get("measurement_tools", [])),
                 "loaded_at": str(_knowledge_cache.get("loaded_at", "not loaded")),
             },
-            "features": ["jwt_auth", "websocket", "multi_tenant", "knowledge_engine", "ai_strategy", "strategy_containers", "rate_limiting"]}
+            "features": ["jwt_auth", "websocket", "multi_tenant", "knowledge_engine", "ai_strategy", "strategy_containers", "rate_limiting", "ai_fallback"]}
 
 
 @app.get("/health")
