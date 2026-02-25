@@ -375,7 +375,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
         </div>
       </div>
       ${bodyContent}
-      <div class="footer">ST.AIRS v3.6.0 &middot; Execution Room Export &middot; By DEVONEERS &middot; "Human IS the Loop"</div></body></html>`);
+      <div class="footer">ST.AIRS v3.7.0 &middot; Execution Room Export &middot; By DEVONEERS &middot; "Human IS the Loop"</div></body></html>`);
     w.document.close();
     w.print();
   };

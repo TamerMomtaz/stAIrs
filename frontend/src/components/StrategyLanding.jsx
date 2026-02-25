@@ -10,7 +10,7 @@ export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, user
       <header className="flex items-center justify-between px-6 py-4">
         <div className="flex items-center gap-2">
           <span className="text-2xl font-bold" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "'Instrument Serif', Georgia, serif" }}>ST.AIRS</span>
-          <span className="text-[10px] text-gray-600 uppercase tracking-widest">v3.6.0</span>
+          <span className="text-[10px] text-gray-600 uppercase tracking-widest">v3.7.0</span>
         </div>
         <div className="flex items-center gap-3">
           <button onClick={onLangToggle} className="text-xs text-gray-500 hover:text-amber-400 transition">{isAr ? "EN" : "عربي"}</button>
@@ -56,7 +56,7 @@ export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, user
         )}
       </div>
       <StrategyWizard open={showWizard} onClose={() => setShowWizard(false)} onCreate={onCreate} lang={lang} />
-      <footer className="text-center py-8 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • ST.AIRS v3.6.0 • {new Date().getFullYear()}</footer>
+      <footer className="text-center py-8 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • ST.AIRS v3.7.0 • {new Date().getFullYear()}</footer>
     </div>
   );
 };
