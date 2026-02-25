@@ -172,6 +172,28 @@ export const ActionPlansView = ({ strategyContext, lang }) => {
     return Math.round((completedCount / taskCount) * 100);
   };
 
+  const toggleTask = async (groupIndex, planId, taskIndex) => {
+    setPlanGroups(prev => {
+      const updated = structuredClone(prev);
+      for (const group of updated) {
+        const plan = group.plans.find(p => p.id === planId);
+        if (plan && plan.tasks[taskIndex] !== undefined) {
+          plan.tasks[taskIndex].done = !plan.tasks[taskIndex].done;
+          break;
+        }
+      }
+      return updated;
+    });
+    try {
+      const group = planGroups[groupIndex];
+      const plan = group?.plans.find(p => p.id === planId);
+      const task = plan?.tasks[taskIndex];
+      if (task) await ActionPlansAPI.updateTaskDone(planId, taskIndex, !task.done);
+    } catch (err) {
+      console.warn("Failed to persist task toggle:", err.message);
+    }
+  };
+
   const PriorityBadge = ({ priority }) => {
     const c = { High: "bg-red-500/20 text-red-300 border-red-500/30", Medium: "bg-amber-500/20 text-amber-300 border-amber-500/30", Low: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" };
     return <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${c[priority] || c.Medium}`}>{priority}</span>;
@@ -332,9 +354,12 @@ export const ActionPlansView = ({ strategyContext, lang }) => {
                                   <div className="space-y-2">
                                     {planTasks.map((t, ti) => (
                                       <div key={ti} className={`flex items-start gap-2.5 py-2 ${t.done ? "opacity-50" : ""}`}>
-                                        <span className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 text-[10px] ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-gray-600"}`}>
+                                        <button
+                                          onClick={() => toggleTask(gi, plan.id, ti)}
+                                          className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 text-[10px] cursor-pointer transition hover:border-amber-500/50 ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-gray-600"}`}
+                                        >
                                           {t.done && "✓"}
-                                        </span>
+                                        </button>
                                         <div className="flex-1 min-w-0">
                                           <div className="flex items-center gap-2 flex-wrap">
                                             <span className={`text-xs font-medium ${t.done ? "line-through text-gray-500" : "text-white"}`}>{t.name}</span>
