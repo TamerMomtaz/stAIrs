@@ -31,6 +31,7 @@ JSONB_FIELDS = frozenset({
     'metadata', 'ai_insights', 'settings', 'preferences',
     'hierarchy_template', 'recommended_actions', 'changes', 'actions_taken',
     'template_structure', 'scoring_guide', 'example_factors', 'framework_mappings',
+    'tasks', 'feedback',
 })
 
 
@@ -43,6 +44,12 @@ def row_to_dict(row):
     for k, v in d.items():
         if isinstance(v, Decimal):
             d[k] = float(v)
+        elif isinstance(v, uuid.UUID):
+            d[k] = str(v)
+        elif isinstance(v, datetime):
+            d[k] = v.isoformat()
+        elif isinstance(v, date):
+            d[k] = v.isoformat()
         elif isinstance(v, str) and k in JSONB_FIELDS:
             try:
                 d[k] = json.loads(v)
@@ -140,7 +147,15 @@ async def get_auth(authorization: Optional[str] = Header(None)) -> AuthContext:
         )
     token = authorization[7:]
     payload = decode_jwt(token)
-    return AuthContext(payload["sub"], payload["org"], payload.get("role", "member"))
+    user_id = payload.get("sub")
+    org_id = payload.get("org")
+    if not user_id or not org_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token: missing user or organization",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return AuthContext(user_id, org_id, payload.get("role", "member"))
 
 
 async def require_auth(authorization: Optional[str] = Header(None)) -> AuthContext:
@@ -149,4 +164,9 @@ async def require_auth(authorization: Optional[str] = Header(None)) -> AuthConte
                             headers={"WWW-Authenticate": "Bearer"})
     token = authorization[7:]
     payload = decode_jwt(token)
-    return AuthContext(payload["sub"], payload["org"], payload.get("role", "member"))
+    user_id = payload.get("sub")
+    org_id = payload.get("org")
+    if not user_id or not org_id:
+        raise HTTPException(status_code=401, detail="Invalid token: missing user or organization",
+                            headers={"WWW-Authenticate": "Bearer"})
+    return AuthContext(user_id, org_id, payload.get("role", "member"))
