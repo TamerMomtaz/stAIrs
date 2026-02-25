@@ -410,6 +410,36 @@ class ActionPlanSummary(BaseModel):
     plans: List[ActionPlanOut] = []
 
 
+# ─── NOTES ───
+class NoteCreate(BaseModel):
+    title: str = Field(..., max_length=500)
+    content: str = ""
+    source: str = "manual"
+    tags: Optional[List[str]] = []
+    pinned: bool = False
+
+class NoteUpdate(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    tags: Optional[List[str]] = None
+    pinned: Optional[bool] = None
+
+class NoteOut(BaseModel):
+    id: UUID
+    user_id: UUID
+    organization_id: UUID
+    title: str
+    content: str = ""
+    source: str = "manual"
+    tags: Optional[List[str]] = []
+    pinned: bool = False
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
 # Fix forward references
 StairTree.model_rebuild()
 TokenResponse.model_rebuild()
