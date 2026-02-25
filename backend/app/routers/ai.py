@@ -12,7 +12,10 @@ from app.helpers import (
     get_auth, AuthContext,
     ANTHROPIC_API_KEY, CLAUDE_MODEL,
 )
-from app.models.schemas import AIChatRequest, AIChatResponse, AIGenerateRequest
+from app.models.schemas import (
+    AIChatRequest, AIChatResponse, AIGenerateRequest,
+    QuestionnaireGenerateRequest, QuestionnaireGenerateResponse,
+)
 from app.routers.websocket import ws_manager
 
 router = APIRouter(prefix="/api/v1/ai", tags=["ai"])
@@ -140,3 +143,121 @@ Start with Vision, then Objectives, then Key Results. 3-5 KRs per Objective. Inc
             parent_ids.append(stair_id); created.append({"id": stair_id, "code": code, "title": el.get("title")})
     await ws_manager.broadcast_to_org(auth.org_id, {"event": "strategy_generated", "data": {"count": len(created)}})
     return {"generated": len(created), "elements": created}
+
+
+def _mock_questionnaire(strategy_type: str) -> dict:
+    type_label = strategy_type.replace("_", " ").title()
+    return {"groups": [
+        {"name": "Current Situation", "questions": [
+            {"id": "q1", "question": f"How would you rate your current {type_label.lower()} maturity?",
+             "type": "scale", "explanation": "Establishes your starting point to set realistic goals",
+             "options": ["1", "2", "3", "4", "5"], "conditional_on": None},
+            {"id": "q2", "question": f"Do you have an existing {type_label.lower()} strategy in place?",
+             "type": "yes_no", "explanation": "Helps determine whether to build from scratch or optimize",
+             "options": ["Yes", "No"], "conditional_on": None},
+            {"id": "q3", "question": "What's working well in your current approach?",
+             "type": "short_text", "explanation": "Identifies strengths to build upon",
+             "options": None, "conditional_on": {"question_id": "q2", "expected_answer": "Yes"}},
+        ]},
+        {"name": "Goals & Objectives", "questions": [
+            {"id": "q4", "question": f"What is the primary goal of this {type_label.lower()} strategy?",
+             "type": "multiple_choice", "explanation": "Focuses the strategy on your most important outcome",
+             "options": ["Revenue growth", "Market share expansion", "Cost reduction", "Brand awareness", "Operational efficiency"], "conditional_on": None},
+            {"id": "q5", "question": "What does success look like in 12 months?",
+             "type": "short_text", "explanation": "Defines measurable outcomes for the strategy",
+             "options": None, "conditional_on": None},
+            {"id": "q6", "question": "What is the timeline for achieving your primary goal?",
+             "type": "multiple_choice", "explanation": "Determines the urgency and pacing of initiatives",
+             "options": ["3 months", "6 months", "12 months", "18+ months"], "conditional_on": None},
+        ]},
+        {"name": "Resources & Constraints", "questions": [
+            {"id": "q7", "question": "What is your approximate budget for this initiative?",
+             "type": "multiple_choice", "explanation": "Budget determines the scope and scale of the strategy",
+             "options": ["Under $10K", "$10K-$50K", "$50K-$200K", "$200K-$1M", "Over $1M"], "conditional_on": None},
+            {"id": "q8", "question": "How many team members will be dedicated to execution?",
+             "type": "multiple_choice", "explanation": "Team capacity impacts what initiatives are realistic",
+             "options": ["1-2 people", "3-5 people", "6-10 people", "11-20 people", "20+ people"], "conditional_on": None},
+            {"id": "q9", "question": "What is the biggest constraint or challenge you face?",
+             "type": "short_text", "explanation": "Helps the strategy account for real-world limitations",
+             "options": None, "conditional_on": None},
+        ]},
+        {"name": "Competitive Landscape", "questions": [
+            {"id": "q10", "question": "How many direct competitors do you face in this area?",
+             "type": "multiple_choice", "explanation": "Competition level shapes strategic positioning",
+             "options": ["None (new market)", "1-3 competitors", "4-10 competitors", "Highly fragmented market"], "conditional_on": None},
+            {"id": "q11", "question": "What differentiates you from competitors?",
+             "type": "short_text", "explanation": "Your unique advantages form the foundation of the strategy",
+             "options": None, "conditional_on": None},
+        ]},
+    ]}
+
+
+@router.post("/questionnaire", response_model=QuestionnaireGenerateResponse)
+async def ai_generate_questionnaire(req: QuestionnaireGenerateRequest, auth: AuthContext = Depends(get_auth)):
+    type_label = req.strategy_type.replace("_", " ").title()
+    brief_section = f"\nCompany Brief: {req.company_brief}" if req.company_brief else ""
+    industry_section = f"\nIndustry: {req.industry}" if req.industry else ""
+
+    prompt = f"""You are an expert strategy consultant. Generate a tailored questionnaire for creating a {type_label} strategy.
+
+Company: {req.company_name}{industry_section}{brief_section}
+
+Generate 8-15 questions that are SPECIFIC to {type_label} strategy planning.
+
+IMPORTANT RULES:
+1. Do NOT ask about anything already stated in the company brief above — read it carefully first
+2. Questions must gather information that is MISSING but essential for a {type_label} strategy
+3. Mix question types: multiple_choice, short_text, yes_no, scale
+4. Group questions into 3-5 logical themes with descriptive group names
+5. Include 2-3 conditional questions that only apply based on a prior answer
+6. Each question must have a one-line explanation of WHY it matters
+
+Return ONLY valid JSON in this exact format:
+{{
+  "groups": [
+    {{
+      "name": "Theme Name",
+      "questions": [
+        {{
+          "id": "q1",
+          "question": "The question?",
+          "type": "multiple_choice",
+          "explanation": "Why this question matters for the strategy",
+          "options": ["Option A", "Option B", "Option C"],
+          "conditional_on": null
+        }},
+        {{
+          "id": "q2",
+          "question": "Follow-up question?",
+          "type": "short_text",
+          "explanation": "Why this matters",
+          "options": null,
+          "conditional_on": {{"question_id": "q1", "expected_answer": "Option A"}}
+        }}
+      ]
+    }}
+  ]
+}}
+
+Question type rules:
+- "scale": options must be ["1", "2", "3", "4", "5"]
+- "yes_no": options must be ["Yes", "No"]
+- "multiple_choice": provide 3-5 specific, relevant options
+- "short_text": options must be null
+
+Use conditional_on sparingly (2-3 questions). The expected_answer must exactly match one of the parent question's options."""
+
+    result = await call_claude([{"role": "user", "content": prompt}], max_tokens=2048)
+    text = result["content"][0]["text"] if result.get("content") else "{}"
+
+    try:
+        start = text.find("{")
+        end = text.rfind("}") + 1
+        if start >= 0 and end > start:
+            questionnaire = json.loads(text[start:end])
+        else:
+            questionnaire = _mock_questionnaire(req.strategy_type)
+    except Exception:
+        questionnaire = _mock_questionnaire(req.strategy_type)
+
+    return questionnaire
