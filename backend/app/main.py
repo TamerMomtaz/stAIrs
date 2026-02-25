@@ -43,6 +43,7 @@ from app.routers.strategies import router as strategies_router
 from app.routers.knowledge import router as knowledge_router
 from app.routers.ai import router as ai_router
 from app.routers.dashboard import router as dashboard_router
+from app.routers.notes import router as notes_router
 from app.routers.websocket import router as ws_router
 
 
@@ -239,6 +240,35 @@ async def ensure_strategies_table():
         """)
 
 
+# ─── AUTO-MIGRATION: NOTES TABLE ───
+
+async def ensure_notes_table():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        exists = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'notes')"
+        )
+        if not exists:
+            print("  → Creating notes table...")
+            await conn.execute("""
+                CREATE TABLE notes (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+                    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE NOT NULL,
+                    title VARCHAR(500) NOT NULL,
+                    content TEXT DEFAULT '',
+                    source VARCHAR(50) DEFAULT 'manual',
+                    tags TEXT[] DEFAULT '{}',
+                    pinned BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
+            await conn.execute("CREATE INDEX idx_notes_user ON notes(user_id, organization_id)")
+            await conn.execute("CREATE INDEX idx_notes_pinned ON notes(user_id, pinned DESC, updated_at DESC)")
+            print("  ✅ notes table created")
+
+
 # ─── AUTO-MIGRATION: ACTION PLANS TABLE ───
 
 async def ensure_action_plans_table():
@@ -289,6 +319,10 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"  ⚠️ Strategies migration: {e}")
     try:
+        await ensure_notes_table()
+    except Exception as e:
+        print(f"  ⚠️ Notes migration: {e}")
+    try:
         await ensure_action_plans_table()
     except Exception as e:
         print(f"  ⚠️ Action plans migration: {e}")
@@ -306,17 +340,24 @@ app = FastAPI(
 )
 
 # ─── CORS ───
-_allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
-if "*" in _allowed_origins:
-    import warnings
-    warnings.warn(
-        "ALLOWED_ORIGINS is set to '*'. Restrict to specific domains in production via the ALLOWED_ORIGINS env var.",
-        stacklevel=1,
-    )
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "").strip()
+_explicit_origins = [
+    o.strip() for o in _raw_origins.split(",")
+    if o.strip() and o.strip() != "*"
+]
+# Always include the primary Vercel domain and localhost for dev
+for _required in [
+    "https://st-a-irs.vercel.app",
+    "http://localhost:5173",
+    "http://localhost:3000",
+]:
+    if _required not in _explicit_origins:
+        _explicit_origins.append(_required)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_allowed_origins,
+    allow_origins=_explicit_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -362,6 +403,7 @@ app.include_router(strategies_router)
 app.include_router(knowledge_router)
 app.include_router(ai_router)
 app.include_router(dashboard_router)
+app.include_router(notes_router)
 app.include_router(ws_router)
 
 
