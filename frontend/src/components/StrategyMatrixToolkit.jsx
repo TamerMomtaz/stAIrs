@@ -225,6 +225,21 @@ const parseEFEData = (text) => {
   };
 };
 
+const SPACE_DIM_MAP = {
+  "financial strength": "fs", "financial": "fs", "fs": "fs",
+  "competitive advantage": "ca", "competitive": "ca", "ca": "ca",
+  "environmental stability": "es", "environmental": "es", "es": "es",
+  "industry strength": "is", "industry": "is", "is": "is",
+};
+
+const matchSpaceDim = (val) => {
+  const v = val.toLowerCase().trim();
+  for (const [pattern, key] of Object.entries(SPACE_DIM_MAP)) {
+    if (v.includes(pattern)) return key;
+  }
+  return null;
+};
+
 const parseSPACEData = (text) => {
   const sectionPatterns = {
     fs: ["financial strength", "financial", " fs"],
@@ -246,7 +261,34 @@ const parseSPACEData = (text) => {
     }).filter(Boolean);
   };
   const results = parseFactorTable(text, sectionPatterns, extract);
-  const hasData = Object.values(results).some(arr => arr?.length > 0);
+  let hasData = Object.values(results).some(arr => arr?.length > 0);
+
+  // Fallback: flat table with Dimension | Factor | Score columns
+  if (!hasData) {
+    const tables = extractTables(text);
+    for (const table of tables) {
+      const di = findCol(table.headers, ["dimension", "category", "component", "aspect"]);
+      const fi = findCol(table.headers, ["factor", "variable", "criterion", "element"]);
+      const si = findCol(table.headers, ["score", "rating", "value"]);
+      if (di === -1 || si === -1) continue;
+      for (const row of table.data) {
+        const dimVal = row[di]?.trim();
+        if (!dimVal) continue;
+        const key = matchSpaceDim(dimVal);
+        if (!key) continue;
+        const factor = fi >= 0 ? row[fi]?.trim() : dimVal;
+        if (!factor) continue;
+        const score = parseNum(row[si]);
+        if (isNaN(score)) continue;
+        const isNeg = key === "ca" || key === "es";
+        const clamped = isNeg ? -Math.abs(score) : Math.abs(score);
+        (results[key] = results[key] || []).push({ factor, score: clamped });
+      }
+      hasData = Object.values(results).some(arr => arr?.length > 0);
+      if (hasData) break;
+    }
+  }
+
   if (!hasData) return null;
   return {
     fs: results.fs?.length ? results.fs : [{ factor: "Factor 1", score: 3 }],
@@ -256,18 +298,37 @@ const parseSPACEData = (text) => {
   };
 };
 
+const BCG_QUADRANT_DEFAULTS = {
+  star: { growth: 15, share: 2.0 },
+  "question mark": { growth: 15, share: 0.4 },
+  "cash cow": { growth: 5, share: 2.0 },
+  dog: { growth: 5, share: 0.4 },
+};
+
 const parseBCGData = (text) => {
   const tables = extractTables(text);
   for (const table of tables) {
     const ni = findCol(table.headers, ["name", "unit", "product", "business", "brand", "division", "segment"]);
     const gi = findCol(table.headers, ["growth", "market growth", "growth rate"]);
     const si = findCol(table.headers, ["share", "market share", "relative"]);
-    if (gi === -1 && si === -1) continue;
+    const qi = findCol(table.headers, ["quadrant", "category", "classification"]);
+    if (gi === -1 && si === -1 && qi === -1) continue;
     const units = table.data.map(row => {
       const name = row[ni >= 0 ? ni : 0]?.trim();
       if (!name) return null;
-      const growth = parseNum(row[gi >= 0 ? gi : 1]);
-      const share = parseNum(row[si >= 0 ? si : 2]);
+      let growth = gi >= 0 ? parseNum(row[gi]) : NaN;
+      let share = si >= 0 ? parseNum(row[si]) : NaN;
+      // If growth/share missing but quadrant present, infer defaults
+      if ((isNaN(growth) || isNaN(share)) && qi >= 0) {
+        const qVal = (row[qi] || "").toLowerCase().trim();
+        for (const [qName, defaults] of Object.entries(BCG_QUADRANT_DEFAULTS)) {
+          if (qVal.includes(qName)) {
+            if (isNaN(growth)) growth = defaults.growth;
+            if (isNaN(share)) share = defaults.share;
+            break;
+          }
+        }
+      }
       if (isNaN(growth) && isNaN(share)) return null;
       return { name, growth: isNaN(growth) ? 10 : growth, share: isNaN(share) ? 1.0 : share };
     }).filter(Boolean);
@@ -276,19 +337,28 @@ const parseBCGData = (text) => {
   return null;
 };
 
+const PORTER_FORCE_MAP = {
+  rivalry: ["rivalr", "competitive rivalry", "competition among"],
+  newEntrants: ["new entrant", "entry", "threat of new", "barrier"],
+  substitutes: ["substitut", "threat of substitut", "alternative"],
+  buyers: ["buyer", "bargaining power of buyer", "customer power"],
+  suppliers: ["supplier", "bargaining power of supplier", "vendor"],
+};
+
+const matchPorterForce = (val) => {
+  const v = val.toLowerCase().trim();
+  for (const [key, patterns] of Object.entries(PORTER_FORCE_MAP)) {
+    if (patterns.some(p => v.includes(p))) return key;
+  }
+  return null;
+};
+
 const parsePorterData = (text) => {
-  const forceMap = {
-    rivalry: ["rivalr", "competitive rivalry", "competition among"],
-    newEntrants: ["new entrant", "entry", "threat of new", "barrier"],
-    substitutes: ["substitut", "threat of substitut", "alternative"],
-    buyers: ["buyer", "bargaining power of buyer", "customer power"],
-    suppliers: ["supplier", "bargaining power of supplier", "vendor"],
-  };
   const sections = splitSections(text);
   const results = {};
   for (const section of sections) {
     const h = section.heading.toLowerCase();
-    for (const [key, patterns] of Object.entries(forceMap)) {
+    for (const [key, patterns] of Object.entries(PORTER_FORCE_MAP)) {
       if (patterns.some(p => h.includes(p))) {
         const tables = extractTables(section.content);
         for (const table of tables) {
@@ -306,7 +376,32 @@ const parsePorterData = (text) => {
       }
     }
   }
-  const hasData = Object.values(results).some(arr => arr?.length > 0);
+  let hasData = Object.values(results).some(arr => arr?.length > 0);
+
+  // Fallback: flat table with Force | Intensity | Key Factors columns
+  if (!hasData) {
+    const tables = extractTables(text);
+    for (const table of tables) {
+      const forceI = findCol(table.headers, ["force", "competitive force", "porter"]);
+      const ri = findCol(table.headers, ["intensity", "rating", "score", "level", "power"]);
+      const kfi = findCol(table.headers, ["key factor", "factor", "driver", "detail", "description"]);
+      if (forceI === -1 || ri === -1) continue;
+      for (const row of table.data) {
+        const forceVal = row[forceI]?.trim();
+        if (!forceVal) continue;
+        const key = matchPorterForce(forceVal);
+        if (!key) continue;
+        const rating = parseInt(row[ri]);
+        if (isNaN(rating)) continue;
+        const clamped = Math.max(1, Math.min(5, rating));
+        const factorText = kfi >= 0 ? (row[kfi]?.trim() || forceVal) : forceVal;
+        (results[key] = results[key] || []).push({ factor: factorText, rating: clamped });
+      }
+      hasData = Object.values(results).some(arr => arr?.length > 0);
+      if (hasData) break;
+    }
+  }
+
   if (!hasData) return null;
   // Fill in defaults for missing forces
   const defaultFactors = {
@@ -317,7 +412,7 @@ const parsePorterData = (text) => {
     suppliers: [{ factor: "Supplier power", rating: 3 }],
   };
   const final = {};
-  for (const key of Object.keys(forceMap)) {
+  for (const key of Object.keys(PORTER_FORCE_MAP)) {
     final[key] = results[key]?.length ? results[key] : defaultFactors[key];
   }
   return final;
