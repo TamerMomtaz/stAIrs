@@ -9,6 +9,8 @@ const isSeparatorRow = (line) => {
   return cells.length > 0 && cells.every(c => /^[\s\-:]+$/.test(c));
 };
 
+const stripMarkers = (s) => s.replace(/\*\*/g, "").replace(/(?<!\w)\*([^*]+)\*(?!\w)/g, "$1").replace(/(?<!\w)_([^_]+)_(?!\w)/g, "$1").replace(/~~/g, "").trim();
+
 const extractTables = (text) => {
   const lines = text.split("\n");
   const tables = [];
@@ -26,7 +28,7 @@ const extractTables = (text) => {
   return tables.map(tbl => {
     const rows = tbl
       .filter(l => !isSeparatorRow(l))
-      .map(l => l.split("|").slice(1, -1).map(c => c.replace(/\*\*/g, "").trim()));
+      .map(l => l.split("|").slice(1, -1).map(c => stripMarkers(c)));
     if (rows.length < 2) return null;
     return { headers: rows[0].map(h => h.toLowerCase()), data: rows.slice(1) };
   }).filter(Boolean);
@@ -38,7 +40,7 @@ const splitSections = (text) => {
   let heading = "";
   let content = [];
   for (const line of lines) {
-    const hMatch = line.match(/^#{1,3}\s+(.+)/) || line.match(/^\*\*([^*]+)\*\*\s*:?\s*$/);
+    const hMatch = line.match(/^#{1,6}\s+(.+)/) || line.match(/^\*\*([^*]+)\*\*\s*:?\s*$/);
     if (hMatch) {
       if (heading || content.length) sections.push({ heading, content: content.join("\n") });
       heading = hMatch[1].replace(/[*#]/g, "").trim();
@@ -51,12 +53,27 @@ const splitSections = (text) => {
   return sections;
 };
 
-const findCol = (headers, patterns) =>
-  headers.findIndex(h => patterns.some(p => h.includes(p)));
+const findCol = (headers, patterns) => {
+  const escaped = p => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Try each pattern in priority order; for each pattern, find first matching header
+  // This ensures "rating" is found before "score" can match "weighted score"
+  for (const p of patterns) {
+    const wb = new RegExp(`\\b${escaped(p)}s?\\b`, "i");
+    const idx = headers.findIndex(h => wb.test(h));
+    if (idx >= 0) return idx;
+  }
+  // Fallback: substring match for broader compatibility
+  for (const p of patterns) {
+    const idx = headers.findIndex(h => h.includes(p));
+    if (idx >= 0) return idx;
+  }
+  return -1;
+};
 
 const parseNum = (s) => {
   if (!s) return NaN;
-  return parseFloat(s.replace(/[%x×+]/g, "").trim());
+  const cleaned = s.replace(/[*_~%x×+$#]/g, "").replace(/,(?=\d{3})/g, "").trim();
+  return parseFloat(cleaned);
 };
 
 const parseFactorTable = (text, sectionPatterns, dataExtractor) => {
@@ -89,20 +106,22 @@ const parseFactorTable = (text, sectionPatterns, dataExtractor) => {
   return results;
 };
 
+const isSummaryRow = (factor) => /^(total|sum|average|subtotal|overall|grand total)\b/i.test(factor.trim());
+
 const parseIFEData = (text) => {
   const sectionPatterns = {
     strengths: ["strength"],
     weaknesses: ["weakness"],
   };
   const extract = (table, key) => {
-    const fi = findCol(table.headers, ["factor", "key factor", "internal factor", "critical", "strength", "weakness"]);
+    const fi = findCol(table.headers, ["factor", "key factor", "internal factor", "critical", "strength", "weakness", "description", "item", "element"]);
     const wi = findCol(table.headers, ["weight"]);
-    const ri = findCol(table.headers, ["rating", "rate"]);
+    const ri = findCol(table.headers, ["rating", "rate", "score"]);
     const isStr = key === "strengths";
     if (fi === -1) return null;
     return table.data.map(row => {
       const factor = row[fi >= 0 ? fi : 0]?.trim();
-      if (!factor) return null;
+      if (!factor || isSummaryRow(factor)) return null;
       const weight = wi >= 0 ? parseNum(row[wi]) : 0.1;
       const rating = ri >= 0 ? parseInt(row[ri]) : (isStr ? 3 : 2);
       return {
@@ -117,15 +136,15 @@ const parseIFEData = (text) => {
   if (!results.strengths?.length && !results.weaknesses?.length) {
     const tables = extractTables(text);
     for (const table of tables) {
-      const fi = findCol(table.headers, ["factor", "key factor"]);
+      const fi = findCol(table.headers, ["factor", "key factor", "internal factor", "critical", "strength", "weakness", "description", "item", "element"]);
       const wi = findCol(table.headers, ["weight"]);
-      const ri = findCol(table.headers, ["rating"]);
+      const ri = findCol(table.headers, ["rating", "rate", "score"]);
       if (fi === -1 || wi === -1 || ri === -1) continue;
       for (const row of table.data) {
         const factor = row[fi]?.trim();
         const weight = parseNum(row[wi]);
         const rating = parseInt(row[ri]);
-        if (!factor || isNaN(weight) || isNaN(rating)) continue;
+        if (!factor || isSummaryRow(factor) || isNaN(weight) || isNaN(rating)) continue;
         const isStr = rating >= 3;
         (isStr ? (results.strengths = results.strengths || []) : (results.weaknesses = results.weaknesses || [])).push({
           factor, weight, rating: isStr ? Math.max(3, Math.min(4, rating)) : Math.max(1, Math.min(2, rating)),
@@ -146,14 +165,14 @@ const parseEFEData = (text) => {
     threats: ["threat"],
   };
   const extract = (table, key) => {
-    const fi = findCol(table.headers, ["factor", "key factor", "external factor", "critical", "opportunit", "threat"]);
+    const fi = findCol(table.headers, ["factor", "key factor", "external factor", "critical", "opportunit", "threat", "description", "item", "element"]);
     const wi = findCol(table.headers, ["weight"]);
-    const ri = findCol(table.headers, ["rating", "rate", "response"]);
+    const ri = findCol(table.headers, ["rating", "rate", "response", "score"]);
     const isOpp = key === "opportunities";
     if (fi === -1) return null;
     return table.data.map(row => {
       const factor = row[fi >= 0 ? fi : 0]?.trim();
-      if (!factor) return null;
+      if (!factor || isSummaryRow(factor)) return null;
       const weight = wi >= 0 ? parseNum(row[wi]) : 0.1;
       const rating = ri >= 0 ? parseInt(row[ri]) : (isOpp ? 3 : 2);
       return {
@@ -167,15 +186,15 @@ const parseEFEData = (text) => {
   if (!results.opportunities?.length && !results.threats?.length) {
     const tables = extractTables(text);
     for (const table of tables) {
-      const fi = findCol(table.headers, ["factor", "key factor"]);
+      const fi = findCol(table.headers, ["factor", "key factor", "external factor", "critical", "opportunit", "threat", "description", "item", "element"]);
       const wi = findCol(table.headers, ["weight"]);
-      const ri = findCol(table.headers, ["rating"]);
+      const ri = findCol(table.headers, ["rating", "rate", "score"]);
       if (fi === -1 || wi === -1 || ri === -1) continue;
       for (const row of table.data) {
         const factor = row[fi]?.trim();
         const weight = parseNum(row[wi]);
         const rating = parseInt(row[ri]);
-        if (!factor || isNaN(weight) || isNaN(rating)) continue;
+        if (!factor || isSummaryRow(factor) || isNaN(weight) || isNaN(rating)) continue;
         const isOpp = rating >= 3;
         (isOpp ? (results.opportunities = results.opportunities || []) : (results.threats = results.threats || [])).push({
           factor, weight, rating: Math.max(1, Math.min(4, rating)),

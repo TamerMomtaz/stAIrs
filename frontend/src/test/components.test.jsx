@@ -4,7 +4,7 @@ import { Markdown } from '../components/Markdown';
 import { HealthBadge, ProgressRing, Modal } from '../components/SharedUI';
 import { AlertsView } from '../components/AlertsView';
 import { DashboardView } from '../components/DashboardView';
-import { detectFrameworks, MATRIX_FRAMEWORKS, FrameworkButton, StrategyMatrixToolkit } from '../components/StrategyMatrixToolkit';
+import { detectFrameworks, MATRIX_FRAMEWORKS, FrameworkButton, StrategyMatrixToolkit, parseFrameworkData } from '../components/StrategyMatrixToolkit';
 
 describe('Markdown', () => {
   it('renders null for empty text', () => {
@@ -300,5 +300,359 @@ describe('Markdown with framework detection', () => {
     render(<Markdown text="Try Porter's Five Forces analysis." onMatrixClick={onClick} />);
     fireEvent.click(screen.getByText(/Porter's Five Forces/));
     expect(onClick).toHaveBeenCalledWith("porter");
+  });
+});
+
+
+// ═══ PARSER TESTS ═══
+
+describe('parseFrameworkData — IFE Matrix', () => {
+  it('returns null for text without tables', () => {
+    const text = "The IFE Matrix is a strategic tool for evaluating internal factors.";
+    expect(parseFrameworkData(text, "ife")).toBeNull();
+  });
+
+  it('parses standard format with ### section headings', () => {
+    const text = `## IFE Matrix Analysis
+
+### Strengths
+
+| Factor | Weight | Rating | Weighted Score |
+|--------|--------|--------|----------------|
+| Strong brand recognition | 0.15 | 4 | 0.60 |
+| Experienced management | 0.10 | 3 | 0.30 |
+
+### Weaknesses
+
+| Factor | Weight | Rating | Weighted Score |
+|--------|--------|--------|----------------|
+| Limited R&D investment | 0.12 | 1 | 0.12 |
+| High employee turnover | 0.08 | 2 | 0.16 |`;
+
+    const result = parseFrameworkData(text, "ife");
+    expect(result).not.toBeNull();
+    expect(result.strengths).toHaveLength(2);
+    expect(result.weaknesses).toHaveLength(2);
+    expect(result.strengths[0].factor).toBe("Strong brand recognition");
+    expect(result.strengths[0].weight).toBeCloseTo(0.15);
+    expect(result.strengths[0].rating).toBe(4);
+    expect(result.weaknesses[0].factor).toBe("Limited R&D investment");
+    expect(result.weaknesses[0].weight).toBeCloseTo(0.12);
+    expect(result.weaknesses[0].rating).toBe(1);
+  });
+
+  it('parses #### sub-headings', () => {
+    const text = `## IFE Matrix
+
+#### Strengths
+
+| Factor | Weight | Rating |
+|--------|--------|--------|
+| Good team | 0.20 | 4 |
+
+#### Weaknesses
+
+| Factor | Weight | Rating |
+|--------|--------|--------|
+| Old tech | 0.15 | 1 |`;
+
+    const result = parseFrameworkData(text, "ife");
+    expect(result).not.toBeNull();
+    expect(result.strengths).toHaveLength(1);
+    expect(result.strengths[0].factor).toBe("Good team");
+    expect(result.weaknesses).toHaveLength(1);
+    expect(result.weaknesses[0].factor).toBe("Old tech");
+  });
+
+  it('parses bold section headings', () => {
+    const text = `**Strengths:**
+
+| Factor | Weight | Rating |
+|--------|--------|--------|
+| Brand | 0.20 | 4 |
+
+**Weaknesses:**
+
+| Factor | Weight | Rating |
+|--------|--------|--------|
+| Costs | 0.15 | 2 |`;
+
+    const result = parseFrameworkData(text, "ife");
+    expect(result).not.toBeNull();
+    expect(result.strengths[0].factor).toBe("Brand");
+    expect(result.weaknesses[0].factor).toBe("Costs");
+  });
+
+  it('parses combined table without section headings (fallback)', () => {
+    const text = `## IFE Matrix
+
+| Factor | Weight | Rating | Score |
+|--------|--------|--------|-------|
+| Brand | 0.15 | 4 | 0.60 |
+| R&D | 0.12 | 1 | 0.12 |`;
+
+    const result = parseFrameworkData(text, "ife");
+    expect(result).not.toBeNull();
+    expect(result.strengths.length).toBeGreaterThanOrEqual(1);
+    expect(result.weaknesses.length).toBeGreaterThanOrEqual(1);
+    expect(result.strengths[0].factor).toBe("Brand");
+    expect(result.weaknesses[0].factor).toBe("R&D");
+  });
+
+  it('handles bold markers in table cells', () => {
+    const text = `### Strengths
+
+| **Key Factor** | **Weight** | **Rating** | **Weighted Score** |
+|:--|:--:|:--:|:--:|
+| **Strong brand** | 0.15 | 4 | 0.60 |
+
+### Weaknesses
+
+| **Key Factor** | **Weight** | **Rating** | **Weighted Score** |
+|:--|:--:|:--:|:--:|
+| **Old tech** | 0.12 | 1 | 0.12 |`;
+
+    const result = parseFrameworkData(text, "ife");
+    expect(result).not.toBeNull();
+    expect(result.strengths[0].factor).toBe("Strong brand");
+    expect(result.strengths[0].weight).toBeCloseTo(0.15);
+    expect(result.weaknesses[0].factor).toBe("Old tech");
+  });
+
+  it('handles "Weighted Score" column without confusing it with "Weight"', () => {
+    const text = `### Strengths
+
+| Factor | Weighted Score | Weight | Rating |
+|--------|----------------|--------|--------|
+| Brand | 0.60 | 0.15 | 4 |
+
+### Weaknesses
+
+| Factor | Weighted Score | Weight | Rating |
+|--------|----------------|--------|--------|
+| R&D | 0.12 | 0.12 | 1 |`;
+
+    const result = parseFrameworkData(text, "ife");
+    expect(result).not.toBeNull();
+    expect(result.strengths[0].weight).toBeCloseTo(0.15);
+    expect(result.strengths[0].rating).toBe(4);
+  });
+
+  it('filters out Total/Summary rows', () => {
+    const text = `### Strengths
+
+| Factor | Weight | Rating | Score |
+|--------|--------|--------|-------|
+| Brand | 0.15 | 4 | 0.60 |
+| Team | 0.10 | 3 | 0.30 |
+| Total | 1.00 |  | 2.55 |
+
+### Weaknesses
+
+| Factor | Weight | Rating | Score |
+|--------|--------|--------|-------|
+| R&D | 0.12 | 1 | 0.12 |`;
+
+    const result = parseFrameworkData(text, "ife");
+    expect(result).not.toBeNull();
+    expect(result.strengths).toHaveLength(2);
+    expect(result.strengths.find(s => s.factor === "Total")).toBeUndefined();
+  });
+
+  it('handles italic markers in cells', () => {
+    const text = `### Strengths
+
+| Factor | Weight | Rating |
+|--------|--------|--------|
+| *Strong brand* | *0.15* | *4* |
+
+### Weaknesses
+
+| Factor | Weight | Rating |
+|--------|--------|--------|
+| *Old tech* | *0.12* | *1* |`;
+
+    const result = parseFrameworkData(text, "ife");
+    expect(result).not.toBeNull();
+    expect(result.strengths[0].factor).toBe("Strong brand");
+    expect(result.strengths[0].weight).toBeCloseTo(0.15);
+    expect(result.weaknesses[0].factor).toBe("Old tech");
+  });
+
+  it('handles "Key Internal Strengths/Weaknesses" headings', () => {
+    const text = `### Key Internal Strengths
+
+| Key Factor | Weight | Rating |
+|------------|--------|--------|
+| Brand | 0.20 | 4 |
+
+### Key Internal Weaknesses
+
+| Key Factor | Weight | Rating |
+|------------|--------|--------|
+| Costs | 0.15 | 2 |`;
+
+    const result = parseFrameworkData(text, "ife");
+    expect(result).not.toBeNull();
+    expect(result.strengths[0].factor).toBe("Brand");
+    expect(result.weaknesses[0].factor).toBe("Costs");
+  });
+
+  it('handles alignment colons in separator rows', () => {
+    const text = `### Strengths
+
+| Factor | Weight | Rating |
+|:-------|:------:|:------:|
+| Brand | 0.15 | 4 |
+
+### Weaknesses
+
+| Factor | Weight | Rating |
+|:-------|:------:|:------:|
+| R&D | 0.12 | 1 |`;
+
+    const result = parseFrameworkData(text, "ife");
+    expect(result).not.toBeNull();
+    expect(result.strengths[0].factor).toBe("Brand");
+    expect(result.weaknesses[0].factor).toBe("R&D");
+  });
+
+  it('handles column name "Description" or "Item"', () => {
+    const text = `### Strengths
+
+| Item | Weight | Rating |
+|------|--------|--------|
+| Brand | 0.20 | 4 |
+
+### Weaknesses
+
+| Description | Weight | Rating |
+|-------------|--------|--------|
+| Old tech | 0.15 | 1 |`;
+
+    const result = parseFrameworkData(text, "ife");
+    expect(result).not.toBeNull();
+    expect(result.strengths[0].factor).toBe("Brand");
+    expect(result.weaknesses[0].factor).toBe("Old tech");
+  });
+});
+
+
+describe('parseFrameworkData — EFE Matrix', () => {
+  it('parses standard EFE format', () => {
+    const text = `### Opportunities
+
+| Factor | Weight | Rating |
+|--------|--------|--------|
+| Market growth | 0.20 | 4 |
+
+### Threats
+
+| Factor | Weight | Rating |
+|--------|--------|--------|
+| Regulation | 0.15 | 2 |`;
+
+    const result = parseFrameworkData(text, "efe");
+    expect(result).not.toBeNull();
+    expect(result.opportunities[0].factor).toBe("Market growth");
+    expect(result.threats[0].factor).toBe("Regulation");
+  });
+});
+
+
+describe('parseFrameworkData — BCG Matrix', () => {
+  it('parses BCG table', () => {
+    const text = `| Product | Market Growth | Market Share |
+|---------|---------------|--------------|
+| Widget A | 15 | 2.0 |
+| Widget B | 5 | 0.5 |`;
+
+    const result = parseFrameworkData(text, "bcg");
+    expect(result).not.toBeNull();
+    expect(result.units).toHaveLength(2);
+    expect(result.units[0].name).toBe("Widget A");
+    expect(result.units[0].growth).toBe(15);
+    expect(result.units[0].share).toBe(2.0);
+  });
+});
+
+
+describe('parseFrameworkData — SPACE Matrix', () => {
+  it('parses SPACE dimensions', () => {
+    const text = `### Financial Strength
+
+| Factor | Score |
+|--------|-------|
+| ROI | 4 |
+
+### Competitive Advantage
+
+| Factor | Score |
+|--------|-------|
+| Market Share | 3 |
+
+### Environmental Stability
+
+| Factor | Score |
+|--------|-------|
+| Tech Changes | 3 |
+
+### Industry Strength
+
+| Factor | Score |
+|--------|-------|
+| Growth | 5 |`;
+
+    const result = parseFrameworkData(text, "space");
+    expect(result).not.toBeNull();
+    expect(result.fs[0].factor).toBe("ROI");
+    expect(result.fs[0].score).toBe(4);
+    expect(result.ca[0].score).toBeLessThan(0);
+    expect(result.es[0].score).toBeLessThan(0);
+    expect(result.is[0].score).toBe(5);
+  });
+});
+
+
+describe('parseFrameworkData — Porter Five Forces', () => {
+  it('parses Porter forces', () => {
+    const text = `### Competitive Rivalry
+
+| Factor | Rating |
+|--------|--------|
+| Competition | 4 |
+
+### Threat of New Entrants
+
+| Factor | Rating |
+|--------|--------|
+| Barriers | 2 |
+
+### Threat of Substitutes
+
+| Factor | Rating |
+|--------|--------|
+| Alternatives | 3 |
+
+### Bargaining Power of Buyers
+
+| Factor | Rating |
+|--------|--------|
+| Volume | 3 |
+
+### Bargaining Power of Suppliers
+
+| Factor | Rating |
+|--------|--------|
+| Concentration | 4 |`;
+
+    const result = parseFrameworkData(text, "porter");
+    expect(result).not.toBeNull();
+    expect(result.rivalry[0].factor).toBe("Competition");
+    expect(result.rivalry[0].rating).toBe(4);
+    expect(result.newEntrants[0].factor).toBe("Barriers");
+    expect(result.substitutes[0].factor).toBe("Alternatives");
+    expect(result.buyers[0].factor).toBe("Volume");
+    expect(result.suppliers[0].factor).toBe("Concentration");
   });
 });
