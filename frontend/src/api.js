@@ -144,6 +144,35 @@ export class NotesStore {
 }
 
 
+// ═══ SOURCES API (Source of Truth) ═══
+export const SourcesAPI = {
+  async list(strategyId, { sourceType, search } = {}) {
+    let path = `/api/v1/strategies/${strategyId}/sources`;
+    const params = [];
+    if (sourceType) params.push(`source_type=${encodeURIComponent(sourceType)}`);
+    if (search) params.push(`search=${encodeURIComponent(search)}`);
+    if (params.length) path += `?${params.join("&")}`;
+    return api.get(path);
+  },
+  async count(strategyId) {
+    return api.get(`/api/v1/strategies/${strategyId}/sources/count`);
+  },
+  async create(strategyId, sourceType, content, metadata = {}) {
+    return api.post(`/api/v1/strategies/${strategyId}/sources`, {
+      source_type: sourceType,
+      content,
+      metadata,
+    });
+  },
+  async update(strategyId, sourceId, updates) {
+    return api.put(`/api/v1/strategies/${strategyId}/sources/${sourceId}`, updates);
+  },
+  async remove(strategyId, sourceId) {
+    return api.del(`/api/v1/strategies/${strategyId}/sources/${sourceId}`);
+  },
+};
+
+
 // ═══ MATRIX RESULTS STORE ═══
 export class MatrixResultsStore {
   constructor(strategyId) { this.key = `stairs_matrix_${strategyId}`; }

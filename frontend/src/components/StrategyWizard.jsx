@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { api } from "../api";
+import { api, SourcesAPI } from "../api";
 import { GOLD, GOLD_L, TEAL, DEEP, BORDER, glass, typeColors, typeIcons, inputCls, labelCls } from "../constants";
 import { Markdown } from "./Markdown";
 import { Modal } from "./SharedUI";
@@ -146,7 +146,34 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
       els.forEach(el => { delete el._num; delete el._parentNum; });
       localElements.push(...els);
     }
-    await onCreate({ name: info.name, company: info.company || info.name, description: info.description, icon: info.icon, color: info.color, industry: info.industry, _localElements: localElements });
+    // Collect sources for Source of Truth logging
+    const pendingSources = [];
+    // Log questionnaire answers
+    if (questionnaireData?.groups && Object.keys(questionnaireAnswers).length > 0) {
+      for (const group of questionnaireData.groups) {
+        for (const q of group.questions) {
+          if (questionnaireAnswers[q.id] !== undefined && questionnaireAnswers[q.id] !== "") {
+            pendingSources.push({
+              source_type: "questionnaire",
+              content: `Q: ${q.question}\nA: ${questionnaireAnswers[q.id]}`,
+              metadata: { context: "questionnaire_answer", question: q.question, answer: questionnaireAnswers[q.id], group: group.name, question_id: q.id },
+            });
+          }
+        }
+      }
+    }
+    // Log AI chat messages from wizard
+    const userMsgs = aiMessages.filter(m => m.role === "user");
+    const aiMsgs = aiMessages.filter(m => m.role === "ai" && !m.error);
+    if (userMsgs.length > 0) {
+      pendingSources.push({
+        source_type: "ai_chat",
+        content: `Strategy Wizard AI Chat (${userMsgs.length} user messages, ${aiMsgs.length} AI responses):\n\n${aiMessages.filter(m => !m.error).map(m => `${m.role === "user" ? "User" : "AI"}: ${m.text.slice(0, 300)}`).join("\n\n")}`,
+        metadata: { context: "strategy_wizard_chat", user_message_count: userMsgs.length, ai_response_count: aiMsgs.length },
+      });
+    }
+
+    await onCreate({ name: info.name, company: info.company || info.name, description: info.description, icon: info.icon, color: info.color, industry: info.industry, _localElements: localElements, _pendingSources: pendingSources });
     resetWizard();
   };
 

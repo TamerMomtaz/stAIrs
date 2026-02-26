@@ -407,6 +407,27 @@ CREATE TRIGGER trg_user_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE F
 CREATE TRIGGER trg_stairs_updated_at BEFORE UPDATE ON stairs FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_ai_conv_updated_at BEFORE UPDATE ON ai_conversations FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
+-- ─── 17. STRATEGY SOURCES (Source of Truth — Input Traceability) ───
+CREATE TABLE strategy_sources (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    strategy_id UUID NOT NULL,
+    source_type VARCHAR(50) NOT NULL,  -- questionnaire, ai_chat, feedback, manual_entry
+    content TEXT NOT NULL,
+    metadata JSONB DEFAULT '{}',
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_strategy_sources_strategy ON strategy_sources(strategy_id, created_at DESC);
+CREATE INDEX idx_strategy_sources_type ON strategy_sources(strategy_id, source_type);
+CREATE INDEX idx_strategy_sources_search ON strategy_sources USING GIN(
+    to_tsvector('english', coalesce(content, ''))
+);
+
+CREATE TRIGGER trg_strategy_sources_updated_at BEFORE UPDATE ON strategy_sources FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+
 -- ═══════════════════════════════════════════════════════════
 -- SEED DATA — DEVONEERS / RootRise
 -- ═══════════════════════════════════════════════════════════

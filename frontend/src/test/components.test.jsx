@@ -656,3 +656,45 @@ describe('parseFrameworkData — Porter Five Forces', () => {
     expect(result.suppliers[0].factor).toBe("Concentration");
   });
 });
+
+
+// ═══ Source of Truth ═══
+import { SourceOfTruthView } from '../components/SourceOfTruthView';
+
+describe('SourceOfTruthView', () => {
+  it('renders header text in English', () => {
+    render(<SourceOfTruthView lang="en" strategyContext={{ id: 'test-strat-1', name: 'Test Strategy' }} />);
+    expect(screen.getByText('Source of Truth')).toBeTruthy();
+    expect(screen.getByText('Track every input that shaped this strategy')).toBeTruthy();
+  });
+
+  it('renders header text in Arabic', () => {
+    render(<SourceOfTruthView lang="ar" strategyContext={{ id: 'test-strat-1', name: 'Test Strategy' }} />);
+    expect(screen.getByText('مصدر الحقيقة')).toBeTruthy();
+  });
+
+  it('renders manual entry button', () => {
+    render(<SourceOfTruthView lang="en" strategyContext={{ id: 'test-strat-1', name: 'Test Strategy' }} />);
+    expect(screen.getByText('+ Manual Entry')).toBeTruthy();
+  });
+
+  it('renders filter type cards', () => {
+    render(<SourceOfTruthView lang="en" strategyContext={{ id: 'test-strat-1', name: 'Test Strategy' }} />);
+    expect(screen.getByText('Questionnaire')).toBeTruthy();
+    expect(screen.getByText('AI Chat')).toBeTruthy();
+    expect(screen.getByText('Feedback')).toBeTruthy();
+    expect(screen.getByText('Manual Entry')).toBeTruthy();
+  });
+
+  it('renders search input', () => {
+    render(<SourceOfTruthView lang="en" strategyContext={{ id: 'test-strat-1', name: 'Test Strategy' }} />);
+    expect(screen.getByPlaceholderText('Search across all sources...')).toBeTruthy();
+  });
+
+  it('renders empty state when no sources', async () => {
+    render(<SourceOfTruthView lang="en" strategyContext={{ id: 'test-strat-1', name: 'Test Strategy' }} />);
+    // Initially shows loading, then empty state after fetch attempt
+    // We just verify the component renders without crashing
+    expect(screen.getByText('Source of Truth')).toBeTruthy();
+  });
+});

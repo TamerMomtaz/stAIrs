@@ -54,6 +54,7 @@ from app.routers.dashboard import router as dashboard_router
 from app.routers.notes import router as notes_router
 from app.routers.websocket import router as ws_router
 from app.routers.admin import router as admin_router
+from app.routers.sources import router as sources_router
 
 
 # ─── LOGGING ───
@@ -340,6 +341,31 @@ async def ensure_action_plans_table():
 
 # ─── AUTO-MIGRATION: AI USAGE LOGS TABLE ───
 
+async def ensure_strategy_sources_table():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        exists = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'strategy_sources')"
+        )
+        if not exists:
+            print("  → Creating strategy_sources table...")
+            await conn.execute("""
+                CREATE TABLE strategy_sources (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    strategy_id UUID NOT NULL,
+                    source_type VARCHAR(50) NOT NULL,
+                    content TEXT NOT NULL,
+                    metadata JSONB DEFAULT '{}',
+                    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
+            await conn.execute("CREATE INDEX idx_strategy_sources_strategy ON strategy_sources(strategy_id, created_at DESC)")
+            await conn.execute("CREATE INDEX idx_strategy_sources_type ON strategy_sources(strategy_id, source_type)")
+            print("  ✅ strategy_sources table created")
+
+
 async def ensure_ai_usage_logs_table():
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -401,6 +427,10 @@ async def lifespan(app: FastAPI):
         await ensure_ai_usage_logs_table()
     except Exception as e:
         print(f"  ⚠️ AI usage logs migration: {e}")
+    try:
+        await ensure_strategy_sources_table()
+    except Exception as e:
+        print(f"  ⚠️ Strategy sources migration: {e}")
     yield
     await close_pool()
     print("🪜 ST.AIRS Shutting down...")
@@ -524,6 +554,7 @@ app.include_router(dashboard_router)
 app.include_router(notes_router)
 app.include_router(ws_router)
 app.include_router(admin_router)
+app.include_router(sources_router)
 
 
 # ─── CORS TEST ───

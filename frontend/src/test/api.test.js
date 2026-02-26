@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ConvStore, StrategyAPI, NotesStore } from '../api';
+import { ConvStore, StrategyAPI, NotesStore, SourcesAPI } from '../api';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -107,5 +107,17 @@ describe('NotesStore', () => {
     const found = list.find(n => n.id === note.id);
     expect(found.title).toBe('Updated');
     expect(found.content).toBe('new content');
+  });
+});
+
+
+describe('SourcesAPI', () => {
+  it('is an object with expected methods', () => {
+    expect(SourcesAPI).toBeDefined();
+    expect(typeof SourcesAPI.list).toBe('function');
+    expect(typeof SourcesAPI.count).toBe('function');
+    expect(typeof SourcesAPI.create).toBe('function');
+    expect(typeof SourcesAPI.update).toBe('function');
+    expect(typeof SourcesAPI.remove).toBe('function');
   });
 });

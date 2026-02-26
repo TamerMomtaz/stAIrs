@@ -442,6 +442,30 @@ class NoteOut(BaseModel):
         from_attributes = True
 
 
+# ─── STRATEGY SOURCES (Source of Truth) ───
+class SourceCreate(BaseModel):
+    source_type: str = Field(..., pattern="^(questionnaire|ai_chat|feedback|manual_entry)$")
+    content: str
+    metadata: Optional[dict] = {}
+
+class SourceUpdate(BaseModel):
+    content: Optional[str] = None
+    metadata: Optional[dict] = None
+
+class SourceOut(BaseModel):
+    id: UUID
+    strategy_id: UUID
+    source_type: str
+    content: str
+    metadata: Optional[dict] = {}
+    created_by: Optional[UUID] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
 # Fix forward references
 StairTree.model_rebuild()
 TokenResponse.model_rebuild()
