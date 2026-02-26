@@ -176,7 +176,7 @@ class TestSourceCreate:
         assert s.source_type == "manual_entry"
 
     def test_valid_all_types(self):
-        for t in ["questionnaire", "ai_chat", "feedback", "manual_entry"]:
+        for t in ["questionnaire", "ai_chat", "feedback", "manual_entry", "document"]:
             s = SourceCreate(source_type=t, content="test")
             assert s.source_type == t
 

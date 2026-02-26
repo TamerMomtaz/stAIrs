@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { SourcesAPI } from "../api";
 import { GOLD, GOLD_L, DEEP, BORDER, glass, inputCls } from "../constants";
 
@@ -7,9 +7,20 @@ const sourceTypeConfig = {
   ai_chat: { icon: "🤖", label: "AI Chat", labelAr: "محادثة AI", color: "#a78bfa" },
   feedback: { icon: "💬", label: "Feedback", labelAr: "ملاحظات", color: "#34d399" },
   manual_entry: { icon: "📝", label: "Manual Entry", labelAr: "إدخال يدوي", color: "#fbbf24" },
+  document: { icon: "📄", label: "Documents", labelAr: "مستندات", color: "#f472b6" },
 };
 
-const sourceTypes = ["questionnaire", "ai_chat", "feedback", "manual_entry"];
+const sourceTypes = ["questionnaire", "ai_chat", "feedback", "manual_entry", "document"];
+
+const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".xlsx", ".csv", ".txt", ".png", ".jpg", ".jpeg"];
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+const formatFileSize = (bytes) => {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
 
 export const SourceOfTruthView = ({ lang, strategyContext }) => {
   const [sources, setSources] = useState([]);
@@ -20,8 +31,14 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newContent, setNewContent] = useState("");
   const [expandedId, setExpandedId] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState("");
+  const [dragOver, setDragOver] = useState(false);
+  const [fullTextId, setFullTextId] = useState(null);
   const isAr = lang === "ar";
   const searchTimer = useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (strategyContext?.id) loadSources();
@@ -63,13 +80,84 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
     }
   };
 
-  const deleteSource = async (sourceId) => {
+  const deleteSource = async (sourceId, isDocument) => {
     if (!strategyContext?.id) return;
     try {
-      await SourcesAPI.remove(strategyContext.id, sourceId);
+      if (isDocument) {
+        await SourcesAPI.removeWithFile(strategyContext.id, sourceId);
+      } else {
+        await SourcesAPI.remove(strategyContext.id, sourceId);
+      }
       setSources(prev => prev.filter(s => s.id !== sourceId));
     } catch (e) {
       console.error("Delete source:", e);
+    }
+  };
+
+  const validateFile = (file) => {
+    const name = file.name || "";
+    const ext = name.includes(".") ? "." + name.split(".").pop().toLowerCase() : "";
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      return isAr
+        ? `نوع الملف '${ext}' غير مدعوم. الأنواع المدعومة: ${ALLOWED_EXTENSIONS.join(", ")}`
+        : `Unsupported file type '${ext}'. Allowed: ${ALLOWED_EXTENSIONS.join(", ")}`;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      return isAr ? "حجم الملف يتجاوز 10MB" : "File size exceeds 10MB limit";
+    }
+    return null;
+  };
+
+  const handleUpload = useCallback(async (file) => {
+    if (!strategyContext?.id || !file) return;
+    const error = validateFile(file);
+    if (error) {
+      setUploadError(error);
+      return;
+    }
+    setUploading(true);
+    setUploadProgress(0);
+    setUploadError("");
+    try {
+      await SourcesAPI.uploadDocument(strategyContext.id, file, (pct) => setUploadProgress(pct));
+      setUploadProgress(100);
+      loadSources();
+    } catch (e) {
+      setUploadError(e.message || (isAr ? "فشل الرفع" : "Upload failed"));
+    }
+    setUploading(false);
+  }, [strategyContext?.id]);
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer?.files?.[0];
+    if (file) handleUpload(file);
+  }, [handleUpload]);
+
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    setDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault();
+    setDragOver(false);
+  }, []);
+
+  const handleFileInput = (e) => {
+    const file = e.target.files?.[0];
+    if (file) handleUpload(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleDownload = async (e, source) => {
+    e.stopPropagation();
+    try {
+      const data = await SourcesAPI.getDownloadUrl(strategyContext.id, source.id);
+      if (data?.download_url) window.open(data.download_url, "_blank");
+    } catch (err) {
+      console.error("Download:", err);
     }
   };
 
@@ -94,11 +182,94 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
     if (meta.context === "action_plan") return isAr ? "خطة العمل" : "Action Plan";
     if (meta.context === "feedback_response") return meta.stair_title || (isAr ? "ملاحظات التنفيذ" : "Execution Feedback");
     if (meta.context === "manual_reference") return isAr ? "مرجع يدوي" : "Manual Reference";
+    if (meta.context === "document_upload") return meta.filename || (isAr ? "مستند" : "Document");
     return "";
   };
 
   const typeCounts = {};
   sourceTypes.forEach(t => { typeCounts[t] = sources.filter(s => s.source_type === t).length; });
+
+  const isDocument = (source) => source.source_type === "document";
+
+  const renderDocumentCard = (source, cfg, isExpanded, contextLabel) => {
+    const meta = source.metadata || {};
+    const showFullText = fullTextId === source.id;
+    const contentPreview = source.content && source.content !== "extraction_failed"
+      ? source.content.slice(0, 200)
+      : null;
+    const hasFullText = source.content && source.content !== "extraction_failed" && source.content.length > 200;
+
+    return (
+      <div
+        key={source.id}
+        className="group rounded-xl transition-all hover:scale-[1.005]"
+        style={glass(isExpanded ? 0.7 : 0.4)}
+      >
+        <div className="flex items-start gap-3 p-3.5">
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 text-base" style={{ background: `${cfg.color}15`, border: `1px solid ${cfg.color}30` }}>
+            {cfg.icon}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: cfg.color }}>
+                {isAr ? cfg.labelAr : cfg.label}
+              </span>
+              <span className="text-gray-700">·</span>
+              <span className="text-xs text-gray-300 truncate font-medium">{meta.filename || "Document"}</span>
+            </div>
+
+            <div className="flex items-center gap-3 text-[10px] text-gray-500 mb-1.5">
+              {meta.file_size && <span>{formatFileSize(meta.file_size)}</span>}
+              {meta.page_count && <span>{meta.page_count} {isAr ? "صفحة" : (meta.page_count === 1 ? "page" : "pages")}</span>}
+              {meta.sheet_count && <span>{meta.sheet_count} {isAr ? "ورقة" : (meta.sheet_count === 1 ? "sheet" : "sheets")}</span>}
+              {meta.row_count && <span>{meta.row_count} {isAr ? "صف" : "rows"}</span>}
+              <span>{formatDate(source.created_at)}</span>
+            </div>
+
+            {contentPreview && (
+              <div className="text-sm text-gray-400 mb-1">
+                {showFullText ? (
+                  <div className="whitespace-pre-wrap text-gray-300">{source.content}</div>
+                ) : (
+                  <span>{contentPreview}{source.content.length > 200 ? "..." : ""}</span>
+                )}
+              </div>
+            )}
+            {source.content === "extraction_failed" && (
+              <div className="text-xs text-amber-500/70 italic">
+                {isAr ? "تعذر استخراج النص" : "Text extraction failed"}
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 mt-1.5">
+              {hasFullText && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setFullTextId(showFullText ? null : source.id); }}
+                  className="text-[10px] px-2 py-0.5 rounded-full border transition hover:opacity-80"
+                  style={{ borderColor: `${cfg.color}50`, color: cfg.color }}
+                >
+                  {showFullText ? (isAr ? "طي" : "Collapse") : (isAr ? "عرض النص الكامل" : "View Full Text")}
+                </button>
+              )}
+              <button
+                onClick={(e) => handleDownload(e, source)}
+                className="text-[10px] px-2 py-0.5 rounded-full border border-gray-600 text-gray-400 transition hover:text-white hover:border-gray-400"
+              >
+                {isAr ? "تحميل" : "Download"}
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); deleteSource(source.id, true); }}
+                className="opacity-0 group-hover:opacity-100 text-[10px] px-2 py-0.5 rounded-full border border-red-900/50 text-red-400/70 transition hover:text-red-400 hover:border-red-500/50"
+              >
+                {isAr ? "حذف" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -108,17 +279,80 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
           <h2 className="text-lg font-semibold text-white">{isAr ? "مصدر الحقيقة" : "Source of Truth"}</h2>
           <p className="text-xs text-gray-500 mt-0.5">{isAr ? "تتبع مصادر بيانات الاستراتيجية" : "Track every input that shaped this strategy"}</p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition hover:scale-[1.02]"
-          style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, color: DEEP }}
-        >
-          + {isAr ? "إدخال يدوي" : "Manual Entry"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition hover:scale-[1.02] border"
+            style={{ borderColor: `${sourceTypeConfig.document.color}50`, color: sourceTypeConfig.document.color }}
+          >
+            📄 {isAr ? "رفع مستند" : "Upload Document"}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={ALLOWED_EXTENSIONS.join(",")}
+            onChange={handleFileInput}
+            className="hidden"
+          />
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition hover:scale-[1.02]"
+            style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, color: DEEP }}
+          >
+            + {isAr ? "إدخال يدوي" : "Manual Entry"}
+          </button>
+        </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-3">
+      {/* Upload Drop Zone */}
+      <div
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onClick={() => !uploading && fileInputRef.current?.click()}
+        className={`relative rounded-xl p-4 text-center cursor-pointer transition-all border-2 border-dashed ${dragOver ? "scale-[1.01]" : "hover:scale-[1.005]"}`}
+        style={{
+          borderColor: dragOver ? sourceTypeConfig.document.color : `${BORDER}`,
+          background: dragOver ? "rgba(244, 114, 182, 0.05)" : "rgba(22, 37, 68, 0.3)",
+        }}
+      >
+        {uploading ? (
+          <div className="space-y-2">
+            <div className="text-sm text-gray-400">{isAr ? "جاري الرفع..." : "Uploading..."}</div>
+            <div className="w-full h-2 rounded-full bg-gray-800 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{ width: `${uploadProgress}%`, background: `linear-gradient(90deg, ${sourceTypeConfig.document.color}, ${GOLD})` }}
+              />
+            </div>
+            <div className="text-[10px] text-gray-500">{uploadProgress}%</div>
+          </div>
+        ) : (
+          <>
+            <div className="text-xl mb-1">{dragOver ? "📥" : "📎"}</div>
+            <div className="text-xs text-gray-400">
+              {dragOver
+                ? (isAr ? "أفلت الملف هنا" : "Drop file here")
+                : (isAr ? "اسحب وأفلت ملفًا هنا أو انقر للاختيار" : "Drag & drop a file here, or click to browse")}
+            </div>
+            <div className="text-[10px] text-gray-600 mt-1">
+              PDF, DOCX, XLSX, CSV, TXT, PNG, JPG — {isAr ? "الحد الأقصى 10MB" : "Max 10MB"}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Upload Error */}
+      {uploadError && (
+        <div className="flex items-center gap-2 p-2.5 rounded-lg bg-red-900/20 border border-red-800/30 text-red-400 text-xs">
+          <span>⚠️</span>
+          <span className="flex-1">{uploadError}</span>
+          <button onClick={() => setUploadError("")} className="hover:text-red-300">✕</button>
+        </div>
+      )}
+
+      {/* Stats — 5 cards */}
+      <div className="grid grid-cols-5 gap-2.5">
         {sourceTypes.map(type => {
           const cfg = sourceTypeConfig[type];
           const count = typeCounts[type] || 0;
@@ -205,6 +439,11 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
             const cfg = sourceTypeConfig[source.source_type] || sourceTypeConfig.manual_entry;
             const isExpanded = expandedId === source.id;
             const contextLabel = getContextLabel(source);
+
+            if (isDocument(source)) {
+              return renderDocumentCard(source, cfg, isExpanded, contextLabel);
+            }
+
             return (
               <div
                 key={source.id}
@@ -253,7 +492,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                     <span className="text-[10px] text-gray-600">{formatDate(source.created_at)}</span>
                     {source.source_type === "manual_entry" && (
                       <button
-                        onClick={e => { e.stopPropagation(); deleteSource(source.id); }}
+                        onClick={e => { e.stopPropagation(); deleteSource(source.id, false); }}
                         className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 text-xs transition p-1"
                         title={isAr ? "حذف" : "Delete"}
                       >

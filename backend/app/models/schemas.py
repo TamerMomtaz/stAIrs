@@ -444,7 +444,7 @@ class NoteOut(BaseModel):
 
 # ─── STRATEGY SOURCES (Source of Truth) ───
 class SourceCreate(BaseModel):
-    source_type: str = Field(..., pattern="^(questionnaire|ai_chat|feedback|manual_entry)$")
+    source_type: str = Field(..., pattern="^(questionnaire|ai_chat|feedback|manual_entry|document)$")
     content: str
     metadata: Optional[dict] = {}
 

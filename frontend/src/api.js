@@ -47,6 +47,21 @@ class StairsAPI {
   async put(p, b) { const r = await fetch(`${API}${p}`, { method: "PUT", headers: this.headers(), body: JSON.stringify(b) }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw new Error(`PUT ${p} → ${r.status}`); return r.json(); }
   async patch(p, b) { const r = await fetch(`${API}${p}`, { method: "PATCH", headers: this.headers(), body: JSON.stringify(b) }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw new Error(`PATCH ${p} → ${r.status}`); return r.json(); }
   async del(p) { const r = await fetch(`${API}${p}`, { method: "DELETE", headers: this.headers() }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw new Error(`DELETE ${p} → ${r.status}`); return r.status === 204 ? null : r.json(); }
+  async uploadFile(p, file, onProgress) {
+    const formData = new FormData();
+    formData.append("file", file);
+    const h = {};
+    if (this.token) h["Authorization"] = `Bearer ${this.token}`;
+    const xhr = new XMLHttpRequest();
+    return new Promise((resolve, reject) => {
+      xhr.open("POST", `${API}${p}`);
+      Object.entries(h).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+      if (onProgress) xhr.upload.addEventListener("progress", e => { if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100)); });
+      xhr.onload = () => { if (xhr.status >= 200 && xhr.status < 300) { try { resolve(JSON.parse(xhr.responseText)); } catch { resolve({}); } } else if (xhr.status === 401) { this._handleUnauthorized(); } else { try { const err = JSON.parse(xhr.responseText); reject(new Error(err.detail || `Upload failed: ${xhr.status}`)); } catch { reject(new Error(`Upload failed: ${xhr.status}`)); } } };
+      xhr.onerror = () => reject(new Error("Network error during upload"));
+      xhr.send(formData);
+    });
+  }
 }
 
 export const api = new StairsAPI();
@@ -169,6 +184,15 @@ export const SourcesAPI = {
   },
   async remove(strategyId, sourceId) {
     return api.del(`/api/v1/strategies/${strategyId}/sources/${sourceId}`);
+  },
+  async uploadDocument(strategyId, file, onProgress) {
+    return api.uploadFile(`/api/v1/strategies/${strategyId}/sources/upload`, file, onProgress);
+  },
+  async getDownloadUrl(strategyId, sourceId) {
+    return api.get(`/api/v1/strategies/${strategyId}/sources/${sourceId}/download-url`);
+  },
+  async removeWithFile(strategyId, sourceId) {
+    return api.del(`/api/v1/strategies/${strategyId}/sources/${sourceId}/with-file`);
   },
 };
 
