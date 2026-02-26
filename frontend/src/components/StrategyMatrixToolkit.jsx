@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { GOLD, GOLD_L, DEEP, BORDER, glass, inputCls, labelCls } from "../constants";
 import { Modal } from "./SharedUI";
+import { buildHeader, buildFooter, openExportWindow, EXPORT_STYLES } from "../exportUtils";
 
 // ═══ FRAMEWORK DEFINITIONS ═══
 export const MATRIX_FRAMEWORKS = {
@@ -62,6 +63,14 @@ const SaveBtn = ({ onClick }) => {
   );
 };
 
+const ExportBtn = ({ onClick }) => (
+  <button onClick={onClick}
+    className="w-full mt-2 px-4 py-2.5 rounded-lg text-xs font-medium transition-all hover:scale-[1.01]"
+    style={{ background: `linear-gradient(135deg, ${GOLD}15, ${GOLD}08)`, border: `1px solid ${BORDER}`, color: "#94a3b8" }}>
+    ↓ Export PDF
+  </button>
+);
+
 const ScoreDisplay = ({ label, value, max, interpretation, color }) => (
   <div className="p-4 rounded-xl text-center" style={glass(0.5)}>
     <div className="text-gray-400 text-xs uppercase tracking-wider mb-1">{label}</div>
@@ -75,7 +84,7 @@ const weightInputCls = "w-20 px-2 py-1.5 rounded-lg bg-[#0a1628]/80 border borde
 const narrowInputCls = "w-16 px-2 py-1.5 rounded-lg bg-[#0a1628]/80 border border-[#1e3a5f] text-white text-center text-xs focus:border-amber-500/40 focus:outline-none transition";
 
 // ═══ IFE MATRIX ═══
-const IFEMatrix = ({ onSave }) => {
+const IFEMatrix = ({ onSave, strategyContext }) => {
   const [strengths, setStrengths] = useState([
     { factor: "", weight: 0.1, rating: 3 },
   ]);
@@ -141,13 +150,30 @@ const IFEMatrix = ({ onSave }) => {
           <strong className="text-amber-200">Interpretation:</strong> Scores above 2.5 indicate a strong internal position. Scores below 2.5 suggest internal weaknesses that need attention. The maximum possible score is 4.0 (all major strengths) and the minimum is 1.0 (all major weaknesses).
         </div>
         {onSave && <SaveBtn onClick={() => onSave("ife", { summary: `${interpretation} (${totalScore.toFixed(2)}/4.00)` })} />}
+        <ExportBtn onClick={() => {
+          const buildRows = (items, cat) => items.map(r => {
+            const s = (parseFloat(r.weight) || 0) * (parseInt(r.rating) || 0);
+            return `<tr><td class="factor-table cat-header" colspan="4" style="display:none"></td></tr><tr style="border-bottom:1px solid #e5e7eb"><td style="padding:8px;font-size:12px;color:#334155">${r.factor || "—"}</td><td style="padding:8px;text-align:center;font-size:12px">${parseFloat(r.weight).toFixed(2)}</td><td style="padding:8px;text-align:center;font-size:12px">${r.rating}</td><td style="padding:8px;text-align:center;font-size:12px;font-weight:600">${s.toFixed(2)}</td></tr>`;
+          }).join("");
+          const body = `${buildHeader(strategyContext, "IFE Matrix Export")}
+            <div class="section">🏗️ IFE Matrix — Internal Factor Evaluation</div>
+            <p style="font-size:12px;color:#64748b;margin-bottom:16px">Evaluates internal strengths and weaknesses with weighted scoring (1-4 scale).</p>
+            <h4 style="color:#059669;font-size:13px;font-weight:600;margin:16px 0 8px">Strengths</h4>
+            <table class="factor-table"><thead><tr><th>Factor</th><th style="text-align:center;width:80px">Weight</th><th style="text-align:center;width:80px">Rating</th><th style="text-align:center;width:80px">Score</th></tr></thead><tbody>${buildRows(strengths, "strength")}</tbody></table>
+            <h4 style="color:#dc2626;font-size:13px;font-weight:600;margin:16px 0 8px">Weaknesses</h4>
+            <table class="factor-table"><thead><tr><th>Factor</th><th style="text-align:center;width:80px">Weight</th><th style="text-align:center;width:80px">Rating</th><th style="text-align:center;width:80px">Score</th></tr></thead><tbody>${buildRows(weaknesses, "weakness")}</tbody></table>
+            <div style="margin-top:16px;display:flex;gap:12px;align-items:center"><span style="font-size:12px;color:#64748b">Total Weight: <strong style="color:${weightWarning ? "#dc2626" : "#059669"}">${totalWeight.toFixed(2)}</strong></span></div>
+            <div class="score-card"><div class="score-label">Total Weighted Score</div><div class="score-value" style="color:${scoreColor}">${totalScore.toFixed(2)}</div><div style="font-size:10px;color:#64748b">out of 4.00</div><div class="score-interp" style="color:${scoreColor}">${interpretation}</div></div>
+            <div class="interpretation-box"><strong>Interpretation:</strong> Scores above 2.5 indicate a strong internal position. Scores below 2.5 suggest internal weaknesses that need attention. The maximum possible score is 4.0 (all major strengths) and the minimum is 1.0 (all major weaknesses).</div>`;
+          openExportWindow("IFE Matrix", body);
+        }} />
       </div>
     </div>
   );
 };
 
 // ═══ EFE MATRIX ═══
-const EFEMatrix = ({ onSave }) => {
+const EFEMatrix = ({ onSave, strategyContext }) => {
   const [opportunities, setOpportunities] = useState([
     { factor: "", weight: 0.1, rating: 3 },
   ]);
@@ -214,13 +240,30 @@ const EFEMatrix = ({ onSave }) => {
           <strong className="text-amber-200">Interpretation:</strong> A total weighted score of 4.0 means the organization responds outstandingly to external factors. A score of 2.5 is average. Scores below 2.5 indicate the firm is not capitalizing on opportunities or avoiding threats effectively.
         </div>
         {onSave && <SaveBtn onClick={() => onSave("efe", { summary: `${interpretation} (${totalScore.toFixed(2)}/4.00)` })} />}
+        <ExportBtn onClick={() => {
+          const buildRows = (items) => items.map(r => {
+            const s = (parseFloat(r.weight) || 0) * (parseInt(r.rating) || 0);
+            return `<tr style="border-bottom:1px solid #e5e7eb"><td style="padding:8px;font-size:12px;color:#334155">${r.factor || "—"}</td><td style="padding:8px;text-align:center;font-size:12px">${parseFloat(r.weight).toFixed(2)}</td><td style="padding:8px;text-align:center;font-size:12px">${r.rating}</td><td style="padding:8px;text-align:center;font-size:12px;font-weight:600">${s.toFixed(2)}</td></tr>`;
+          }).join("");
+          const body = `${buildHeader(strategyContext, "EFE Matrix Export")}
+            <div class="section">🌍 EFE Matrix — External Factor Evaluation</div>
+            <p style="font-size:12px;color:#64748b;margin-bottom:16px">Evaluates how well the firm responds to external opportunities and threats (1=poor to 4=superior).</p>
+            <h4 style="color:#059669;font-size:13px;font-weight:600;margin:16px 0 8px">Opportunities</h4>
+            <table class="factor-table"><thead><tr><th>Factor</th><th style="text-align:center;width:80px">Weight</th><th style="text-align:center;width:80px">Rating</th><th style="text-align:center;width:80px">Score</th></tr></thead><tbody>${buildRows(opportunities)}</tbody></table>
+            <h4 style="color:#dc2626;font-size:13px;font-weight:600;margin:16px 0 8px">Threats</h4>
+            <table class="factor-table"><thead><tr><th>Factor</th><th style="text-align:center;width:80px">Weight</th><th style="text-align:center;width:80px">Rating</th><th style="text-align:center;width:80px">Score</th></tr></thead><tbody>${buildRows(threats)}</tbody></table>
+            <div style="margin-top:16px;display:flex;gap:12px;align-items:center"><span style="font-size:12px;color:#64748b">Total Weight: <strong style="color:${weightWarning ? "#dc2626" : "#059669"}">${totalWeight.toFixed(2)}</strong></span></div>
+            <div class="score-card"><div class="score-label">Total Weighted Score</div><div class="score-value" style="color:${scoreColor}">${totalScore.toFixed(2)}</div><div style="font-size:10px;color:#64748b">out of 4.00</div><div class="score-interp" style="color:${scoreColor}">${interpretation}</div></div>
+            <div class="interpretation-box"><strong>Interpretation:</strong> A total weighted score of 4.0 means the organization responds outstandingly to external factors. A score of 2.5 is average. Scores below 2.5 indicate the firm is not capitalizing on opportunities or avoiding threats effectively.</div>`;
+          openExportWindow("EFE Matrix", body);
+        }} />
       </div>
     </div>
   );
 };
 
 // ═══ SPACE MATRIX ═══
-const SPACEMatrix = ({ onSave }) => {
+const SPACEMatrix = ({ onSave, strategyContext }) => {
   const [fs, setFs] = useState([{ factor: "Return on Investment", score: 4 }, { factor: "Leverage", score: 3 }]);
   const [ca, setCa] = useState([{ factor: "Market Share", score: -3 }, { factor: "Product Quality", score: -2 }]);
   const [es, setEs] = useState([{ factor: "Technological Changes", score: -3 }, { factor: "Inflation Rate", score: -4 }]);
@@ -324,13 +367,29 @@ const SPACEMatrix = ({ onSave }) => {
           </div>
         </div>
         {onSave && <SaveBtn onClick={() => onSave("space", { summary: `${quadrant} posture` })} />}
+        <ExportBtn onClick={() => {
+          const buildDimRows = (items, label, color) => items.map(r => `<tr style="border-bottom:1px solid #e5e7eb"><td style="padding:8px;font-size:12px;color:#334155">${r.factor || "—"}</td><td style="padding:8px;text-align:center;font-size:12px;font-weight:600;color:${color}">${parseFloat(r.score).toFixed(1)}</td></tr>`).join("");
+          const body = `${buildHeader(strategyContext, "SPACE Matrix Export")}
+            <div class="section">📐 SPACE Matrix — Strategic Position &amp; Action Evaluation</div>
+            <p style="font-size:12px;color:#64748b;margin-bottom:16px">Determines the appropriate strategic posture across four dimensions.</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+              <div><h4 style="color:#34d399;font-size:13px;font-weight:600;margin-bottom:8px">Financial Strength (FS) — Avg: ${fsAvg.toFixed(1)}</h4><table class="factor-table"><thead><tr><th>Factor</th><th style="text-align:center;width:80px">Score</th></tr></thead><tbody>${buildDimRows(fs, "FS", "#34d399")}</tbody></table></div>
+              <div><h4 style="color:#60a5fa;font-size:13px;font-weight:600;margin-bottom:8px">Industry Strength (IS) — Avg: ${isAvg.toFixed(1)}</h4><table class="factor-table"><thead><tr><th>Factor</th><th style="text-align:center;width:80px">Score</th></tr></thead><tbody>${buildDimRows(is_, "IS", "#60a5fa")}</tbody></table></div>
+              <div><h4 style="color:#fbbf24;font-size:13px;font-weight:600;margin-bottom:8px">Competitive Advantage (CA) — Avg: ${caAvg.toFixed(1)}</h4><table class="factor-table"><thead><tr><th>Factor</th><th style="text-align:center;width:80px">Score</th></tr></thead><tbody>${buildDimRows(ca, "CA", "#fbbf24")}</tbody></table></div>
+              <div><h4 style="color:#f87171;font-size:13px;font-weight:600;margin-bottom:8px">Environmental Stability (ES) — Avg: ${esAvg.toFixed(1)}</h4><table class="factor-table"><thead><tr><th>Factor</th><th style="text-align:center;width:80px">Score</th></tr></thead><tbody>${buildDimRows(es, "ES", "#f87171")}</tbody></table></div>
+            </div>
+            <div style="display:flex;gap:12px;margin-bottom:16px"><div class="stat-box"><div class="lbl">X-Axis (CA + IS)</div><div class="num" style="color:#60a5fa">${xAxis.toFixed(1)}</div></div><div class="stat-box"><div class="lbl">Y-Axis (FS + ES)</div><div class="num" style="color:#34d399">${yAxis.toFixed(1)}</div></div></div>
+            <div class="score-card"><div class="score-label">Strategic Posture</div><div class="score-value" style="color:${quadrantColor}">${quadrant}</div></div>
+            <div class="interpretation-box"><strong>Recommendation:</strong> ${quadrantDesc}</div>`;
+          openExportWindow("SPACE Matrix", body);
+        }} />
       </div>
     </div>
   );
 };
 
 // ═══ BCG MATRIX ═══
-const BCGMatrix = ({ onSave }) => {
+const BCGMatrix = ({ onSave, strategyContext }) => {
   const [units, setUnits] = useState([
     { name: "Product A", growth: 15, share: 2.0 },
     { name: "Product B", growth: 5, share: 0.4 },
@@ -442,13 +501,31 @@ const BCGMatrix = ({ onSave }) => {
           const summary = Object.entries(cats).map(([k, v]) => `${v} ${k}${v > 1 ? "s" : ""}`).join(", ");
           onSave("bcg", { summary: summary || "No units defined" });
         }} />}
+        <ExportBtn onClick={() => {
+          const unitRows = units.map(u => {
+            const cat = classify(u);
+            return `<tr style="border-bottom:1px solid #e5e7eb"><td style="padding:8px;font-size:12px;color:#334155;font-weight:600">${u.name || "—"}</td><td style="padding:8px;text-align:center;font-size:12px">${parseFloat(u.growth).toFixed(1)}%</td><td style="padding:8px;text-align:center;font-size:12px">${parseFloat(u.share).toFixed(1)}</td><td style="padding:8px;text-align:center"><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;color:white;background:${cat.color}">${cat.icon} ${cat.label}</span></td></tr>`;
+          }).join("");
+          const catDetails = units.map(u => {
+            const cat = classify(u);
+            return `<div style="padding:10px;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:8px"><div style="font-weight:600;font-size:13px;color:#1e293b">${cat.icon} ${u.name || "Unit"} — <span style="color:${cat.color}">${cat.label}</span></div><div style="font-size:11px;color:#64748b;margin-top:4px">${cat.desc}</div></div>`;
+          }).join("");
+          const body = `${buildHeader(strategyContext, "BCG Matrix Export")}
+            <div class="section">📊 BCG Matrix — Growth-Share Analysis</div>
+            <p style="font-size:12px;color:#64748b;margin-bottom:16px">Classifies business units by market growth rate and relative market share.</p>
+            <table class="factor-table"><thead><tr><th>Business Unit</th><th style="text-align:center;width:100px">Growth %</th><th style="text-align:center;width:100px">Rel. Share</th><th style="text-align:center;width:140px">Category</th></tr></thead><tbody>${unitRows}</tbody></table>
+            <div class="section" style="font-size:14px">Classification Details</div>
+            ${catDetails}
+            <div class="interpretation-box"><strong>BCG Framework:</strong> Stars (high growth, high share) — invest to maintain. Cash Cows (low growth, high share) — harvest profits. Question Marks (high growth, low share) — decide to invest or divest. Dogs (low growth, low share) — consider divestiture.</div>`;
+          openExportWindow("BCG Matrix", body);
+        }} />
       </div>
     </div>
   );
 };
 
 // ═══ PORTER'S FIVE FORCES ═══
-const PorterFiveForces = ({ onSave }) => {
+const PorterFiveForces = ({ onSave, strategyContext }) => {
   const forceDefinitions = [
     { key: "rivalry", name: "Competitive Rivalry", icon: "⚔️", color: "#f87171", factors: ["Number of competitors", "Industry growth rate", "Product differentiation", "Exit barriers"] },
     { key: "newEntrants", name: "Threat of New Entrants", icon: "🚪", color: "#fbbf24", factors: ["Capital requirements", "Economies of scale", "Brand loyalty", "Regulatory barriers"] },
@@ -589,6 +666,23 @@ const PorterFiveForces = ({ onSave }) => {
           </div>
         </div>
         {onSave && <SaveBtn onClick={() => onSave("porter", { summary: `${overallInterpretation} (${overallAvg.toFixed(1)}/5.0)` })} />}
+        <ExportBtn onClick={() => {
+          const forceCards = forceDefinitions.map(fd => {
+            const a = forceAvg(fd.key);
+            const factorRows = forces[fd.key].map(f => `<tr style="border-bottom:1px solid #e5e7eb"><td style="padding:6px 8px;font-size:12px;color:#334155">${f.factor || "—"}</td><td style="padding:6px 8px;text-align:center;font-size:12px;font-weight:600;color:${threatColor(parseInt(f.rating))}">${f.rating}/5</td></tr>`).join("");
+            return `<div style="border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin-bottom:12px;page-break-inside:avoid">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><span style="font-weight:600;font-size:14px;color:#1e293b">${fd.icon} ${fd.name}</span><span style="display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;color:white;background:${threatColor(a)}">${threatLevel(a)} (${a.toFixed(1)})</span></div>
+              <table class="factor-table" style="margin-top:4px"><thead><tr><th>Factor</th><th style="text-align:center;width:80px">Rating</th></tr></thead><tbody>${factorRows}</tbody></table>
+              <div style="margin-top:8px;height:8px;border-radius:4px;background:#e5e7eb;overflow:hidden"><div style="height:100%;border-radius:4px;background:${fd.color};width:${(a / 5) * 100}%"></div></div>
+            </div>`;
+          }).join("");
+          const body = `${buildHeader(strategyContext, "Porter's Five Forces Export")}
+            <div class="section">⚔️ Porter's Five Forces — Industry Competitive Analysis</div>
+            <p style="font-size:12px;color:#64748b;margin-bottom:16px">Analyzes the five competitive forces that shape industry attractiveness.</p>
+            ${forceCards}
+            <div class="score-card"><div class="score-label">Overall Industry Attractiveness</div><div class="score-value" style="color:${threatColor(overallAvg)}">${overallAvg.toFixed(1)}</div><div style="font-size:10px;color:#64748b">out of 5.0</div><div class="score-interp" style="color:${threatColor(overallAvg)}">${overallInterpretation}</div></div>`;
+          openExportWindow("Porter's Five Forces", body);
+        }} />
       </div>
     </div>
   );
@@ -611,7 +705,7 @@ export const FrameworkButton = ({ frameworkKey, onClick }) => {
 };
 
 // ═══ MATRIX TOOLKIT MODAL ═══
-export const StrategyMatrixToolkit = ({ open, matrixKey, onClose, onSave }) => {
+export const StrategyMatrixToolkit = ({ open, matrixKey, onClose, onSave, strategyContext }) => {
   const fw = MATRIX_FRAMEWORKS[matrixKey];
   if (!open || !fw) return null;
 
@@ -630,7 +724,7 @@ export const StrategyMatrixToolkit = ({ open, matrixKey, onClose, onSave }) => {
       <div className="mb-3 pb-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
         <div className="text-gray-400 text-xs">{fw.description}</div>
       </div>
-      {Worksheet && <Worksheet onSave={onSave} />}
+      {Worksheet && <Worksheet onSave={onSave} strategyContext={strategyContext} />}
     </Modal>
   );
 };

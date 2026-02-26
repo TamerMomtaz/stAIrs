@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { api, ConvStore } from "../api";
 import { GOLD, GOLD_L, DEEP, BORDER, glass } from "../constants";
 import { Markdown } from "./Markdown";
+import { buildHeader, openExportWindow } from "../exportUtils";
 
 export const AIChatView = ({ lang, userId, strategyContext, onSaveNote, onMatrixClick }) => {
   const storeRef = useRef(null); if (!storeRef.current && userId) storeRef.current = new ConvStore(userId); const store = storeRef.current;
@@ -30,6 +31,20 @@ export const AIChatView = ({ lang, userId, strategyContext, onSaveNote, onMatrix
     } catch (e) { setRetryMsg(null); const err = { role: "ai", text: `⚠️ ${e.message}`, error: true, ts: new Date().toISOString() }; const final = [...newMsgs, err]; setMessages(final); if (store&&cid) store.saveMsgs(cid,final); }
     setLoading(false);
   };
+  const exportConversation = () => {
+    if (messages.length <= 1) return;
+    const msgHtml = messages.map(m => {
+      if (m.role === "user") return `<div class="chat-msg user"><div class="role" style="color:#B8904A">You</div><div class="text">${m.text}</div></div>`;
+      const cleaned = m.text.replace(/\*\*/g, "").replace(/##\s/g, "").replace(/\n/g, "<br>");
+      return `<div class="chat-msg ai"><div class="role" style="color:#0369a1">AI Advisor${m.provider_display ? ` · ${m.provider_display}` : ""}${m.tokens ? ` · ${m.tokens} tokens` : ""}</div><div class="text">${cleaned}</div></div>`;
+    }).join("");
+    const convTitle = activeConv?.title || "AI Conversation";
+    const body = `${buildHeader(strategyContext, "AI Chat Export")}
+      <div class="section">🤖 ${convTitle}</div>
+      <p style="font-size:12px;color:#64748b;margin-bottom:16px">${messages.length} messages · Exported ${new Date().toLocaleDateString()}</p>
+      ${msgHtml}`;
+    openExportWindow(`AI Chat — ${convTitle}`, body);
+  };
   const quicks = isAr ? ["ما هي أكبر المخاطر؟","اقترح تحسينات"] : ["What are the biggest risks?","Suggest improvements","Generate KRs for objectives"];
   const activeConv = convs.find(c => c.id===activeId);
   return (
@@ -42,6 +57,7 @@ export const AIChatView = ({ lang, userId, strategyContext, onSaveNote, onMatrix
         <div className="flex items-center gap-2 mb-3">
           <button onClick={() => setShowHist(!showHist)} className={`p-2 rounded-lg transition ${showHist?"bg-amber-500/15 text-amber-400":"text-gray-500 hover:text-gray-300"}`}><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="2" width="14" height="2" rx="1"/><rect x="1" y="7" width="14" height="2" rx="1"/><rect x="1" y="12" width="14" height="2" rx="1"/></svg></button>
           {activeConv && <span className="text-sm text-gray-400 truncate">{activeConv.title}</span>}<div className="flex-1"/>
+          {messages.length > 1 && <button onClick={exportConversation} className="text-xs px-3 py-1.5 rounded-lg text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 transition" style={{ border: `1px solid ${BORDER}` }}>↓ {isAr ? "تصدير" : "Export"}</button>}
           <button onClick={newChat} className="text-xs px-3 py-1.5 rounded-lg text-amber-400/70 border border-amber-500/20 hover:bg-amber-500/10 transition">+ {isAr?"محادثة جديدة":"New Chat"}</button>
         </div>
         <div className="flex-1 overflow-y-auto space-y-3 pb-4 px-1 min-h-0">

@@ -1,5 +1,6 @@
 import { GOLD, GOLD_L, BORDER, glass } from "../constants";
 import { MATRIX_FRAMEWORKS } from "./StrategyMatrixToolkit";
+import { buildHeader, openExportWindow } from "../exportUtils";
 
 const TOOL_DESCRIPTIONS = {
   ife: "Evaluate internal strengths and weaknesses with weighted scoring to assess your organization's internal strategic position.",
@@ -9,15 +10,37 @@ const TOOL_DESCRIPTIONS = {
   porter: "Analyze the five competitive forces that shape industry attractiveness and long-term profitability.",
 };
 
-export const StrategyToolsPanel = ({ lang, onMatrixClick, matrixResults }) => {
+const exportMatrixSummary = (results, strategyContext) => {
+  const cards = Object.values(MATRIX_FRAMEWORKS).map(fw => {
+    const r = results?.[fw.key];
+    if (!r) return "";
+    return `<div style="border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin-bottom:12px;page-break-inside:avoid">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:20px">${fw.icon}</span><span style="font-weight:600;font-size:14px;color:#1e293b">${fw.name}</span></div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:8px">${fw.description}</div>
+      <div style="padding:10px;background:#fffbeb;border:1px solid #fcd34d40;border-radius:6px"><div style="font-size:13px;font-weight:600;color:#B8904A">${r.summary}</div><div style="font-size:10px;color:#94a3b8;margin-top:4px">Saved ${new Date(r.saved_at).toLocaleDateString()}</div></div>
+    </div>`;
+  }).filter(Boolean).join("");
+  if (!cards) return;
+  const body = `${buildHeader(strategyContext, "Strategy Tools Summary")}
+    <div class="section">🔧 Strategy Analysis Summary</div>
+    <p style="font-size:12px;color:#64748b;margin-bottom:16px">Completed strategy matrix results overview.</p>
+    ${cards}`;
+  openExportWindow("Strategy Tools Summary", body);
+};
+
+export const StrategyToolsPanel = ({ lang, onMatrixClick, matrixResults, strategyContext }) => {
   const isAr = lang === "ar";
   const tools = Object.values(MATRIX_FRAMEWORKS);
+  const hasAnyResult = tools.some(t => matrixResults?.[t.key]);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-white text-lg font-semibold mb-1">{isAr ? "أدوات الاستراتيجية" : "Strategy Tools"}</h2>
-        <p className="text-gray-500 text-xs">{isAr ? "أدوات تحليل استراتيجي تفاعلية" : "Interactive strategy analysis matrices and frameworks"}</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-white text-lg font-semibold mb-1">{isAr ? "أدوات الاستراتيجية" : "Strategy Tools"}</h2>
+          <p className="text-gray-500 text-xs">{isAr ? "أدوات تحليل استراتيجي تفاعلية" : "Interactive strategy analysis matrices and frameworks"}</p>
+        </div>
+        {hasAnyResult && <button onClick={() => exportMatrixSummary(matrixResults, strategyContext)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{ borderColor: `${GOLD}60`, color: GOLD, background: `${GOLD}15` }}>↓ {isAr ? "تصدير الملخص" : "Export Summary"}</button>}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {tools.map(t => {
