@@ -14,7 +14,7 @@ from app.storage import (
     upload_file, get_signed_url, delete_file,
     ALLOWED_EXTENSIONS, ALLOWED_MIME_TYPES, MAX_FILE_SIZE,
 )
-from app.extraction import extract_text
+from app.extraction import extract_text, clean_extracted_text, assess_extraction_quality
 
 router = APIRouter(prefix="/api/v1/strategies", tags=["sources"])
 
@@ -196,6 +196,13 @@ async def upload_document(
     # Extract text
     extracted_text, extra_meta = extract_text(file_bytes, fname, content_type)
     content = extracted_text if extracted_text else "extraction_failed"
+
+    # Ensure cleaned_text and extraction_quality are always present in metadata
+    if "cleaned_text" not in extra_meta and content != "extraction_failed":
+        extra_meta["cleaned_text"] = clean_extracted_text(content)
+    if "extraction_quality" not in extra_meta:
+        cleaned = extra_meta.get("cleaned_text", content)
+        extra_meta["extraction_quality"] = assess_extraction_quality(cleaned)
 
     # Get signed URL
     try:
