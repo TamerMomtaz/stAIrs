@@ -194,6 +194,12 @@ export const SourcesAPI = {
   async removeWithFile(strategyId, sourceId) {
     return api.del(`/api/v1/strategies/${strategyId}/sources/${sourceId}/with-file`);
   },
+  async analyzeDocument(strategyId, sourceId) {
+    return api.aiPost(`/api/v1/strategies/${strategyId}/sources/${sourceId}/analyze`);
+  },
+  async approveExtractions(strategyId, sourceId, items) {
+    return api.post(`/api/v1/strategies/${strategyId}/sources/${sourceId}/approve-extractions`, { items });
+  },
 };
 
 
