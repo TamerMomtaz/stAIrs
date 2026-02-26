@@ -95,6 +95,7 @@ async def get_active_provider(auth: AuthContext = Depends(get_auth)):
 async def ai_chat(req: AIChatRequest, auth: AuthContext = Depends(get_auth)):
     pool = await get_pool()
     context_parts = []
+    sources_used = []
     async with pool.acquire() as conn:
         org = await conn.fetchrow("SELECT * FROM organizations WHERE id = $1", auth.org_id)
         if org:
@@ -110,30 +111,73 @@ async def ai_chat(req: AIChatRequest, auth: AuthContext = Depends(get_auth)):
             if detail:
                 context_parts.append(f"\nFocused: {detail['title']} — {detail['description'] or 'No description'}")
                 context_parts.append(f"Progress: {detail['progress_percent']}%, Health: {detail['health']}, Confidence: {detail['confidence_percent']}%")
-    # Include approved AI extractions from documents (Source of Truth)
-    if req.context_stair_id:
+
+    # Resolve strategy_id from request or from context_stair_id
+    strategy_id = str(req.strategy_id) if req.strategy_id else None
+    if not strategy_id and req.context_stair_id:
         async with pool.acquire() as conn:
             stair_row = await conn.fetchrow(
                 "SELECT strategy_id FROM stairs WHERE id = $1", str(req.context_stair_id)
             )
             if stair_row and stair_row.get("strategy_id"):
-                extraction_rows = await conn.fetch(
-                    "SELECT content, metadata FROM strategy_sources "
-                    "WHERE strategy_id = $1 AND source_type = 'ai_extraction' "
-                    "ORDER BY created_at DESC LIMIT 50",
-                    str(stair_row["strategy_id"]),
+                strategy_id = str(stair_row["strategy_id"])
+
+    # Include approved AI extractions grouped by category (Source of Truth)
+    if strategy_id:
+        async with pool.acquire() as conn:
+            extraction_rows = await conn.fetch(
+                "SELECT content, metadata FROM strategy_sources "
+                "WHERE strategy_id = $1 AND source_type = 'ai_extraction' "
+                "ORDER BY created_at DESC LIMIT 100",
+                strategy_id,
+            )
+            if extraction_rows:
+                by_category = {}
+                file_sources = {}
+                for er in extraction_rows:
+                    er_meta = er["metadata"] if isinstance(er["metadata"], dict) else json.loads(er["metadata"] or "{}")
+                    cat = er_meta.get("category", "General")
+                    fname = er_meta.get("parent_filename", "")
+                    if cat not in by_category:
+                        by_category[cat] = []
+                    by_category[cat].append({"text": er["content"][:500], "filename": fname})
+                    if fname:
+                        if fname not in file_sources:
+                            file_sources[fname] = set()
+                        file_sources[fname].add(cat)
+
+                context_parts.append("\n=== Verified Strategy Data from Uploaded Documents ===")
+                context_parts.append(
+                    "IMPORTANT: When your answer uses data from these documents, "
+                    "cite the source document name in parentheses, e.g. (Source: filename.pdf)."
                 )
-                if extraction_rows:
-                    context_parts.append("\nAPPROVED DOCUMENT EXTRACTIONS (verified data from uploaded documents):")
-                    for er in extraction_rows:
-                        er_meta = er["metadata"] if isinstance(er["metadata"], dict) else json.loads(er["metadata"] or "{}")
-                        cat = er_meta.get("category", "General")
-                        fname = er_meta.get("parent_filename", "")
-                        src_label = f" (from: {fname})" if fname else ""
-                        context_parts.append(f"  [{cat}]{src_label}: {er['content'][:300]}")
+                category_order = [
+                    "Financial Data", "Market Position", "Team & Resources",
+                    "Competitors", "Business Model", "Customers",
+                    "Risks", "Opportunities",
+                ]
+                all_cats = list(dict.fromkeys(category_order + list(by_category.keys())))
+                for cat in all_cats:
+                    if cat in by_category:
+                        context_parts.append(f"\n## {cat}")
+                        for item in by_category[cat]:
+                            src = f" [from: {item['filename']}]" if item["filename"] else ""
+                            context_parts.append(f"  - {item['text']}{src}")
+                context_parts.append("\n=== End of Verified Strategy Data ===")
+
+                sources_used = [
+                    {"filename": fn, "categories": sorted(cats)}
+                    for fn, cats in file_sources.items()
+                ]
+
     messages = [{"role": "user", "content": f"CONTEXT:\n{chr(10).join(context_parts)}\n\nUSER QUESTION:\n{req.message}"}]
     result = await call_claude(messages)
     text = result["content"][0]["text"] if result.get("content") else "No response generated"
+
+    # Check which sources were actually cited in the response
+    for src in sources_used:
+        src["cited"] = src["filename"].lower() in text.lower() if src.get("filename") else False
+
     provider = result.get("_provider", "claude")
     provider_display = result.get("_provider_display", "Claude")
     model_used = provider_display
@@ -147,16 +191,8 @@ async def ai_chat(req: AIChatRequest, auth: AuthContext = Depends(get_auth)):
             str(uuid.uuid4()), conv_id, req.message, model_used)
         await conn.execute("INSERT INTO ai_messages (id, conversation_id, role, content, tokens_used, model_used) VALUES ($1,$2,'assistant',$3,$4,$5)",
             str(uuid.uuid4()), conv_id, text, total_tokens, model_used)
-    # Auto-log to Source of Truth
+    # Auto-log to Source of Truth (reuse already-resolved strategy_id)
     try:
-        strategy_id = None
-        if req.context_stair_id:
-            async with pool.acquire() as conn:
-                stair_row = await conn.fetchrow(
-                    "SELECT strategy_id FROM stairs WHERE id = $1", str(req.context_stair_id)
-                )
-                if stair_row and stair_row["strategy_id"]:
-                    strategy_id = str(stair_row["strategy_id"])
         if strategy_id:
             await log_source(
                 strategy_id=strategy_id,
@@ -168,6 +204,7 @@ async def ai_chat(req: AIChatRequest, auth: AuthContext = Depends(get_auth)):
                     "tokens_used": total_tokens,
                     "provider": provider,
                     "context": "ai_advisor",
+                    "sources_used": [s["filename"] for s in sources_used] if sources_used else [],
                 },
                 user_id=auth.user_id,
             )
@@ -175,7 +212,8 @@ async def ai_chat(req: AIChatRequest, auth: AuthContext = Depends(get_auth)):
         pass
 
     return {"response": text, "conversation_id": conv_id, "actions": [], "tokens_used": total_tokens,
-            "provider": provider, "provider_display": provider_display}
+            "provider": provider, "provider_display": provider_display,
+            "sources_used": sources_used if sources_used else None}
 
 
 @router.post("/analyze/{stair_id}")

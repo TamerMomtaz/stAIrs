@@ -230,6 +230,7 @@ class AIChatRequest(BaseModel):
     message: str
     context_stair_id: Optional[UUID] = None
     conversation_id: Optional[UUID] = None
+    strategy_id: Optional[UUID] = None
 
 class AIChatResponse(BaseModel):
     response: str
@@ -238,6 +239,7 @@ class AIChatResponse(BaseModel):
     tokens_used: Optional[int] = None
     provider: Optional[str] = None
     provider_display: Optional[str] = None
+    sources_used: Optional[List[dict]] = None
 
 class AIAnalysisResponse(BaseModel):
     risk_score: float

@@ -169,8 +169,10 @@ export const SourcesAPI = {
     if (params.length) path += `?${params.join("&")}`;
     return api.get(path);
   },
-  async count(strategyId) {
-    return api.get(`/api/v1/strategies/${strategyId}/sources/count`);
+  async count(strategyId, sourceType) {
+    let path = `/api/v1/strategies/${strategyId}/sources/count`;
+    if (sourceType) path += `?source_type=${encodeURIComponent(sourceType)}`;
+    return api.get(path);
   },
   async create(strategyId, sourceType, content, metadata = {}) {
     return api.post(`/api/v1/strategies/${strategyId}/sources`, {
