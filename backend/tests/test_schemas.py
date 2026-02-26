@@ -19,6 +19,9 @@ from app.models.schemas import (
     AlertUpdate,
     KPIMeasurementCreate,
     TeamCreate,
+    SourceCreate,
+    SourceUpdate,
+    SourceOut,
 )
 
 
@@ -150,3 +153,78 @@ class TestKPIMeasurementCreate:
         m = KPIMeasurementCreate(value=42.5)
         assert m.value == 42.5
         assert m.source == "manual"
+
+
+class TestSourceCreate:
+    def test_valid_questionnaire(self):
+        s = SourceCreate(source_type="questionnaire", content="Q: What? A: Something")
+        assert s.source_type == "questionnaire"
+        assert s.content == "Q: What? A: Something"
+        assert s.metadata == {}
+
+    def test_valid_ai_chat(self):
+        s = SourceCreate(source_type="ai_chat", content="AI conversation snippet", metadata={"tokens": 100})
+        assert s.source_type == "ai_chat"
+        assert s.metadata == {"tokens": 100}
+
+    def test_valid_feedback(self):
+        s = SourceCreate(source_type="feedback", content="User can partially do this task")
+        assert s.source_type == "feedback"
+
+    def test_valid_manual_entry(self):
+        s = SourceCreate(source_type="manual_entry", content="Based on McKinsey report Q3 2025")
+        assert s.source_type == "manual_entry"
+
+    def test_valid_all_types(self):
+        for t in ["questionnaire", "ai_chat", "feedback", "manual_entry"]:
+            s = SourceCreate(source_type=t, content="test")
+            assert s.source_type == t
+
+    def test_invalid_source_type(self):
+        from pydantic import ValidationError
+        with pytest.raises(ValidationError):
+            SourceCreate(source_type="invalid_type", content="test")
+
+    def test_requires_content(self):
+        from pydantic import ValidationError
+        with pytest.raises(ValidationError):
+            SourceCreate(source_type="questionnaire")
+
+
+class TestSourceUpdate:
+    def test_all_optional(self):
+        u = SourceUpdate()
+        assert u.content is None
+        assert u.metadata is None
+
+    def test_partial_update(self):
+        u = SourceUpdate(content="Updated content")
+        assert u.content == "Updated content"
+        assert u.metadata is None
+
+    def test_metadata_update(self):
+        u = SourceUpdate(metadata={"key": "value"})
+        assert u.metadata == {"key": "value"}
+
+
+class TestSourceOut:
+    def test_valid(self):
+        s = SourceOut(
+            id="00000000-0000-0000-0000-000000000001",
+            strategy_id="00000000-0000-0000-0000-000000000002",
+            source_type="questionnaire",
+            content="Test content",
+        )
+        assert str(s.id) == "00000000-0000-0000-0000-000000000001"
+        assert s.source_type == "questionnaire"
+        assert s.metadata == {}
+
+    def test_with_metadata(self):
+        s = SourceOut(
+            id="00000000-0000-0000-0000-000000000001",
+            strategy_id="00000000-0000-0000-0000-000000000002",
+            source_type="ai_chat",
+            content="AI response",
+            metadata={"tokens": 500, "provider": "claude"},
+        )
+        assert s.metadata["tokens"] == 500

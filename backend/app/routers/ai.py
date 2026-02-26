@@ -19,6 +19,7 @@ from app.models.schemas import (
     QuestionnaireGenerateRequest, QuestionnaireGenerateResponse,
 )
 from app.routers.websocket import ws_manager
+from app.routers.sources import log_source
 from app.ai_providers import (
     call_ai_with_fallback, PROVIDER_DISPLAY, get_ai_status,
 )
@@ -125,6 +126,33 @@ async def ai_chat(req: AIChatRequest, auth: AuthContext = Depends(get_auth)):
             str(uuid.uuid4()), conv_id, req.message, model_used)
         await conn.execute("INSERT INTO ai_messages (id, conversation_id, role, content, tokens_used, model_used) VALUES ($1,$2,'assistant',$3,$4,$5)",
             str(uuid.uuid4()), conv_id, text, total_tokens, model_used)
+    # Auto-log to Source of Truth
+    try:
+        strategy_id = None
+        if req.context_stair_id:
+            async with pool.acquire() as conn:
+                stair_row = await conn.fetchrow(
+                    "SELECT strategy_id FROM stairs WHERE id = $1", str(req.context_stair_id)
+                )
+                if stair_row and stair_row["strategy_id"]:
+                    strategy_id = str(stair_row["strategy_id"])
+        if strategy_id:
+            await log_source(
+                strategy_id=strategy_id,
+                source_type="ai_chat",
+                content=f"Q: {req.message[:500]}\n\nA: {text[:1000]}",
+                metadata={
+                    "conversation_id": conv_id,
+                    "context_stair_id": str(req.context_stair_id) if req.context_stair_id else None,
+                    "tokens_used": total_tokens,
+                    "provider": provider,
+                    "context": "ai_advisor",
+                },
+                user_id=auth.user_id,
+            )
+    except Exception:
+        pass
+
     return {"response": text, "conversation_id": conv_id, "actions": [], "tokens_used": total_tokens,
             "provider": provider, "provider_display": provider_display}
 
@@ -156,6 +184,27 @@ Return JSON: risk_score (0-100), risk_level, identified_risks[], recommended_act
     async with pool.acquire() as conn:
         await conn.execute("UPDATE stairs SET ai_risk_score=$1, ai_health_prediction=$2, ai_insights=$3, updated_at=NOW() WHERE id=$4",
             analysis.get("risk_score", 50), analysis.get("risk_level", "medium"), json.dumps(analysis), stair_id)
+
+    # Auto-log analysis to Source of Truth
+    try:
+        strategy_id_val = stair.get("strategy_id") if isinstance(stair, dict) else stair["strategy_id"]
+        if strategy_id_val:
+            await log_source(
+                strategy_id=str(strategy_id_val),
+                source_type="ai_chat",
+                content=f"AI Risk Analysis for '{stair['title']}': Risk score {analysis.get('risk_score', 'N/A')}, {analysis.get('summary', '')[:500]}",
+                metadata={
+                    "context": "risk_analysis",
+                    "stair_id": stair_id,
+                    "stair_title": stair["title"],
+                    "risk_score": analysis.get("risk_score"),
+                    "risk_level": analysis.get("risk_level"),
+                },
+                user_id=auth.user_id,
+            )
+    except Exception:
+        pass
+
     return analysis
 
 
@@ -198,6 +247,30 @@ Start with Vision, then Objectives, then Key Results. 3-5 KRs per Objective. Inc
                 await conn.execute("INSERT INTO stair_closure (ancestor_id, descendant_id, depth) SELECT ancestor_id, $1, depth+1 FROM stair_closure WHERE descendant_id = $2", stair_id, parent_id)
             parent_ids.append(stair_id); created.append({"id": stair_id, "code": code, "title": el.get("title")})
     await ws_manager.broadcast_to_org(auth.org_id, {"event": "strategy_generated", "data": {"count": len(created)}})
+
+    # Auto-log to Source of Truth — find strategy for generated elements
+    try:
+        if created:
+            async with pool.acquire() as conn:
+                stair_row = await conn.fetchrow(
+                    "SELECT strategy_id FROM stairs WHERE id = $1", created[0]["id"]
+                )
+                if stair_row and stair_row.get("strategy_id"):
+                    await log_source(
+                        strategy_id=str(stair_row["strategy_id"]),
+                        source_type="ai_chat",
+                        content=f"AI Strategy Generation: {req.prompt[:500]}",
+                        metadata={
+                            "context": "strategy_generation",
+                            "framework": req.framework,
+                            "elements_generated": len(created),
+                            "element_titles": [e["title"] for e in created[:10]],
+                        },
+                        user_id=auth.user_id,
+                    )
+    except Exception:
+        pass
+
     return {"generated": len(created), "elements": created}
 
 
@@ -315,5 +388,25 @@ Use conditional_on sparingly (2-3 questions). The expected_answer must exactly m
             questionnaire = _mock_questionnaire(req.strategy_type)
     except Exception:
         questionnaire = _mock_questionnaire(req.strategy_type)
+
+    # Auto-log questionnaire generation to Source of Truth
+    # Note: strategy_id may not exist yet during wizard; frontend will log answers with strategy_id later
+    try:
+        question_count = sum(len(g.get("questions", [])) if isinstance(g, dict) else len(g.questions) for g in (questionnaire.get("groups", []) if isinstance(questionnaire, dict) else questionnaire["groups"]))
+        await log_source(
+            strategy_id="00000000-0000-0000-0000-000000000000",  # placeholder, frontend re-logs with actual ID
+            source_type="questionnaire",
+            content=f"Questionnaire generated for {req.company_name} ({req.strategy_type}): {question_count} questions",
+            metadata={
+                "context": "questionnaire_generation",
+                "company_name": req.company_name,
+                "strategy_type": req.strategy_type,
+                "industry": req.industry,
+                "question_count": question_count,
+            },
+            user_id=auth.user_id,
+        )
+    except Exception:
+        pass
 
     return questionnaire

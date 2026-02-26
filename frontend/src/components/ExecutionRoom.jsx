@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { api, ActionPlansAPI } from "../api";
+import { api, ActionPlansAPI, SourcesAPI } from "../api";
 import { GOLD, GOLD_L, TEAL, DEEP, BORDER, glass, typeColors, typeIcons } from "../constants";
 import { HealthBadge } from "./SharedUI";
 import { Markdown } from "./Markdown";
@@ -270,6 +270,18 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
         setSavedCustomPlanId(saved.id);
         setHasSavedPlan(true);
       } catch (saveErr) { console.warn("Auto-save customized plan failed:", saveErr.message); }
+      // Log feedback to Source of Truth
+      if (strategyContext?.id && feedback.length > 0) {
+        try {
+          const feedbackContent = feedback.map(f => `Task: ${f.taskName}\nFeedback: ${f.userFeedback.join("; ")}`).join("\n\n");
+          await SourcesAPI.create(strategyContext.id, "feedback", feedbackContent, {
+            context: "feedback_response",
+            stair_id: stair.id,
+            stair_title: stair.title,
+            task_count: feedback.length,
+          });
+        } catch (e) { console.warn("Failed to log feedback source:", e.message); }
+      }
     } catch (e) { setRetryMsg(null); setCustomPlan(`Error generating customized plan: ${e.message}`); }
     setCustomPlanLoading(false);
   };

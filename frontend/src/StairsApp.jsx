@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { api, StrategyAPI, NotesStore, MatrixResultsStore } from "./api";
+import { api, StrategyAPI, NotesStore, MatrixResultsStore, SourcesAPI } from "./api";
 import { GOLD, GOLD_L, DEEP, BORDER, typeIcons } from "./constants";
 
 // Components
@@ -17,6 +17,7 @@ import { ExecutionRoom } from "./components/ExecutionRoom";
 import { TutorialOverlay, TutorialUpdatePrompt, FeaturesExploredBadge } from "./components/TutorialOverlay";
 import { StrategyMatrixToolkit } from "./components/StrategyMatrixToolkit";
 import { StrategyToolsPanel } from "./components/StrategyToolsPanel";
+import { SourceOfTruthView } from "./components/SourceOfTruthView";
 import { shouldShowTutorial, hasNewTutorialSteps, getNewSteps, markFeatureUsed, getTutorialState, saveTutorialState, getDefaultTutorialState } from "./tutorialConfig";
 
 // ═══ MAIN APP ═══
@@ -42,6 +43,7 @@ export default function App() {
   const openMatrix = (key, initialData = null) => setMatrixToolkit({ open: true, key, initialData });
   const closeMatrix = () => setMatrixToolkit({ open: false, key: null, initialData: null });
   const [matrixResults, setMatrixResults] = useState({});
+  const [sourceCount, setSourceCount] = useState(0);
   const matrixStoreRef = useRef(null);
   const stratApiRef = useRef(null);
   const notesStoreRef = useRef(null);
@@ -111,6 +113,7 @@ export default function App() {
     try { const tree = await api.get(`/api/v1/strategies/${strat.id}/tree`); setStairTree(tree || []); } catch { setStairTree([]); }
     try { const dash = await api.get(`/api/v1/dashboard`); setDashData(dash); } catch { setDashData({ stats: { total_elements: 0, overall_progress: 0 } }); }
     try { const al = await api.get(`/api/v1/alerts`); setAlerts(al || []); } catch { setAlerts([]); }
+    try { const sc = await SourcesAPI.count(strat.id); setSourceCount(sc?.count || 0); } catch { setSourceCount(0); }
   };
 
   const createStrategy = async (stratData) => {
@@ -129,6 +132,12 @@ export default function App() {
         }
       } else {
         localStorage.setItem(`stairs_el_${created.id}`, JSON.stringify(stratData._localElements));
+      }
+    }
+    // Log pending sources to Source of Truth
+    if (created.source === "server" && stratData._pendingSources?.length > 0) {
+      for (const src of stratData._pendingSources) {
+        try { await SourcesAPI.create(created.id, src.source_type, src.content, src.metadata || {}); } catch (e) { console.warn("Failed to log source:", e.message); }
       }
     }
     await loadStrategies();
@@ -216,6 +225,7 @@ export default function App() {
     { key: "alerts", icon: "🔔", label: isAr ? "تنبيهات" : "Alerts", tutorial: "nav-alerts" },
     { key: "actionplans", icon: "📋", label: isAr ? "خطط العمل" : "Action Plans", tutorial: "nav-actionplans" },
     { key: "knowledge", icon: "📖", label: isAr ? "المعرفة" : "Knowledge", tutorial: "nav-knowledge" },
+    { key: "sources", icon: "🔍", label: isAr ? "مصدر الحقيقة" : "Source of Truth", badge: sourceCount || null, tutorial: "nav-sources" },
     { key: "tools", icon: "🔧", label: isAr ? "أدوات استراتيجية" : "Strategy Tools", tutorial: "nav-tools" },
     { key: "notes", icon: "📝", label: isAr ? "ملاحظات" : "Notes", tutorial: "nav-notes" },
   ];
@@ -246,8 +256,9 @@ export default function App() {
       <nav className="flex items-center gap-1 px-6 py-2 overflow-x-auto" style={{ borderBottom: `1px solid ${BORDER}` }}>
         {navItems.map(n => (
           <button key={n.key} onClick={() => { setView(n.key); trackFeature(n.key); }} data-tutorial={n.tutorial}
-            className={`px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition ${view === n.key ? "bg-amber-500/15 text-amber-300 border border-amber-500/20" : "text-gray-500 hover:text-gray-300 border border-transparent"}`}>
+            className={`px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition flex items-center gap-1 ${view === n.key ? "bg-amber-500/15 text-amber-300 border border-amber-500/20" : "text-gray-500 hover:text-gray-300 border border-transparent"}`}>
             {n.icon} {n.label}
+            {n.badge > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">{n.badge}</span>}
           </button>
         ))}
       </nav>
@@ -260,6 +271,7 @@ export default function App() {
         {view === "alerts" && <AlertsView alerts={alerts} lang={lang} strategyContext={activeStrat} />}
         {view === "knowledge" && <KnowledgeLibrary lang={lang} strategyContext={activeStrat} />}
         {view === "tools" && <StrategyToolsPanel lang={lang} onMatrixClick={openMatrix} matrixResults={matrixResults} strategyContext={activeStrat} />}
+        {view === "sources" && <SourceOfTruthView lang={lang} strategyContext={activeStrat} />}
         {view === "notes" && <NotesView lang={lang} userId={user.id || user.email} strategyName={activeStrat?.name} />}
       </main>
 
