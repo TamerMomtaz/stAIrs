@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { ActionPlansAPI } from "../api";
 import { GOLD, GOLD_L, DEEP, BORDER, glass, typeColors, typeIcons } from "../constants";
 import { Markdown } from "./Markdown";
+import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
 
 // ═══ PDF EXPORT HELPERS ═══
 const pdfStyles = `@page{margin:20mm 15mm}*{box-sizing:border-box;margin:0;padding:0}body{background:#fff;color:#1e293b;font-family:'Segoe UI',system-ui,sans-serif;line-height:1.5}table{width:100%;border-collapse:collapse}thead th{text-align:left;padding:10px 8px;border-bottom:2px solid #B8904A;color:#B8904A;font-size:11px;text-transform:uppercase;font-weight:600}.section{margin-top:24px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;color:#B8904A;font-size:16px;font-weight:700}.footer{text-align:center;margin-top:30px;padding-top:16px;border-top:1px solid #e5e7eb;color:#94a3b8;font-size:10px}.header{padding-bottom:16px;border-bottom:2px solid #B8904A;margin-bottom:20px}`;
@@ -379,6 +380,7 @@ export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
                                 ) : (
                                   <div className="rounded-lg p-3" style={glass(0.2)}>
                                     <Markdown text={plan.raw_text} onMatrixClick={onMatrixClick} />
+                                    <LoadMatrixButtons text={plan.raw_text} onLoadMatrix={onMatrixClick} />
                                   </div>
                                 )}
 

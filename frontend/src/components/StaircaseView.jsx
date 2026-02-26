@@ -3,8 +3,9 @@ import { api } from "../api";
 import { GOLD, GOLD_L, TEAL, typeColors, typeIcons } from "../constants";
 import { HealthBadge } from "./SharedUI";
 import { Markdown } from "./Markdown";
+import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
 
-export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, strategyContext, onSaveNote, onExecutionRoom }) => {
+export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, strategyContext, onSaveNote, onExecutionRoom, onMatrixClick }) => {
   const [expanded, setExpanded] = useState(null); const [aiAction, setAiAction] = useState(null);
   const [aiResult, setAiResult] = useState({}); const [aiLoading, setAiLoading] = useState(false); const [retryMsg, setRetryMsg] = useState(null);
   const isAr = lang === "ar";
@@ -44,8 +45,8 @@ export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, str
                 <button onClick={e => {e.stopPropagation();onEdit(s);}} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#1e3a5f] text-gray-400 hover:text-white transition hover:bg-white/5">✎ {isAr?"تعديل":"Edit"}</button>
               </div>
               {isLd && <div className="flex items-center gap-2 py-3"><div className="flex gap-1">{[0,1,2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-amber-500/40 animate-bounce" style={{animationDelay:`${i*0.15}s`}} />)}</div><span className="text-gray-500 text-xs">{retryMsg || (aiAction?.type==="explain"?"Analyzing...":"Generating...")}</span></div>}
-              {result?.explain && <div className="p-3 rounded-lg" style={{background:`${TEAL}10`,border:`1px solid ${TEAL}25`}}><div className="flex items-center justify-between mb-2"><span className="text-xs font-semibold text-teal-300 uppercase tracking-wider">💡 Explanation</span>{onSaveNote&&<button onClick={() => onSaveNote(`💡 ${s.title} — Explain`, result.explain, "ai_explain")} className="text-[10px] text-gray-600 hover:text-teal-300 transition px-1.5 py-0.5 rounded hover:bg-teal-500/10">📌 Save</button>}</div><div className="text-sm"><Markdown text={result.explain}/></div></div>}
-              {result?.enhance && <div className="p-3 rounded-lg" style={{background:`${GOLD}08`,border:`1px solid ${GOLD}20`}}><div className="flex items-center justify-between mb-2"><span className="text-xs font-semibold text-amber-300 uppercase tracking-wider">✨ Enhancement</span>{onSaveNote&&<button onClick={() => onSaveNote(`✨ ${s.title} — Enhance`, result.enhance, "ai_enhance")} className="text-[10px] text-gray-600 hover:text-amber-300 transition px-1.5 py-0.5 rounded hover:bg-amber-500/10">📌 Save</button>}</div><div className="text-sm"><Markdown text={result.enhance}/></div></div>}
+              {result?.explain && <div className="p-3 rounded-lg" style={{background:`${TEAL}10`,border:`1px solid ${TEAL}25`}}><div className="flex items-center justify-between mb-2"><span className="text-xs font-semibold text-teal-300 uppercase tracking-wider">💡 Explanation</span>{onSaveNote&&<button onClick={() => onSaveNote(`💡 ${s.title} — Explain`, result.explain, "ai_explain")} className="text-[10px] text-gray-600 hover:text-teal-300 transition px-1.5 py-0.5 rounded hover:bg-teal-500/10">📌 Save</button>}</div><div className="text-sm"><Markdown text={result.explain} onMatrixClick={onMatrixClick}/><LoadMatrixButtons text={result.explain} onLoadMatrix={onMatrixClick}/></div></div>}
+              {result?.enhance && <div className="p-3 rounded-lg" style={{background:`${GOLD}08`,border:`1px solid ${GOLD}20`}}><div className="flex items-center justify-between mb-2"><span className="text-xs font-semibold text-amber-300 uppercase tracking-wider">✨ Enhancement</span>{onSaveNote&&<button onClick={() => onSaveNote(`✨ ${s.title} — Enhance`, result.enhance, "ai_enhance")} className="text-[10px] text-gray-600 hover:text-amber-300 transition px-1.5 py-0.5 rounded hover:bg-amber-500/10">📌 Save</button>}</div><div className="text-sm"><Markdown text={result.enhance} onMatrixClick={onMatrixClick}/><LoadMatrixButtons text={result.enhance} onLoadMatrix={onMatrixClick}/></div></div>}
             </div>
           )}
         </div>

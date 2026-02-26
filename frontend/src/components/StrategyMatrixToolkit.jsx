@@ -3,6 +3,340 @@ import { GOLD, GOLD_L, DEEP, BORDER, glass, inputCls, labelCls } from "../consta
 import { Modal } from "./SharedUI";
 import { buildHeader, buildFooter, openExportWindow, EXPORT_STYLES } from "../exportUtils";
 
+// ═══ AI RESPONSE PARSER — Extract framework data from AI text ═══
+const isSeparatorRow = (line) => {
+  const cells = line.split("|").slice(1, -1);
+  return cells.length > 0 && cells.every(c => /^[\s\-:]+$/.test(c));
+};
+
+const extractTables = (text) => {
+  const lines = text.split("\n");
+  const tables = [];
+  let current = [];
+  for (const line of lines) {
+    const t = line.trim();
+    if (t.startsWith("|") && t.endsWith("|") && t.length > 2) {
+      current.push(t);
+    } else {
+      if (current.length >= 3) tables.push([...current]);
+      current = [];
+    }
+  }
+  if (current.length >= 3) tables.push(current);
+  return tables.map(tbl => {
+    const rows = tbl
+      .filter(l => !isSeparatorRow(l))
+      .map(l => l.split("|").slice(1, -1).map(c => c.replace(/\*\*/g, "").trim()));
+    if (rows.length < 2) return null;
+    return { headers: rows[0].map(h => h.toLowerCase()), data: rows.slice(1) };
+  }).filter(Boolean);
+};
+
+const splitSections = (text) => {
+  const lines = text.split("\n");
+  const sections = [];
+  let heading = "";
+  let content = [];
+  for (const line of lines) {
+    const hMatch = line.match(/^#{1,3}\s+(.+)/) || line.match(/^\*\*([^*]+)\*\*\s*:?\s*$/);
+    if (hMatch) {
+      if (heading || content.length) sections.push({ heading, content: content.join("\n") });
+      heading = hMatch[1].replace(/[*#]/g, "").trim();
+      content = [];
+    } else {
+      content.push(line);
+    }
+  }
+  if (heading || content.length) sections.push({ heading, content: content.join("\n") });
+  return sections;
+};
+
+const findCol = (headers, patterns) =>
+  headers.findIndex(h => patterns.some(p => h.includes(p)));
+
+const parseNum = (s) => {
+  if (!s) return NaN;
+  return parseFloat(s.replace(/[%x×+]/g, "").trim());
+};
+
+const parseFactorTable = (text, sectionPatterns, dataExtractor) => {
+  const sections = splitSections(text);
+  const results = {};
+  for (const section of sections) {
+    const h = section.heading.toLowerCase();
+    for (const [key, patterns] of Object.entries(sectionPatterns)) {
+      if (patterns.some(p => h.includes(p))) {
+        const tables = extractTables(section.content);
+        for (const table of tables) {
+          const extracted = dataExtractor(table, key);
+          if (extracted && extracted.length > 0) {
+            results[key] = (results[key] || []).concat(extracted);
+          }
+        }
+        // Fallback: also try tables from the full section text including heading
+        if (!results[key] || results[key].length === 0) {
+          const fullTables = extractTables(section.heading + "\n" + section.content);
+          for (const table of fullTables) {
+            const extracted = dataExtractor(table, key);
+            if (extracted && extracted.length > 0) {
+              results[key] = (results[key] || []).concat(extracted);
+            }
+          }
+        }
+      }
+    }
+  }
+  return results;
+};
+
+const parseIFEData = (text) => {
+  const sectionPatterns = {
+    strengths: ["strength"],
+    weaknesses: ["weakness"],
+  };
+  const extract = (table, key) => {
+    const fi = findCol(table.headers, ["factor", "key factor", "internal factor", "critical", "strength", "weakness"]);
+    const wi = findCol(table.headers, ["weight"]);
+    const ri = findCol(table.headers, ["rating", "rate"]);
+    const isStr = key === "strengths";
+    if (fi === -1) return null;
+    return table.data.map(row => {
+      const factor = row[fi >= 0 ? fi : 0]?.trim();
+      if (!factor) return null;
+      const weight = wi >= 0 ? parseNum(row[wi]) : 0.1;
+      const rating = ri >= 0 ? parseInt(row[ri]) : (isStr ? 3 : 2);
+      return {
+        factor,
+        weight: isNaN(weight) ? 0.1 : weight,
+        rating: isNaN(rating) ? (isStr ? 3 : 2) : (isStr ? Math.max(3, Math.min(4, rating)) : Math.max(1, Math.min(2, rating))),
+      };
+    }).filter(Boolean);
+  };
+  const results = parseFactorTable(text, sectionPatterns, extract);
+  // Fallback: try a combined table with type/category column
+  if (!results.strengths?.length && !results.weaknesses?.length) {
+    const tables = extractTables(text);
+    for (const table of tables) {
+      const fi = findCol(table.headers, ["factor", "key factor"]);
+      const wi = findCol(table.headers, ["weight"]);
+      const ri = findCol(table.headers, ["rating"]);
+      if (fi === -1 || wi === -1 || ri === -1) continue;
+      for (const row of table.data) {
+        const factor = row[fi]?.trim();
+        const weight = parseNum(row[wi]);
+        const rating = parseInt(row[ri]);
+        if (!factor || isNaN(weight) || isNaN(rating)) continue;
+        const isStr = rating >= 3;
+        (isStr ? (results.strengths = results.strengths || []) : (results.weaknesses = results.weaknesses || [])).push({
+          factor, weight, rating: isStr ? Math.max(3, Math.min(4, rating)) : Math.max(1, Math.min(2, rating)),
+        });
+      }
+    }
+  }
+  if (!results.strengths?.length && !results.weaknesses?.length) return null;
+  return {
+    strengths: results.strengths?.length ? results.strengths : [{ factor: "", weight: 0.1, rating: 3 }],
+    weaknesses: results.weaknesses?.length ? results.weaknesses : [{ factor: "", weight: 0.1, rating: 2 }],
+  };
+};
+
+const parseEFEData = (text) => {
+  const sectionPatterns = {
+    opportunities: ["opportunit"],
+    threats: ["threat"],
+  };
+  const extract = (table, key) => {
+    const fi = findCol(table.headers, ["factor", "key factor", "external factor", "critical", "opportunit", "threat"]);
+    const wi = findCol(table.headers, ["weight"]);
+    const ri = findCol(table.headers, ["rating", "rate", "response"]);
+    const isOpp = key === "opportunities";
+    if (fi === -1) return null;
+    return table.data.map(row => {
+      const factor = row[fi >= 0 ? fi : 0]?.trim();
+      if (!factor) return null;
+      const weight = wi >= 0 ? parseNum(row[wi]) : 0.1;
+      const rating = ri >= 0 ? parseInt(row[ri]) : (isOpp ? 3 : 2);
+      return {
+        factor,
+        weight: isNaN(weight) ? 0.1 : weight,
+        rating: isNaN(rating) ? (isOpp ? 3 : 2) : Math.max(1, Math.min(4, rating)),
+      };
+    }).filter(Boolean);
+  };
+  const results = parseFactorTable(text, sectionPatterns, extract);
+  if (!results.opportunities?.length && !results.threats?.length) {
+    const tables = extractTables(text);
+    for (const table of tables) {
+      const fi = findCol(table.headers, ["factor", "key factor"]);
+      const wi = findCol(table.headers, ["weight"]);
+      const ri = findCol(table.headers, ["rating"]);
+      if (fi === -1 || wi === -1 || ri === -1) continue;
+      for (const row of table.data) {
+        const factor = row[fi]?.trim();
+        const weight = parseNum(row[wi]);
+        const rating = parseInt(row[ri]);
+        if (!factor || isNaN(weight) || isNaN(rating)) continue;
+        const isOpp = rating >= 3;
+        (isOpp ? (results.opportunities = results.opportunities || []) : (results.threats = results.threats || [])).push({
+          factor, weight, rating: Math.max(1, Math.min(4, rating)),
+        });
+      }
+    }
+  }
+  if (!results.opportunities?.length && !results.threats?.length) return null;
+  return {
+    opportunities: results.opportunities?.length ? results.opportunities : [{ factor: "", weight: 0.1, rating: 3 }],
+    threats: results.threats?.length ? results.threats : [{ factor: "", weight: 0.1, rating: 2 }],
+  };
+};
+
+const parseSPACEData = (text) => {
+  const sectionPatterns = {
+    fs: ["financial strength", "financial", " fs"],
+    ca: ["competitive advantage", "competitive", " ca"],
+    es: ["environmental stability", "environmental", " es"],
+    is: ["industry strength", "industry", " is"],
+  };
+  const extract = (table, key) => {
+    const fi = findCol(table.headers, ["factor", "dimension", "variable", "criterion"]);
+    const si = findCol(table.headers, ["score", "rating", "value"]);
+    if (fi === -1 && si === -1) return null;
+    return table.data.map(row => {
+      const factor = row[fi >= 0 ? fi : 0]?.trim();
+      if (!factor) return null;
+      const score = parseNum(row[si >= 0 ? si : (row.length - 1)]);
+      if (isNaN(score)) return null;
+      const isNeg = key === "ca" || key === "es";
+      return { factor, score: isNeg ? -Math.abs(score) : Math.abs(score) };
+    }).filter(Boolean);
+  };
+  const results = parseFactorTable(text, sectionPatterns, extract);
+  const hasData = Object.values(results).some(arr => arr?.length > 0);
+  if (!hasData) return null;
+  return {
+    fs: results.fs?.length ? results.fs : [{ factor: "Factor 1", score: 3 }],
+    ca: results.ca?.length ? results.ca : [{ factor: "Factor 1", score: -3 }],
+    es: results.es?.length ? results.es : [{ factor: "Factor 1", score: -3 }],
+    is: results.is?.length ? results.is : [{ factor: "Factor 1", score: 3 }],
+  };
+};
+
+const parseBCGData = (text) => {
+  const tables = extractTables(text);
+  for (const table of tables) {
+    const ni = findCol(table.headers, ["name", "unit", "product", "business", "brand", "division", "segment"]);
+    const gi = findCol(table.headers, ["growth", "market growth", "growth rate"]);
+    const si = findCol(table.headers, ["share", "market share", "relative"]);
+    if (gi === -1 && si === -1) continue;
+    const units = table.data.map(row => {
+      const name = row[ni >= 0 ? ni : 0]?.trim();
+      if (!name) return null;
+      const growth = parseNum(row[gi >= 0 ? gi : 1]);
+      const share = parseNum(row[si >= 0 ? si : 2]);
+      if (isNaN(growth) && isNaN(share)) return null;
+      return { name, growth: isNaN(growth) ? 10 : growth, share: isNaN(share) ? 1.0 : share };
+    }).filter(Boolean);
+    if (units.length > 0) return { units };
+  }
+  return null;
+};
+
+const parsePorterData = (text) => {
+  const forceMap = {
+    rivalry: ["rivalr", "competitive rivalry", "competition among"],
+    newEntrants: ["new entrant", "entry", "threat of new", "barrier"],
+    substitutes: ["substitut", "threat of substitut", "alternative"],
+    buyers: ["buyer", "bargaining power of buyer", "customer power"],
+    suppliers: ["supplier", "bargaining power of supplier", "vendor"],
+  };
+  const sections = splitSections(text);
+  const results = {};
+  for (const section of sections) {
+    const h = section.heading.toLowerCase();
+    for (const [key, patterns] of Object.entries(forceMap)) {
+      if (patterns.some(p => h.includes(p))) {
+        const tables = extractTables(section.content);
+        for (const table of tables) {
+          const fi = findCol(table.headers, ["factor", "variable", "criterion", "element", "driver"]);
+          const ri = findCol(table.headers, ["rating", "score", "level", "intensity"]);
+          if (fi === -1 && ri === -1) continue;
+          const factors = table.data.map(row => {
+            const factor = row[fi >= 0 ? fi : 0]?.trim();
+            if (!factor) return null;
+            const rating = parseInt(row[ri >= 0 ? ri : (row.length - 1)]);
+            return { factor, rating: isNaN(rating) ? 3 : Math.max(1, Math.min(5, rating)) };
+          }).filter(Boolean);
+          if (factors.length > 0) results[key] = factors;
+        }
+      }
+    }
+  }
+  const hasData = Object.values(results).some(arr => arr?.length > 0);
+  if (!hasData) return null;
+  // Fill in defaults for missing forces
+  const defaultFactors = {
+    rivalry: [{ factor: "Competition", rating: 3 }],
+    newEntrants: [{ factor: "Entry barriers", rating: 3 }],
+    substitutes: [{ factor: "Substitutes", rating: 3 }],
+    buyers: [{ factor: "Buyer power", rating: 3 }],
+    suppliers: [{ factor: "Supplier power", rating: 3 }],
+  };
+  const final = {};
+  for (const key of Object.keys(forceMap)) {
+    final[key] = results[key]?.length ? results[key] : defaultFactors[key];
+  }
+  return final;
+};
+
+export const parseFrameworkData = (text, key) => {
+  if (!text) return null;
+  switch (key) {
+    case "ife": return parseIFEData(text);
+    case "efe": return parseEFEData(text);
+    case "space": return parseSPACEData(text);
+    case "bcg": return parseBCGData(text);
+    case "porter": return parsePorterData(text);
+    default: return null;
+  }
+};
+
+// ═══ LOAD INTO MATRIX BUTTONS ═══
+export const LoadMatrixButtons = ({ text, onLoadMatrix }) => {
+  const frameworksWithData = useMemo(() => {
+    if (!text) return [];
+    const detected = detectFrameworks(text);
+    if (detected.length === 0) return [];
+    return detected.map(key => {
+      const data = parseFrameworkData(text, key);
+      return data ? { key, data } : null;
+    }).filter(Boolean);
+  }, [text]);
+
+  if (frameworksWithData.length === 0 || !onLoadMatrix) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2 mt-3 pt-2" style={{ borderTop: `1px solid ${BORDER}` }}>
+      {frameworksWithData.map(({ key, data }) => {
+        const fw = MATRIX_FRAMEWORKS[key];
+        return (
+          <button
+            key={key}
+            onClick={() => onLoadMatrix(key, data)}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border transition-all hover:scale-[1.02] hover:shadow-lg"
+            style={{
+              borderColor: `${GOLD}50`,
+              background: `linear-gradient(135deg, ${GOLD}18, ${GOLD}08)`,
+              color: GOLD_L,
+            }}
+          >
+            <span className="text-sm">📊</span> Load into {fw.name} Calculator
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
 // ═══ FRAMEWORK DEFINITIONS ═══
 export const MATRIX_FRAMEWORKS = {
   ife: { key: "ife", name: "IFE Matrix", icon: "🏗️", description: "Internal Factor Evaluation" },
@@ -84,13 +418,13 @@ const weightInputCls = "w-20 px-2 py-1.5 rounded-lg bg-[#0a1628]/80 border borde
 const narrowInputCls = "w-16 px-2 py-1.5 rounded-lg bg-[#0a1628]/80 border border-[#1e3a5f] text-white text-center text-xs focus:border-amber-500/40 focus:outline-none transition";
 
 // ═══ IFE MATRIX ═══
-const IFEMatrix = ({ onSave, strategyContext }) => {
-  const [strengths, setStrengths] = useState([
-    { factor: "", weight: 0.1, rating: 3 },
-  ]);
-  const [weaknesses, setWeaknesses] = useState([
-    { factor: "", weight: 0.1, rating: 2 },
-  ]);
+const IFEMatrix = ({ onSave, strategyContext, initialData }) => {
+  const [strengths, setStrengths] = useState(
+    initialData?.strengths?.length ? initialData.strengths : [{ factor: "", weight: 0.1, rating: 3 }]
+  );
+  const [weaknesses, setWeaknesses] = useState(
+    initialData?.weaknesses?.length ? initialData.weaknesses : [{ factor: "", weight: 0.1, rating: 2 }]
+  );
 
   const updateRow = (list, setList, idx, field, val) => {
     setList(prev => prev.map((r, i) => i === idx ? { ...r, [field]: val } : r));
@@ -173,13 +507,13 @@ const IFEMatrix = ({ onSave, strategyContext }) => {
 };
 
 // ═══ EFE MATRIX ═══
-const EFEMatrix = ({ onSave, strategyContext }) => {
-  const [opportunities, setOpportunities] = useState([
-    { factor: "", weight: 0.1, rating: 3 },
-  ]);
-  const [threats, setThreats] = useState([
-    { factor: "", weight: 0.1, rating: 2 },
-  ]);
+const EFEMatrix = ({ onSave, strategyContext, initialData }) => {
+  const [opportunities, setOpportunities] = useState(
+    initialData?.opportunities?.length ? initialData.opportunities : [{ factor: "", weight: 0.1, rating: 3 }]
+  );
+  const [threats, setThreats] = useState(
+    initialData?.threats?.length ? initialData.threats : [{ factor: "", weight: 0.1, rating: 2 }]
+  );
 
   const updateRow = (list, setList, idx, field, val) => {
     setList(prev => prev.map((r, i) => i === idx ? { ...r, [field]: val } : r));
@@ -263,11 +597,11 @@ const EFEMatrix = ({ onSave, strategyContext }) => {
 };
 
 // ═══ SPACE MATRIX ═══
-const SPACEMatrix = ({ onSave, strategyContext }) => {
-  const [fs, setFs] = useState([{ factor: "Return on Investment", score: 4 }, { factor: "Leverage", score: 3 }]);
-  const [ca, setCa] = useState([{ factor: "Market Share", score: -3 }, { factor: "Product Quality", score: -2 }]);
-  const [es, setEs] = useState([{ factor: "Technological Changes", score: -3 }, { factor: "Inflation Rate", score: -4 }]);
-  const [is_, setIs] = useState([{ factor: "Growth Potential", score: 4 }, { factor: "Profit Potential", score: 5 }]);
+const SPACEMatrix = ({ onSave, strategyContext, initialData }) => {
+  const [fs, setFs] = useState(initialData?.fs?.length ? initialData.fs : [{ factor: "Return on Investment", score: 4 }, { factor: "Leverage", score: 3 }]);
+  const [ca, setCa] = useState(initialData?.ca?.length ? initialData.ca : [{ factor: "Market Share", score: -3 }, { factor: "Product Quality", score: -2 }]);
+  const [es, setEs] = useState(initialData?.es?.length ? initialData.es : [{ factor: "Technological Changes", score: -3 }, { factor: "Inflation Rate", score: -4 }]);
+  const [is_, setIs] = useState(initialData?.is?.length ? initialData.is : [{ factor: "Growth Potential", score: 4 }, { factor: "Profit Potential", score: 5 }]);
 
   const updateDim = (list, setList, idx, field, val) => {
     setList(prev => prev.map((r, i) => i === idx ? { ...r, [field]: val } : r));
@@ -389,11 +723,13 @@ const SPACEMatrix = ({ onSave, strategyContext }) => {
 };
 
 // ═══ BCG MATRIX ═══
-const BCGMatrix = ({ onSave, strategyContext }) => {
-  const [units, setUnits] = useState([
-    { name: "Product A", growth: 15, share: 2.0 },
-    { name: "Product B", growth: 5, share: 0.4 },
-  ]);
+const BCGMatrix = ({ onSave, strategyContext, initialData }) => {
+  const [units, setUnits] = useState(
+    initialData?.units?.length ? initialData.units : [
+      { name: "Product A", growth: 15, share: 2.0 },
+      { name: "Product B", growth: 5, share: 0.4 },
+    ]
+  );
 
   const updateUnit = (idx, field, val) => {
     setUnits(prev => prev.map((u, i) => i === idx ? { ...u, [field]: val } : u));
@@ -525,7 +861,7 @@ const BCGMatrix = ({ onSave, strategyContext }) => {
 };
 
 // ═══ PORTER'S FIVE FORCES ═══
-const PorterFiveForces = ({ onSave, strategyContext }) => {
+const PorterFiveForces = ({ onSave, strategyContext, initialData }) => {
   const forceDefinitions = [
     { key: "rivalry", name: "Competitive Rivalry", icon: "⚔️", color: "#f87171", factors: ["Number of competitors", "Industry growth rate", "Product differentiation", "Exit barriers"] },
     { key: "newEntrants", name: "Threat of New Entrants", icon: "🚪", color: "#fbbf24", factors: ["Capital requirements", "Economies of scale", "Brand loyalty", "Regulatory barriers"] },
@@ -535,6 +871,13 @@ const PorterFiveForces = ({ onSave, strategyContext }) => {
   ];
 
   const [forces, setForces] = useState(() => {
+    if (initialData) {
+      const init = {};
+      for (const f of forceDefinitions) {
+        init[f.key] = initialData[f.key]?.length ? initialData[f.key] : f.factors.map(name => ({ factor: name, rating: 3 }));
+      }
+      return init;
+    }
     const init = {};
     for (const f of forceDefinitions) {
       init[f.key] = f.factors.map(name => ({ factor: name, rating: 3 }));
@@ -705,7 +1048,7 @@ export const FrameworkButton = ({ frameworkKey, onClick }) => {
 };
 
 // ═══ MATRIX TOOLKIT MODAL ═══
-export const StrategyMatrixToolkit = ({ open, matrixKey, onClose, onSave, strategyContext }) => {
+export const StrategyMatrixToolkit = ({ open, matrixKey, onClose, onSave, strategyContext, initialData }) => {
   const fw = MATRIX_FRAMEWORKS[matrixKey];
   if (!open || !fw) return null;
 
@@ -718,13 +1061,20 @@ export const StrategyMatrixToolkit = ({ open, matrixKey, onClose, onSave, strate
   };
 
   const Worksheet = worksheetMap[matrixKey];
+  // Use a key to force remount when initialData changes (ensures useState picks up new values)
+  const worksheetKey = initialData ? `loaded-${JSON.stringify(initialData).length}` : "manual";
 
   return (
     <Modal open={open} onClose={onClose} title={`${fw.icon} ${fw.name}`} wide>
       <div className="mb-3 pb-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
         <div className="text-gray-400 text-xs">{fw.description}</div>
+        {initialData && (
+          <div className="mt-2 text-[10px] text-amber-400/80 flex items-center gap-1.5">
+            <span>📊</span> Pre-filled from AI analysis — review and adjust values before calculating
+          </div>
+        )}
       </div>
-      {Worksheet && <Worksheet onSave={onSave} strategyContext={strategyContext} />}
+      {Worksheet && <Worksheet key={worksheetKey} onSave={onSave} strategyContext={strategyContext} initialData={initialData} />}
     </Modal>
   );
 };
