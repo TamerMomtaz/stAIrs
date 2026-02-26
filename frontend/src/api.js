@@ -142,3 +142,12 @@ export class NotesStore {
   remove(id) { localStorage.setItem(this.key, JSON.stringify(this.list().filter(n => n.id !== id))); }
   create(title, content, source) { const n = { id: `n_${Date.now()}_${Math.random().toString(36).slice(2,5)}`, title, content, source: source || "manual", tags: [], pinned: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }; this.save(n); return n; }
 }
+
+
+// ═══ MATRIX RESULTS STORE ═══
+export class MatrixResultsStore {
+  constructor(strategyId) { this.key = `stairs_matrix_${strategyId}`; }
+  getAll() { try { return JSON.parse(localStorage.getItem(this.key) || "{}"); } catch { return {}; } }
+  get(matrixKey) { return this.getAll()[matrixKey] || null; }
+  save(matrixKey, data) { const all = this.getAll(); all[matrixKey] = { ...data, saved_at: new Date().toISOString() }; localStorage.setItem(this.key, JSON.stringify(all)); }
+}

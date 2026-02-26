@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { api, StrategyAPI, NotesStore } from "./api";
+import { api, StrategyAPI, NotesStore, MatrixResultsStore } from "./api";
 import { GOLD, GOLD_L, DEEP, BORDER, typeIcons } from "./constants";
 
 // Components
@@ -16,6 +16,7 @@ import { StairEditor } from "./components/StairEditor";
 import { ExecutionRoom } from "./components/ExecutionRoom";
 import { TutorialOverlay, TutorialUpdatePrompt, FeaturesExploredBadge } from "./components/TutorialOverlay";
 import { StrategyMatrixToolkit } from "./components/StrategyMatrixToolkit";
+import { StrategyToolsPanel } from "./components/StrategyToolsPanel";
 import { shouldShowTutorial, hasNewTutorialSteps, getNewSteps, markFeatureUsed, getTutorialState, saveTutorialState, getDefaultTutorialState } from "./tutorialConfig";
 
 // ═══ MAIN APP ═══
@@ -40,11 +41,16 @@ export default function App() {
   const [matrixToolkit, setMatrixToolkit] = useState({ open: false, key: null });
   const openMatrix = (key) => setMatrixToolkit({ open: true, key });
   const closeMatrix = () => setMatrixToolkit({ open: false, key: null });
+  const [matrixResults, setMatrixResults] = useState({});
+  const matrixStoreRef = useRef(null);
   const stratApiRef = useRef(null);
   const notesStoreRef = useRef(null);
   const saveToNotes = (title, content, source) => {
     if (!notesStoreRef.current && user) notesStoreRef.current = new NotesStore(user.id || user.email);
     if (notesStoreRef.current) { notesStoreRef.current.create(title, content, source); alert("📌 Saved to Notes!"); }
+  };
+  const saveMatrixResult = (matrixKey, data) => {
+    if (matrixStoreRef.current) { matrixStoreRef.current.save(matrixKey, data); setMatrixResults(matrixStoreRef.current.getAll()); }
   };
   const isAr = lang === "ar";
 
@@ -100,6 +106,8 @@ export default function App() {
   const selectStrategy = async (strat) => {
     setActiveStrat(strat); setView("dashboard");
     if (stratApiRef.current) stratApiRef.current.setActive(strat.id);
+    matrixStoreRef.current = new MatrixResultsStore(strat.id);
+    setMatrixResults(matrixStoreRef.current.getAll());
     try { const tree = await api.get(`/api/v1/strategies/${strat.id}/tree`); setStairTree(tree || []); } catch { setStairTree([]); }
     try { const dash = await api.get(`/api/v1/dashboard`); setDashData(dash); } catch { setDashData({ stats: { total_elements: 0, overall_progress: 0 } }); }
     try { const al = await api.get(`/api/v1/alerts`); setAlerts(al || []); } catch { setAlerts([]); }
@@ -208,6 +216,7 @@ export default function App() {
     { key: "alerts", icon: "🔔", label: isAr ? "تنبيهات" : "Alerts", tutorial: "nav-alerts" },
     { key: "actionplans", icon: "📋", label: isAr ? "خطط العمل" : "Action Plans", tutorial: "nav-actionplans" },
     { key: "knowledge", icon: "📖", label: isAr ? "المعرفة" : "Knowledge", tutorial: "nav-knowledge" },
+    { key: "tools", icon: "🔧", label: isAr ? "أدوات استراتيجية" : "Strategy Tools", tutorial: "nav-tools" },
     { key: "notes", icon: "📝", label: isAr ? "ملاحظات" : "Notes", tutorial: "nav-notes" },
   ];
 
@@ -244,12 +253,13 @@ export default function App() {
       </nav>
 
       <main className="max-w-6xl mx-auto px-6 py-6">
-        {view === "dashboard" && <DashboardView data={dashData} lang={lang} />}
+        {view === "dashboard" && <DashboardView data={dashData} lang={lang} matrixResults={matrixResults} onMatrixClick={openMatrix} />}
         {view === "staircase" && <StaircaseView tree={stairTree} lang={lang} onEdit={s => { setEditStair(s); setShowEditor(true); }} onAdd={() => { setEditStair(null); setShowEditor(true); }} onExport={exportPDF} onMove={moveStair} strategyContext={activeStrat} onSaveNote={saveToNotes} onExecutionRoom={s => setExecRoomStair(s)} />}
         {view === "ai" && <AIChatView lang={lang} userId={user.id || user.email} strategyContext={activeStrat} onSaveNote={saveToNotes} onMatrixClick={openMatrix} />}
         {view === "actionplans" && <ActionPlansView strategyContext={activeStrat} lang={lang} onMatrixClick={openMatrix} />}
         {view === "alerts" && <AlertsView alerts={alerts} lang={lang} />}
         {view === "knowledge" && <KnowledgeLibrary lang={lang} />}
+        {view === "tools" && <StrategyToolsPanel lang={lang} onMatrixClick={openMatrix} matrixResults={matrixResults} />}
         {view === "notes" && <NotesView lang={lang} userId={user.id || user.email} strategyName={activeStrat?.name} />}
       </main>
 
@@ -257,7 +267,7 @@ export default function App() {
 
       {execRoomStair && <ExecutionRoom stair={execRoomStair} strategyContext={activeStrat} lang={lang} onBack={() => setExecRoomStair(null)} onSaveNote={saveToNotes} onMatrixClick={openMatrix} />}
 
-      <StrategyMatrixToolkit open={matrixToolkit.open} matrixKey={matrixToolkit.key} onClose={closeMatrix} />
+      <StrategyMatrixToolkit open={matrixToolkit.open} matrixKey={matrixToolkit.key} onClose={closeMatrix} onSave={saveMatrixResult} />
 
       <footer className="text-center py-6 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • ST.AIRS v3.7.0 • "Human IS the Loop" • {new Date().getFullYear()}</footer>
 

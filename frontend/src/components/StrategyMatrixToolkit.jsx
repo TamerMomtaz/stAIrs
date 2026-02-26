@@ -50,6 +50,18 @@ const RemoveBtn = ({ onClick }) => (
   <button onClick={onClick} className="text-red-400/60 hover:text-red-400 text-xs transition shrink-0 px-1" title="Remove">✕</button>
 );
 
+const SaveBtn = ({ onClick }) => {
+  const [saved, setSaved] = useState(false);
+  const handleClick = () => { onClick(); setSaved(true); setTimeout(() => setSaved(false), 2000); };
+  return (
+    <button onClick={handleClick}
+      className="w-full mt-4 px-4 py-2.5 rounded-lg text-xs font-medium transition-all hover:scale-[1.01]"
+      style={{ background: saved ? "rgba(52,211,153,0.15)" : `linear-gradient(135deg, ${GOLD}25, ${GOLD}12)`, border: `1px solid ${saved ? "rgba(52,211,153,0.4)" : `${GOLD}40`}`, color: saved ? "#34d399" : GOLD_L }}>
+      {saved ? "✓ Saved to Strategy!" : "💾 Save Results to Strategy"}
+    </button>
+  );
+};
+
 const ScoreDisplay = ({ label, value, max, interpretation, color }) => (
   <div className="p-4 rounded-xl text-center" style={glass(0.5)}>
     <div className="text-gray-400 text-xs uppercase tracking-wider mb-1">{label}</div>
@@ -63,7 +75,7 @@ const weightInputCls = "w-20 px-2 py-1.5 rounded-lg bg-[#0a1628]/80 border borde
 const narrowInputCls = "w-16 px-2 py-1.5 rounded-lg bg-[#0a1628]/80 border border-[#1e3a5f] text-white text-center text-xs focus:border-amber-500/40 focus:outline-none transition";
 
 // ═══ IFE MATRIX ═══
-const IFEMatrix = () => {
+const IFEMatrix = ({ onSave }) => {
   const [strengths, setStrengths] = useState([
     { factor: "", weight: 0.1, rating: 3 },
   ]);
@@ -128,13 +140,14 @@ const IFEMatrix = () => {
         <div className="mt-3 p-3 rounded-lg text-xs text-gray-400 leading-relaxed" style={glass(0.3)}>
           <strong className="text-amber-200">Interpretation:</strong> Scores above 2.5 indicate a strong internal position. Scores below 2.5 suggest internal weaknesses that need attention. The maximum possible score is 4.0 (all major strengths) and the minimum is 1.0 (all major weaknesses).
         </div>
+        {onSave && <SaveBtn onClick={() => onSave("ife", { summary: `${interpretation} (${totalScore.toFixed(2)}/4.00)` })} />}
       </div>
     </div>
   );
 };
 
 // ═══ EFE MATRIX ═══
-const EFEMatrix = () => {
+const EFEMatrix = ({ onSave }) => {
   const [opportunities, setOpportunities] = useState([
     { factor: "", weight: 0.1, rating: 3 },
   ]);
@@ -200,13 +213,14 @@ const EFEMatrix = () => {
         <div className="mt-3 p-3 rounded-lg text-xs text-gray-400 leading-relaxed" style={glass(0.3)}>
           <strong className="text-amber-200">Interpretation:</strong> A total weighted score of 4.0 means the organization responds outstandingly to external factors. A score of 2.5 is average. Scores below 2.5 indicate the firm is not capitalizing on opportunities or avoiding threats effectively.
         </div>
+        {onSave && <SaveBtn onClick={() => onSave("efe", { summary: `${interpretation} (${totalScore.toFixed(2)}/4.00)` })} />}
       </div>
     </div>
   );
 };
 
 // ═══ SPACE MATRIX ═══
-const SPACEMatrix = () => {
+const SPACEMatrix = ({ onSave }) => {
   const [fs, setFs] = useState([{ factor: "Return on Investment", score: 4 }, { factor: "Leverage", score: 3 }]);
   const [ca, setCa] = useState([{ factor: "Market Share", score: -3 }, { factor: "Product Quality", score: -2 }]);
   const [es, setEs] = useState([{ factor: "Technological Changes", score: -3 }, { factor: "Inflation Rate", score: -4 }]);
@@ -309,13 +323,14 @@ const SPACEMatrix = () => {
             </div>
           </div>
         </div>
+        {onSave && <SaveBtn onClick={() => onSave("space", { summary: `${quadrant} posture` })} />}
       </div>
     </div>
   );
 };
 
 // ═══ BCG MATRIX ═══
-const BCGMatrix = () => {
+const BCGMatrix = ({ onSave }) => {
   const [units, setUnits] = useState([
     { name: "Product A", growth: 15, share: 2.0 },
     { name: "Product B", growth: 5, share: 0.4 },
@@ -421,13 +436,19 @@ const BCGMatrix = () => {
             })}
           </div>
         </div>
+        {onSave && <SaveBtn onClick={() => {
+          const cats = {};
+          units.forEach(u => { const c = classify(u).label; cats[c] = (cats[c] || 0) + 1; });
+          const summary = Object.entries(cats).map(([k, v]) => `${v} ${k}${v > 1 ? "s" : ""}`).join(", ");
+          onSave("bcg", { summary: summary || "No units defined" });
+        }} />}
       </div>
     </div>
   );
 };
 
 // ═══ PORTER'S FIVE FORCES ═══
-const PorterFiveForces = () => {
+const PorterFiveForces = ({ onSave }) => {
   const forceDefinitions = [
     { key: "rivalry", name: "Competitive Rivalry", icon: "⚔️", color: "#f87171", factors: ["Number of competitors", "Industry growth rate", "Product differentiation", "Exit barriers"] },
     { key: "newEntrants", name: "Threat of New Entrants", icon: "🚪", color: "#fbbf24", factors: ["Capital requirements", "Economies of scale", "Brand loyalty", "Regulatory barriers"] },
@@ -567,6 +588,7 @@ const PorterFiveForces = () => {
             <ScoreDisplay label="Overall Industry Attractiveness" value={overallAvg.toFixed(1)} max="5.0" interpretation={overallInterpretation} color={threatColor(overallAvg)} />
           </div>
         </div>
+        {onSave && <SaveBtn onClick={() => onSave("porter", { summary: `${overallInterpretation} (${overallAvg.toFixed(1)}/5.0)` })} />}
       </div>
     </div>
   );
@@ -589,7 +611,7 @@ export const FrameworkButton = ({ frameworkKey, onClick }) => {
 };
 
 // ═══ MATRIX TOOLKIT MODAL ═══
-export const StrategyMatrixToolkit = ({ open, matrixKey, onClose }) => {
+export const StrategyMatrixToolkit = ({ open, matrixKey, onClose, onSave }) => {
   const fw = MATRIX_FRAMEWORKS[matrixKey];
   if (!open || !fw) return null;
 
@@ -608,7 +630,7 @@ export const StrategyMatrixToolkit = ({ open, matrixKey, onClose }) => {
       <div className="mb-3 pb-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
         <div className="text-gray-400 text-xs">{fw.description}</div>
       </div>
-      {Worksheet && <Worksheet />}
+      {Worksheet && <Worksheet onSave={onSave} />}
     </Modal>
   );
 };
