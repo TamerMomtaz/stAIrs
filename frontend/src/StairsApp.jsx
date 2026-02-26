@@ -15,6 +15,7 @@ import { ActionPlansView } from "./components/ActionPlansView";
 import { StairEditor } from "./components/StairEditor";
 import { ExecutionRoom } from "./components/ExecutionRoom";
 import { TutorialOverlay, TutorialUpdatePrompt, FeaturesExploredBadge } from "./components/TutorialOverlay";
+import { StrategyMatrixToolkit } from "./components/StrategyMatrixToolkit";
 import { shouldShowTutorial, hasNewTutorialSteps, getNewSteps, markFeatureUsed, getTutorialState, saveTutorialState, getDefaultTutorialState } from "./tutorialConfig";
 
 // ═══ MAIN APP ═══
@@ -36,6 +37,9 @@ export default function App() {
   const [tutorialCustomSteps, setTutorialCustomSteps] = useState(null);
   const [showFeaturesBadge, setShowFeaturesBadge] = useState(false);
   const [aiProvider, setAiProvider] = useState(null);
+  const [matrixToolkit, setMatrixToolkit] = useState({ open: false, key: null });
+  const openMatrix = (key) => setMatrixToolkit({ open: true, key });
+  const closeMatrix = () => setMatrixToolkit({ open: false, key: null });
   const stratApiRef = useRef(null);
   const notesStoreRef = useRef(null);
   const saveToNotes = (title, content, source) => {
@@ -242,8 +246,8 @@ export default function App() {
       <main className="max-w-6xl mx-auto px-6 py-6">
         {view === "dashboard" && <DashboardView data={dashData} lang={lang} />}
         {view === "staircase" && <StaircaseView tree={stairTree} lang={lang} onEdit={s => { setEditStair(s); setShowEditor(true); }} onAdd={() => { setEditStair(null); setShowEditor(true); }} onExport={exportPDF} onMove={moveStair} strategyContext={activeStrat} onSaveNote={saveToNotes} onExecutionRoom={s => setExecRoomStair(s)} />}
-        {view === "ai" && <AIChatView lang={lang} userId={user.id || user.email} strategyContext={activeStrat} onSaveNote={saveToNotes} />}
-        {view === "actionplans" && <ActionPlansView strategyContext={activeStrat} lang={lang} />}
+        {view === "ai" && <AIChatView lang={lang} userId={user.id || user.email} strategyContext={activeStrat} onSaveNote={saveToNotes} onMatrixClick={openMatrix} />}
+        {view === "actionplans" && <ActionPlansView strategyContext={activeStrat} lang={lang} onMatrixClick={openMatrix} />}
         {view === "alerts" && <AlertsView alerts={alerts} lang={lang} />}
         {view === "knowledge" && <KnowledgeLibrary lang={lang} />}
         {view === "notes" && <NotesView lang={lang} userId={user.id || user.email} strategyName={activeStrat?.name} />}
@@ -251,7 +255,9 @@ export default function App() {
 
       <StairEditor open={showEditor} onClose={() => { setShowEditor(false); setEditStair(null); }} stair={editStair} allStairs={stairTree} onSave={saveStair} onDelete={deleteStair} lang={lang} />
 
-      {execRoomStair && <ExecutionRoom stair={execRoomStair} strategyContext={activeStrat} lang={lang} onBack={() => setExecRoomStair(null)} onSaveNote={saveToNotes} />}
+      {execRoomStair && <ExecutionRoom stair={execRoomStair} strategyContext={activeStrat} lang={lang} onBack={() => setExecRoomStair(null)} onSaveNote={saveToNotes} onMatrixClick={openMatrix} />}
+
+      <StrategyMatrixToolkit open={matrixToolkit.open} matrixKey={matrixToolkit.key} onClose={closeMatrix} />
 
       <footer className="text-center py-6 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • ST.AIRS v3.7.0 • "Human IS the Loop" • {new Date().getFullYear()}</footer>
 
