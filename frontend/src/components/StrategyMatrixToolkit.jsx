@@ -132,23 +132,31 @@ const parseIFEData = (text) => {
     }).filter(Boolean);
   };
   const results = parseFactorTable(text, sectionPatterns, extract);
-  // Fallback: try a combined table with type/category column
+  // Fallback: try a combined table with type/category column (only when IFE is named in the text)
   if (!results.strengths?.length && !results.weaknesses?.length) {
-    const tables = extractTables(text);
-    for (const table of tables) {
-      const fi = findCol(table.headers, ["factor", "key factor", "internal factor", "critical", "strength", "weakness", "description", "item", "element"]);
-      const wi = findCol(table.headers, ["weight"]);
-      const ri = findCol(table.headers, ["rating", "rate", "score"]);
-      if (fi === -1 || wi === -1 || ri === -1) continue;
-      for (const row of table.data) {
-        const factor = row[fi]?.trim();
-        const weight = parseNum(row[wi]);
-        const rating = parseInt(row[ri]);
-        if (!factor || isSummaryRow(factor) || isNaN(weight) || isNaN(rating)) continue;
-        const isStr = rating >= 3;
-        (isStr ? (results.strengths = results.strengths || []) : (results.weaknesses = results.weaknesses || [])).push({
-          factor, weight, rating: isStr ? Math.max(3, Math.min(4, rating)) : Math.max(1, Math.min(2, rating)),
-        });
+    if (/\bIFE\b/i.test(text) || /\bInternal\s+Factor\s+Evaluation\b/i.test(text)) {
+      const otherSectionPats = ["opportunit", "threat", "financial", "competitive", "environmental", "industry", "rivalr", "entrant", "substitut", "buyer", "supplier"];
+      const sections = splitSections(text);
+      for (const section of sections) {
+        const h = section.heading.toLowerCase();
+        if (otherSectionPats.some(p => h.includes(p))) continue;
+        const tables = extractTables(section.content);
+        for (const table of tables) {
+          const fi = findCol(table.headers, ["factor", "key factor", "internal factor", "critical", "strength", "weakness", "description", "item", "element"]);
+          const wi = findCol(table.headers, ["weight"]);
+          const ri = findCol(table.headers, ["rating", "rate", "score"]);
+          if (fi === -1 || wi === -1 || ri === -1) continue;
+          for (const row of table.data) {
+            const factor = row[fi]?.trim();
+            const weight = parseNum(row[wi]);
+            const rating = parseInt(row[ri]);
+            if (!factor || isSummaryRow(factor) || isNaN(weight) || isNaN(rating)) continue;
+            const isStr = rating >= 3;
+            (isStr ? (results.strengths = results.strengths || []) : (results.weaknesses = results.weaknesses || [])).push({
+              factor, weight, rating: isStr ? Math.max(3, Math.min(4, rating)) : Math.max(1, Math.min(2, rating)),
+            });
+          }
+        }
       }
     }
   }
@@ -184,21 +192,29 @@ const parseEFEData = (text) => {
   };
   const results = parseFactorTable(text, sectionPatterns, extract);
   if (!results.opportunities?.length && !results.threats?.length) {
-    const tables = extractTables(text);
-    for (const table of tables) {
-      const fi = findCol(table.headers, ["factor", "key factor", "external factor", "critical", "opportunit", "threat", "description", "item", "element"]);
-      const wi = findCol(table.headers, ["weight"]);
-      const ri = findCol(table.headers, ["rating", "rate", "score"]);
-      if (fi === -1 || wi === -1 || ri === -1) continue;
-      for (const row of table.data) {
-        const factor = row[fi]?.trim();
-        const weight = parseNum(row[wi]);
-        const rating = parseInt(row[ri]);
-        if (!factor || isSummaryRow(factor) || isNaN(weight) || isNaN(rating)) continue;
-        const isOpp = rating >= 3;
-        (isOpp ? (results.opportunities = results.opportunities || []) : (results.threats = results.threats || [])).push({
-          factor, weight, rating: Math.max(1, Math.min(4, rating)),
-        });
+    if (/\bEFE\b/i.test(text) || /\bExternal\s+Factor\s+Evaluation\b/i.test(text)) {
+      const otherSectionPats = ["strength", "weakness", "financial", "competitive", "environmental", "industry", "rivalr", "entrant", "substitut", "buyer", "supplier"];
+      const sections = splitSections(text);
+      for (const section of sections) {
+        const h = section.heading.toLowerCase();
+        if (otherSectionPats.some(p => h.includes(p))) continue;
+        const tables = extractTables(section.content);
+        for (const table of tables) {
+          const fi = findCol(table.headers, ["factor", "key factor", "external factor", "critical", "opportunit", "threat", "description", "item", "element"]);
+          const wi = findCol(table.headers, ["weight"]);
+          const ri = findCol(table.headers, ["rating", "rate", "score"]);
+          if (fi === -1 || wi === -1 || ri === -1) continue;
+          for (const row of table.data) {
+            const factor = row[fi]?.trim();
+            const weight = parseNum(row[wi]);
+            const rating = parseInt(row[ri]);
+            if (!factor || isSummaryRow(factor) || isNaN(weight) || isNaN(rating)) continue;
+            const isOpp = rating >= 3;
+            (isOpp ? (results.opportunities = results.opportunities || []) : (results.threats = results.threats || [])).push({
+              factor, weight, rating: Math.max(1, Math.min(4, rating)),
+            });
+          }
+        }
       }
     }
   }
@@ -323,15 +339,12 @@ export const parseFrameworkData = (text, key) => {
 export const LoadMatrixButtons = ({ text, onLoadMatrix }) => {
   const frameworksWithData = useMemo(() => {
     if (!text) return [];
-    const detected = detectFrameworks(text);
-    if (detected.length === 0) return [];
-    const seen = new Set();
-    return detected.map(key => {
-      if (seen.has(key)) return null;
-      seen.add(key);
+    const results = [];
+    for (const key of Object.keys(MATRIX_FRAMEWORKS)) {
       const data = parseFrameworkData(text, key);
-      return data ? { key, data } : null;
-    }).filter(Boolean);
+      if (data) results.push({ key, data });
+    }
+    return results;
   }, [text]);
 
   if (frameworksWithData.length === 0 || !onLoadMatrix) return null;
