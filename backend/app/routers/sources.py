@@ -1,11 +1,13 @@
 """ST.AIRS — Strategy Sources Router (Source of Truth)"""
 
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query, Depends, UploadFile, File
+from pydantic import BaseModel
 
 from app.db.connection import get_pool
 from app.helpers import row_to_dict, rows_to_dicts, get_auth, AuthContext
@@ -15,6 +17,8 @@ from app.storage import (
     ALLOWED_EXTENSIONS, ALLOWED_MIME_TYPES, MAX_FILE_SIZE,
 )
 from app.extraction import extract_text, clean_extracted_text, assess_extraction_quality
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/strategies", tags=["sources"])
 
@@ -294,6 +298,198 @@ async def delete_source_with_file(
             source_id, strategy_id,
         )
     return {"deleted": True, "id": source_id}
+
+
+AI_EXTRACTION_CATEGORIES = [
+    "Financial Data",
+    "Market Position",
+    "Team & Resources",
+    "Competitors",
+    "Business Model",
+    "Customers",
+    "Risks",
+    "Opportunities",
+]
+
+AI_EXTRACTION_PROMPT = """You are an expert strategy analyst. Analyze the following document text and extract strategy-relevant information into these categories:
+{categories}
+
+For each category, extract specific items (facts, figures, quotes) from the document.
+For each item include:
+- "text": the EXACT quote or data point from the document (do not paraphrase)
+- "confidence": your confidence that this belongs in this category — "high", "medium", or "low"
+
+Return ONLY valid JSON in this format:
+{{
+  "categories": {{
+    "Financial Data": {{
+      "items": [
+        {{"text": "exact quote from document", "confidence": "high"}}
+      ]
+    }},
+    "Market Position": {{
+      "items": []
+    }}
+  }}
+}}
+
+If a category has no relevant content, return an empty items array for it.
+Focus on concrete data points, metrics, names, and factual statements — not vague descriptions.
+
+DOCUMENT TEXT:
+{document_text}"""
+
+
+@router.post("/{strategy_id}/sources/{source_id}/analyze")
+async def analyze_document_source(
+    strategy_id: str,
+    source_id: str,
+    auth: AuthContext = Depends(get_auth),
+):
+    """Send document text to AI for strategy-relevant categorization."""
+    from app.routers.ai import call_claude
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        strat = await conn.fetchrow(
+            "SELECT id FROM strategies WHERE id = $1 AND organization_id = $2",
+            strategy_id, auth.org_id,
+        )
+        if not strat:
+            raise HTTPException(404, "Strategy not found")
+
+        row = await conn.fetchrow(
+            "SELECT * FROM strategy_sources WHERE id = $1 AND strategy_id = $2",
+            source_id, strategy_id,
+        )
+        if not row:
+            raise HTTPException(404, "Source not found")
+
+    source = row_to_dict(row)
+    meta = source.get("metadata") or {}
+
+    # Get cleaned text or raw content
+    document_text = meta.get("cleaned_text") or source.get("content") or ""
+    if not document_text or document_text == "extraction_failed":
+        raise HTTPException(400, "No extracted text available for this document")
+
+    # Truncate very long documents to avoid exceeding token limits
+    max_chars = 15000
+    truncated = document_text[:max_chars]
+    if len(document_text) > max_chars:
+        truncated += "\n\n[Document truncated — full text is longer]"
+
+    prompt = AI_EXTRACTION_PROMPT.format(
+        categories=", ".join(AI_EXTRACTION_CATEGORIES),
+        document_text=truncated,
+    )
+
+    result = await call_claude(
+        [{"role": "user", "content": prompt}],
+        max_tokens=2048,
+    )
+    text = result["content"][0]["text"] if result.get("content") else "{}"
+    provider = result.get("_provider", "claude")
+
+    # Parse AI response
+    try:
+        start = text.find("{")
+        end = text.rfind("}") + 1
+        if start >= 0 and end > start:
+            parsed = json.loads(text[start:end])
+        else:
+            parsed = {"categories": {}}
+    except Exception:
+        parsed = {"categories": {}}
+
+    # Normalize the response — ensure all categories exist
+    categories = parsed.get("categories", {})
+    ai_analysis = {"categories": {}, "provider": provider, "analyzed_at": datetime.now(timezone.utc).isoformat()}
+    for cat in AI_EXTRACTION_CATEGORIES:
+        cat_data = categories.get(cat, {})
+        items = cat_data.get("items", []) if isinstance(cat_data, dict) else []
+        # Validate each item
+        valid_items = []
+        for item in items:
+            if isinstance(item, dict) and item.get("text"):
+                conf = item.get("confidence", "medium")
+                if conf not in ("high", "medium", "low"):
+                    conf = "medium"
+                valid_items.append({"text": str(item["text"]), "confidence": conf})
+        ai_analysis["categories"][cat] = {"items": valid_items}
+
+    # Save analysis to source metadata
+    meta["ai_analysis"] = ai_analysis
+    now = datetime.now(timezone.utc)
+    async with pool.acquire() as conn:
+        await conn.execute(
+            'UPDATE strategy_sources SET "metadata" = $1, updated_at = $2 WHERE id = $3',
+            json.dumps(meta), now, source_id,
+        )
+        updated_row = await conn.fetchrow("SELECT * FROM strategy_sources WHERE id = $1", source_id)
+
+    return row_to_dict(updated_row)
+
+
+class ApproveExtractionsRequest(BaseModel):
+    items: List[dict]  # Each: {"category": str, "text": str, "confidence": str}
+
+
+@router.post("/{strategy_id}/sources/{source_id}/approve-extractions", status_code=201)
+async def approve_extractions(
+    strategy_id: str,
+    source_id: str,
+    req: ApproveExtractionsRequest,
+    auth: AuthContext = Depends(get_auth),
+):
+    """Approve selected AI extractions and create individual source entries."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        strat = await conn.fetchrow(
+            "SELECT id FROM strategies WHERE id = $1 AND organization_id = $2",
+            strategy_id, auth.org_id,
+        )
+        if not strat:
+            raise HTTPException(404, "Strategy not found")
+
+        parent_row = await conn.fetchrow(
+            "SELECT * FROM strategy_sources WHERE id = $1 AND strategy_id = $2",
+            source_id, strategy_id,
+        )
+        if not parent_row:
+            raise HTTPException(404, "Source not found")
+
+    parent = row_to_dict(parent_row)
+    parent_meta = parent.get("metadata") or {}
+    parent_filename = parent_meta.get("filename", "Document")
+
+    created = []
+    now = datetime.now(timezone.utc)
+    async with pool.acquire() as conn:
+        for item in req.items:
+            category = item.get("category", "")
+            text = item.get("text", "")
+            confidence = item.get("confidence", "medium")
+            if not text or not category:
+                continue
+
+            new_id = str(uuid.uuid4())
+            item_metadata = {
+                "context": "ai_extraction",
+                "category": category,
+                "confidence": confidence,
+                "parent_source_id": source_id,
+                "parent_filename": parent_filename,
+            }
+            await conn.execute(
+                "INSERT INTO strategy_sources (id, strategy_id, source_type, content, metadata, created_by, created_at, updated_at) "
+                "VALUES ($1, $2, $3, $4, $5, $6, $7, $7)",
+                new_id, strategy_id, "ai_extraction", text,
+                json.dumps(item_metadata), auth.user_id, now,
+            )
+            created.append({"id": new_id, "category": category, "text": text[:200]})
+
+    return {"approved": len(created), "items": created}
 
 
 async def log_source(strategy_id: str, source_type: str, content: str, metadata: dict = None, user_id: str = None):

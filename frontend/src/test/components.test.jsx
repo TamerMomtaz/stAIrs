@@ -684,6 +684,7 @@ describe('SourceOfTruthView', () => {
     expect(screen.getByText('AI Chat')).toBeTruthy();
     expect(screen.getByText('Feedback')).toBeTruthy();
     expect(screen.getByText('Manual Entry')).toBeTruthy();
+    expect(screen.getByText('AI Extraction')).toBeTruthy();
   });
 
   it('renders search input', () => {

@@ -110,6 +110,27 @@ async def ai_chat(req: AIChatRequest, auth: AuthContext = Depends(get_auth)):
             if detail:
                 context_parts.append(f"\nFocused: {detail['title']} — {detail['description'] or 'No description'}")
                 context_parts.append(f"Progress: {detail['progress_percent']}%, Health: {detail['health']}, Confidence: {detail['confidence_percent']}%")
+    # Include approved AI extractions from documents (Source of Truth)
+    if req.context_stair_id:
+        async with pool.acquire() as conn:
+            stair_row = await conn.fetchrow(
+                "SELECT strategy_id FROM stairs WHERE id = $1", str(req.context_stair_id)
+            )
+            if stair_row and stair_row.get("strategy_id"):
+                extraction_rows = await conn.fetch(
+                    "SELECT content, metadata FROM strategy_sources "
+                    "WHERE strategy_id = $1 AND source_type = 'ai_extraction' "
+                    "ORDER BY created_at DESC LIMIT 50",
+                    str(stair_row["strategy_id"]),
+                )
+                if extraction_rows:
+                    context_parts.append("\nAPPROVED DOCUMENT EXTRACTIONS (verified data from uploaded documents):")
+                    for er in extraction_rows:
+                        er_meta = er["metadata"] if isinstance(er["metadata"], dict) else json.loads(er["metadata"] or "{}")
+                        cat = er_meta.get("category", "General")
+                        fname = er_meta.get("parent_filename", "")
+                        src_label = f" (from: {fname})" if fname else ""
+                        context_parts.append(f"  [{cat}]{src_label}: {er['content'][:300]}")
     messages = [{"role": "user", "content": f"CONTEXT:\n{chr(10).join(context_parts)}\n\nUSER QUESTION:\n{req.message}"}]
     result = await call_claude(messages)
     text = result["content"][0]["text"] if result.get("content") else "No response generated"

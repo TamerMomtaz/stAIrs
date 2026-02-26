@@ -120,4 +120,9 @@ describe('SourcesAPI', () => {
     expect(typeof SourcesAPI.update).toBe('function');
     expect(typeof SourcesAPI.remove).toBe('function');
   });
+
+  it('has analyzeDocument and approveExtractions methods', () => {
+    expect(typeof SourcesAPI.analyzeDocument).toBe('function');
+    expect(typeof SourcesAPI.approveExtractions).toBe('function');
+  });
 });

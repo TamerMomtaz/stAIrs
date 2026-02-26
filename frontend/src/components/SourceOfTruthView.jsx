@@ -8,9 +8,10 @@ const sourceTypeConfig = {
   feedback: { icon: "💬", label: "Feedback", labelAr: "ملاحظات", color: "#34d399" },
   manual_entry: { icon: "📝", label: "Manual Entry", labelAr: "إدخال يدوي", color: "#fbbf24" },
   document: { icon: "📄", label: "Documents", labelAr: "مستندات", color: "#f472b6" },
+  ai_extraction: { icon: "🔬", label: "AI Extraction", labelAr: "استخراج AI", color: "#818cf8" },
 };
 
-const sourceTypes = ["questionnaire", "ai_chat", "feedback", "manual_entry", "document"];
+const sourceTypes = ["questionnaire", "ai_chat", "feedback", "manual_entry", "document", "ai_extraction"];
 
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".xlsx", ".csv", ".txt", ".png", ".jpg", ".jpeg"];
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -36,6 +37,12 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
   const [uploadError, setUploadError] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [fullTextId, setFullTextId] = useState(null);
+  const [analyzingId, setAnalyzingId] = useState(null);
+  const [analysisReviewId, setAnalysisReviewId] = useState(null);
+  const [analysisData, setAnalysisData] = useState({});
+  const [rejectedItems, setRejectedItems] = useState({});
+  const [expandedCategories, setExpandedCategories] = useState({});
+  const [approving, setApproving] = useState(false);
   const isAr = lang === "ar";
   const searchTimer = useRef(null);
   const fileInputRef = useRef(null);
@@ -161,6 +168,94 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
     }
   };
 
+  const handleAnalyze = async (e, source) => {
+    e.stopPropagation();
+    if (analyzingId) return;
+    setAnalyzingId(source.id);
+    try {
+      const updated = await SourcesAPI.analyzeDocument(strategyContext.id, source.id);
+      const analysis = (updated?.metadata || {}).ai_analysis;
+      if (analysis) {
+        setAnalysisData(prev => ({ ...prev, [source.id]: analysis }));
+        setAnalysisReviewId(source.id);
+        setRejectedItems({});
+        // Expand all categories by default
+        const cats = Object.keys(analysis.categories || {});
+        const expanded = {};
+        cats.forEach(c => { expanded[c] = true; });
+        setExpandedCategories(expanded);
+        // Update source in local state
+        setSources(prev => prev.map(s => s.id === source.id ? { ...s, metadata: updated.metadata } : s));
+      }
+    } catch (err) {
+      console.error("Analyze failed:", err);
+    }
+    setAnalyzingId(null);
+  };
+
+  const toggleItemRejected = (category, idx) => {
+    const key = `${category}::${idx}`;
+    setRejectedItems(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const getApprovedItems = (sourceId) => {
+    const analysis = analysisData[sourceId];
+    if (!analysis?.categories) return [];
+    const items = [];
+    Object.entries(analysis.categories).forEach(([category, data]) => {
+      (data.items || []).forEach((item, idx) => {
+        const key = `${category}::${idx}`;
+        if (!rejectedItems[key]) {
+          items.push({ category, text: item.text, confidence: item.confidence });
+        }
+      });
+    });
+    return items;
+  };
+
+  const handleApproveSelected = async (sourceId) => {
+    const items = getApprovedItems(sourceId);
+    if (!items.length) return;
+    setApproving(true);
+    try {
+      await SourcesAPI.approveExtractions(strategyContext.id, sourceId, items);
+      setAnalysisReviewId(null);
+      loadSources();
+    } catch (err) {
+      console.error("Approve failed:", err);
+    }
+    setApproving(false);
+  };
+
+  const handleApproveAll = async (sourceId) => {
+    setRejectedItems({});
+    // Need to wait a tick for state to clear, then approve
+    const analysis = analysisData[sourceId];
+    if (!analysis?.categories) return;
+    const items = [];
+    Object.entries(analysis.categories).forEach(([category, data]) => {
+      (data.items || []).forEach((item) => {
+        items.push({ category, text: item.text, confidence: item.confidence });
+      });
+    });
+    if (!items.length) return;
+    setApproving(true);
+    try {
+      await SourcesAPI.approveExtractions(strategyContext.id, sourceId, items);
+      setAnalysisReviewId(null);
+      loadSources();
+    } catch (err) {
+      console.error("Approve all failed:", err);
+    }
+    setApproving(false);
+  };
+
+  const totalExtractionItems = (sourceId) => {
+    const analysis = analysisData[sourceId];
+    if (!analysis?.categories) return 0;
+    return Object.values(analysis.categories).reduce((sum, d) => sum + (d.items || []).length, 0);
+  };
+
   const formatDate = (dateStr) => {
     if (!dateStr) return "";
     const d = new Date(dateStr);
@@ -183,6 +278,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
     if (meta.context === "feedback_response") return meta.stair_title || (isAr ? "ملاحظات التنفيذ" : "Execution Feedback");
     if (meta.context === "manual_reference") return isAr ? "مرجع يدوي" : "Manual Reference";
     if (meta.context === "document_upload") return meta.filename || (isAr ? "مستند" : "Document");
+    if (meta.context === "ai_extraction") return `${meta.category || ""}${meta.parent_filename ? ` — ${meta.parent_filename}` : ""}`;
     return "";
   };
 
@@ -326,6 +422,20 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                   {showPageView ? (isAr ? "طي" : "Collapse") : (isAr ? "عرض حسب الصفحة" : "Page by Page")}
                 </button>
               )}
+              {displayText && displayText !== "extraction_failed" && (
+                <button
+                  onClick={(e) => handleAnalyze(e, source)}
+                  disabled={analyzingId === source.id}
+                  className="text-[10px] px-2 py-0.5 rounded-full border transition hover:opacity-80 disabled:opacity-50"
+                  style={{ borderColor: "#818cf850", color: "#818cf8" }}
+                >
+                  {analyzingId === source.id
+                    ? (isAr ? "جاري التحليل..." : "Analyzing...")
+                    : meta.ai_analysis
+                      ? (isAr ? "إعادة التحليل بالذكاء الاصطناعي" : "Re-analyze with AI")
+                      : (isAr ? "تحليل بالذكاء الاصطناعي" : "Analyze with AI")}
+                </button>
+              )}
               <button
                 onClick={(e) => handleDownload(e, source)}
                 className="text-[10px] px-2 py-0.5 rounded-full border border-gray-600 text-gray-400 transition hover:text-white hover:border-gray-400"
@@ -339,8 +449,141 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                 {isAr ? "حذف" : "Delete"}
               </button>
             </div>
+
+            {/* Analyzing loading state */}
+            {analyzingId === source.id && (
+              <div className="mt-3 flex items-center gap-2 p-3 rounded-lg bg-indigo-900/20 border border-indigo-700/30">
+                <div className="w-4 h-4 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
+                <span className="text-xs text-indigo-300">{isAr ? "جاري تحليل المستند..." : "Analyzing document..."}</span>
+              </div>
+            )}
+
+            {/* Show "View Analysis" button if analysis exists but review panel is not open */}
+            {meta.ai_analysis && analysisReviewId !== source.id && analyzingId !== source.id && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setAnalysisData(prev => ({ ...prev, [source.id]: meta.ai_analysis }));
+                  setAnalysisReviewId(source.id);
+                  setRejectedItems({});
+                  const cats = Object.keys(meta.ai_analysis.categories || {});
+                  const expanded = {};
+                  cats.forEach(c => { expanded[c] = true; });
+                  setExpandedCategories(expanded);
+                }}
+                className="mt-2 flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-lg border border-indigo-700/40 text-indigo-400 hover:bg-indigo-900/20 transition"
+              >
+                <span>🔬</span>
+                <span>{isAr ? "عرض نتائج التحليل" : "View Analysis Results"}</span>
+                <span className="text-indigo-500">({Object.values(meta.ai_analysis.categories || {}).reduce((s, d) => s + (d.items || []).length, 0)} {isAr ? "عنصر" : "items"})</span>
+              </button>
+            )}
           </div>
         </div>
+
+        {/* AI Analysis Review Panel */}
+        {analysisReviewId === source.id && analysisData[source.id] && (
+          <div className="border-t border-gray-700/50 p-3.5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-white">{isAr ? "مراجعة استخراج AI" : "AI Extraction Review"}</span>
+                <span className="text-[10px] text-gray-500">
+                  {totalExtractionItems(source.id)} {isAr ? "عنصر مستخرج" : "items extracted"}
+                </span>
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); setAnalysisReviewId(null); }}
+                className="text-gray-500 hover:text-gray-300 text-xs px-2 py-0.5"
+              >
+                {isAr ? "إغلاق" : "Close"}
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {Object.entries(analysisData[source.id].categories || {}).map(([category, data]) => {
+                const items = data.items || [];
+                if (items.length === 0) return null;
+                const isExpCat = expandedCategories[category] !== false;
+                return (
+                  <div key={category} className="rounded-lg border border-gray-700/40 overflow-hidden">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedCategories(prev => ({ ...prev, [category]: !isExpCat }));
+                      }}
+                      className="w-full flex items-center justify-between p-2.5 text-left hover:bg-gray-800/30 transition"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400">{isExpCat ? "▾" : "▸"}</span>
+                        <span className="text-xs font-medium text-white">{category}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-800 text-gray-400">{items.length}</span>
+                      </div>
+                    </button>
+                    {isExpCat && (
+                      <div className="border-t border-gray-700/30 divide-y divide-gray-800/40">
+                        {items.map((item, idx) => {
+                          const key = `${category}::${idx}`;
+                          const isRejected = !!rejectedItems[key];
+                          const confColor = item.confidence === "high" ? "text-emerald-400 bg-emerald-900/30 border-emerald-700/40"
+                            : item.confidence === "low" ? "text-red-400 bg-red-900/30 border-red-700/40"
+                            : "text-amber-400 bg-amber-900/30 border-amber-700/40";
+                          return (
+                            <div key={idx} className={`p-2.5 ${isRejected ? "opacity-40" : ""} transition-opacity`}>
+                              <div className="flex items-start gap-2">
+                                <div className="flex-1">
+                                  <div className="text-xs text-gray-300 leading-relaxed">{item.text}</div>
+                                  <div className="flex items-center gap-2 mt-1.5">
+                                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full border ${confColor}`}>
+                                      {item.confidence}
+                                    </span>
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); toggleItemRejected(category, idx); }}
+                                  className={`shrink-0 text-[10px] px-2 py-1 rounded-md border transition ${
+                                    isRejected
+                                      ? "border-red-700/50 text-red-400 bg-red-900/20"
+                                      : "border-emerald-700/50 text-emerald-400 bg-emerald-900/20"
+                                  }`}
+                                >
+                                  {isRejected ? (isAr ? "مرفوض" : "Rejected") : (isAr ? "مقبول" : "Approved")}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-700/40">
+              <button
+                onClick={(e) => { e.stopPropagation(); handleApproveAll(source.id); }}
+                disabled={approving || totalExtractionItems(source.id) === 0}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium transition hover:scale-[1.02] disabled:opacity-40"
+                style={{ background: "linear-gradient(135deg, #818cf8, #6366f1)", color: "#fff" }}
+              >
+                {approving ? (isAr ? "جاري الحفظ..." : "Saving...") : (isAr ? "قبول الكل" : "Approve All")}
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleApproveSelected(source.id); }}
+                disabled={approving || getApprovedItems(source.id).length === 0}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium border border-indigo-600/50 text-indigo-400 transition hover:bg-indigo-900/20 disabled:opacity-40"
+              >
+                {isAr ? `قبول المحدد (${getApprovedItems(source.id).length})` : `Approve Selected (${getApprovedItems(source.id).length})`}
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setAnalysisReviewId(null); }}
+                className="px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white transition"
+              >
+                {isAr ? "إلغاء" : "Cancel"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -426,7 +669,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
       )}
 
       {/* Stats — 5 cards */}
-      <div className="grid grid-cols-5 gap-2.5">
+      <div className="grid grid-cols-6 gap-2.5">
         {sourceTypes.map(type => {
           const cfg = sourceTypeConfig[type];
           const count = typeCounts[type] || 0;
