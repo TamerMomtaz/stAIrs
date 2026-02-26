@@ -191,13 +191,64 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
 
   const isDocument = (source) => source.source_type === "document";
 
+  // Track which documents are in page-by-page view mode
+  const [pageViewId, setPageViewId] = useState(null);
+
+  const getExtractionQualityBadge = (meta) => {
+    const quality = meta?.extraction_quality;
+    if (!quality || quality === "failed") return null;
+    if (quality === "good") {
+      return (
+        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-900/30 text-emerald-400 border border-emerald-700/40">
+          {isAr ? "استخراج جيد" : "Good extraction"}
+        </span>
+      );
+    }
+    return (
+      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-900/30 text-amber-400 border border-amber-700/40">
+        {isAr ? "استخراج جزئي" : "Partial extraction"}
+      </span>
+    );
+  };
+
+  const getDisplayText = (source) => {
+    const meta = source.metadata || {};
+    return meta.cleaned_text || source.content;
+  };
+
+  const renderPageByPageView = (meta) => {
+    const pages = meta?.pages_text;
+    if (!pages || !Array.isArray(pages) || pages.length === 0) return null;
+    return (
+      <div className="space-y-0">
+        {pages.map((pageText, idx) => (
+          <div key={idx}>
+            <div className="flex items-center gap-2 py-2">
+              <div className="flex-1 h-px bg-gray-700/50" />
+              <span className="text-[10px] text-gray-500 font-medium shrink-0">
+                {isAr ? `صفحة ${idx + 1}` : `Page ${idx + 1}`}
+              </span>
+              <div className="flex-1 h-px bg-gray-700/50" />
+            </div>
+            <div className="whitespace-pre-wrap font-mono text-xs text-gray-300 leading-relaxed px-3 py-2 rounded-lg bg-gray-900/30">
+              {pageText.trim() || (isAr ? "(صفحة فارغة)" : "(Empty page)")}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const renderDocumentCard = (source, cfg, isExpanded, contextLabel) => {
     const meta = source.metadata || {};
     const showFullText = fullTextId === source.id;
-    const contentPreview = source.content && source.content !== "extraction_failed"
-      ? source.content.slice(0, 200)
+    const showPageView = pageViewId === source.id;
+    const displayText = getDisplayText(source);
+    const contentPreview = displayText && displayText !== "extraction_failed"
+      ? displayText.slice(0, 200)
       : null;
-    const hasFullText = source.content && source.content !== "extraction_failed" && source.content.length > 200;
+    const hasFullText = displayText && displayText !== "extraction_failed" && displayText.length > 200;
+    const hasPages = meta.pages_text && Array.isArray(meta.pages_text) && meta.pages_text.length > 1;
 
     return (
       <div
@@ -217,6 +268,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
               </span>
               <span className="text-gray-700">·</span>
               <span className="text-xs text-gray-300 truncate font-medium">{meta.filename || "Document"}</span>
+              {getExtractionQualityBadge(meta)}
             </div>
 
             <div className="flex items-center gap-3 text-[10px] text-gray-500 mb-1.5">
@@ -227,15 +279,28 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
               <span>{formatDate(source.created_at)}</span>
             </div>
 
-            {contentPreview && (
+            {contentPreview && !showFullText && !showPageView && (
               <div className="text-sm text-gray-400 mb-1">
-                {showFullText ? (
-                  <div className="whitespace-pre-wrap text-gray-300">{source.content}</div>
-                ) : (
-                  <span>{contentPreview}{source.content.length > 200 ? "..." : ""}</span>
-                )}
+                <span>{contentPreview}{displayText.length > 200 ? "..." : ""}</span>
               </div>
             )}
+
+            {showFullText && displayText && displayText !== "extraction_failed" && (
+              <div className="mt-2 mb-1 rounded-lg border border-gray-700/50 bg-gray-900/40 overflow-hidden">
+                <div className="max-h-96 overflow-y-auto p-3">
+                  <pre className="whitespace-pre-wrap font-mono text-xs text-gray-300 leading-relaxed">{displayText}</pre>
+                </div>
+              </div>
+            )}
+
+            {showPageView && (
+              <div className="mt-2 mb-1 rounded-lg border border-gray-700/50 bg-gray-900/40 overflow-hidden">
+                <div className="max-h-96 overflow-y-auto p-3">
+                  {renderPageByPageView(meta)}
+                </div>
+              </div>
+            )}
+
             {source.content === "extraction_failed" && (
               <div className="text-xs text-amber-500/70 italic">
                 {isAr ? "تعذر استخراج النص" : "Text extraction failed"}
@@ -245,11 +310,20 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
             <div className="flex items-center gap-2 mt-1.5">
               {hasFullText && (
                 <button
-                  onClick={(e) => { e.stopPropagation(); setFullTextId(showFullText ? null : source.id); }}
+                  onClick={(e) => { e.stopPropagation(); setPageViewId(null); setFullTextId(showFullText ? null : source.id); }}
                   className="text-[10px] px-2 py-0.5 rounded-full border transition hover:opacity-80"
                   style={{ borderColor: `${cfg.color}50`, color: cfg.color }}
                 >
                   {showFullText ? (isAr ? "طي" : "Collapse") : (isAr ? "عرض النص الكامل" : "View Full Text")}
+                </button>
+              )}
+              {hasPages && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setFullTextId(null); setPageViewId(showPageView ? null : source.id); }}
+                  className="text-[10px] px-2 py-0.5 rounded-full border transition hover:opacity-80"
+                  style={{ borderColor: `${cfg.color}50`, color: cfg.color }}
+                >
+                  {showPageView ? (isAr ? "طي" : "Collapse") : (isAr ? "عرض حسب الصفحة" : "Page by Page")}
                 </button>
               )}
               <button

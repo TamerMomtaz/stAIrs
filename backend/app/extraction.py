@@ -2,6 +2,7 @@
 
 import csv
 import io
+import re
 
 
 def extract_text(file_bytes: bytes, filename: str, content_type: str) -> tuple:
@@ -26,15 +27,93 @@ def extract_text(file_bytes: bytes, filename: str, content_type: str) -> tuple:
         return "extraction_failed", {"extraction_error": str(e)}
 
 
+def clean_extracted_text(raw_text):
+    """Clean raw extracted text for better readability.
+
+    - Collapses multiple spaces into one
+    - Removes orphan single characters (isolated letters from broken columns)
+    - Adds line breaks between detected paragraphs
+    - Strips leading/trailing whitespace from lines
+    """
+    if not raw_text or raw_text == "extraction_failed":
+        return raw_text
+
+    # Split into lines for processing
+    lines = raw_text.split("\n")
+    cleaned_lines = []
+
+    for line in lines:
+        # Collapse multiple spaces/tabs into single space
+        line = re.sub(r"[ \t]+", " ", line).strip()
+        # Remove lines that are just single isolated characters (orphans)
+        if len(line) == 1 and not line.isdigit():
+            continue
+        # Remove lines that are only a series of isolated single chars separated by spaces
+        tokens = line.split()
+        if len(tokens) > 1 and all(len(t) == 1 for t in tokens):
+            continue
+        if line:
+            cleaned_lines.append(line)
+
+    # Rejoin and detect paragraph boundaries:
+    # Insert double newlines where a line ends with sentence-ending punctuation
+    # or where there's already a blank gap
+    result_lines = []
+    for i, line in enumerate(cleaned_lines):
+        result_lines.append(line)
+        # Add paragraph break after lines ending with sentence punctuation
+        if line and line[-1] in ".!?:؟" and i < len(cleaned_lines) - 1:
+            next_line = cleaned_lines[i + 1]
+            # Only add break if next line starts with uppercase or is clearly new paragraph
+            if next_line and (next_line[0].isupper() or next_line[0].isdigit()):
+                result_lines.append("")
+
+    return "\n".join(result_lines).strip()
+
+
+def assess_extraction_quality(text):
+    """Assess the quality of extracted text.
+
+    Returns 'good' if text appears clean, 'partial' if it seems garbled.
+    Heuristic: ratio of recognizable words (3+ chars, mostly letters) to total tokens.
+    """
+    if not text or text == "extraction_failed":
+        return "failed"
+
+    tokens = text.split()
+    if len(tokens) < 5:
+        return "good"  # Too short to judge meaningfully
+
+    real_words = 0
+    for token in tokens:
+        # Strip common punctuation
+        clean = re.sub(r"[^\w]", "", token)
+        if len(clean) >= 2 and re.search(r"[a-zA-Z\u0600-\u06FF]", clean):
+            real_words += 1
+
+    ratio = real_words / len(tokens) if tokens else 0
+    return "good" if ratio >= 0.5 else "partial"
+
+
 def _extract_pdf(file_bytes: bytes) -> tuple:
-    from PyPDF2 import PdfReader
-    reader = PdfReader(io.BytesIO(file_bytes))
-    pages = []
-    for page in reader.pages:
+    import pdfplumber
+    pdf = pdfplumber.open(io.BytesIO(file_bytes))
+    pages_text = []
+    for page in pdf.pages:
         text = page.extract_text() or ""
-        pages.append(text)
-    full_text = "\n\n".join(pages).strip()
-    return full_text or "extraction_failed", {"page_count": len(reader.pages)}
+        pages_text.append(text)
+    pdf.close()
+
+    raw_text = "\n\n".join(pages_text).strip()
+    cleaned_text = clean_extracted_text(raw_text)
+    quality = assess_extraction_quality(cleaned_text)
+
+    return raw_text or "extraction_failed", {
+        "page_count": len(pages_text),
+        "pages_text": pages_text,
+        "cleaned_text": cleaned_text,
+        "extraction_quality": quality,
+    }
 
 
 def _extract_docx(file_bytes: bytes) -> tuple:
