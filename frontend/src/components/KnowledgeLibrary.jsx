@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { api } from "../api";
-import { glass } from "../constants";
+import { glass, GOLD, BORDER } from "../constants";
+import { buildHeader, openExportWindow } from "../exportUtils";
 
-export const KnowledgeLibrary = ({ lang }) => {
+export const KnowledgeLibrary = ({ lang, strategyContext }) => {
   const [tab, setTab] = useState("overview");
   const [data, setData] = useState({ stats: null, frameworks: [], books: [], failurePatterns: [], measurementTools: [] });
   const [loading, setLoading] = useState(true); const isAr = lang === "ar";
@@ -12,9 +13,33 @@ export const KnowledgeLibrary = ({ lang }) => {
   const phaseColors = { analysis:"#60a5fa", formulation:"#a78bfa", design:"#f472b6", execution:"#34d399" };
   const tierColors = { tier_1:"#fbbf24", tier_2:"#60a5fa", tier_3:"#94a3b8" };
   const sevColors = { critical:"#f87171", high:"#fbbf24", medium:"#60a5fa", low:"#94a3b8" };
+  const exportKnowledge = () => {
+    let content = "";
+    if (data.frameworks.length) {
+      content += `<div class="section">🧩 ${isAr ? "الأطر" : "Frameworks"} (${data.frameworks.length})</div>`;
+      content += data.frameworks.map(fw => `<div class="knowledge-card"><h4>${fw.name}${fw.phase ? ` <span class="badge" style="background:${phaseColors[fw.phase] || "#94a3b8"}20;color:${phaseColors[fw.phase] || "#94a3b8"}">${fw.phase?.toUpperCase()}</span>` : ""}</h4><div class="meta">${fw.originator || ""}${fw.year ? ` (${fw.year})` : ""}</div>${fw.description ? `<div class="desc">${fw.description}</div>` : ""}${fw.strengths ? `<div style="margin-top:6px"><span style="color:#059669;font-size:10px;font-weight:600">STRENGTHS:</span> <span style="font-size:11px;color:#475569">${fw.strengths}</span></div>` : ""}${fw.limitations ? `<div style="margin-top:4px"><span style="color:#dc2626;font-size:10px;font-weight:600">LIMITATIONS:</span> <span style="font-size:11px;color:#475569">${fw.limitations}</span></div>` : ""}</div>`).join("");
+    }
+    if (data.books.length) {
+      content += `<div class="section">📚 ${isAr ? "الكتب" : "Books"} (${data.books.length})</div>`;
+      content += data.books.map(bk => `<div class="knowledge-card"><h4>${bk.title}${bk.tier ? ` <span class="badge" style="background:${tierColors[bk.tier] || "#94a3b8"}20;color:${tierColors[bk.tier] || "#94a3b8"}">${bk.tier?.replace("_", " ").toUpperCase()}</span>` : ""}</h4><div class="meta">${bk.authors || ""}${bk.year ? ` (${bk.year})` : ""}</div>${bk.key_concepts ? `<div class="desc">${bk.key_concepts}</div>` : ""}${bk.relevance ? `<div style="margin-top:4px"><span style="color:#B8904A;font-size:10px;font-weight:600">RELEVANCE:</span> <span style="font-size:11px;color:#475569">${bk.relevance}</span></div>` : ""}</div>`).join("");
+    }
+    if (data.failurePatterns.length) {
+      content += `<div class="section">⚠️ ${isAr ? "أنماط الفشل" : "Failure Patterns"} (${data.failurePatterns.length})</div>`;
+      content += data.failurePatterns.map(fp => `<div class="knowledge-card"><h4>${fp.name || fp.pattern_name}${fp.severity ? ` <span class="badge" style="background:${sevColors[fp.severity] || "#94a3b8"}20;color:${sevColors[fp.severity] || "#94a3b8"}">${fp.severity?.toUpperCase()}</span>` : ""}</h4>${fp.description ? `<div class="desc">${fp.description}</div>` : ""}${fp.detection_signals ? `<div style="margin-top:6px"><span style="color:#06b6d4;font-size:10px;font-weight:600">DETECTION:</span> <span style="font-size:11px;color:#475569">${fp.detection_signals}</span></div>` : ""}${fp.prevention ? `<div style="margin-top:4px"><span style="color:#059669;font-size:10px;font-weight:600">PREVENTION:</span> <span style="font-size:11px;color:#475569">${fp.prevention}</span></div>` : ""}${fp.research_stat ? `<div style="margin-top:4px;font-size:10px;color:#B8904A;font-style:italic">${fp.research_stat}</div>` : ""}</div>`).join("");
+    }
+    if (data.measurementTools.length) {
+      content += `<div class="section">🔧 ${isAr ? "أدوات القياس" : "Measurement Tools"} (${data.measurementTools.length})</div>`;
+      content += data.measurementTools.map(mt => `<div class="knowledge-card"><h4>${mt.name || mt.tool_name}${mt.stage ? ` <span class="badge" style="background:#2dd4bf20;color:#2dd4bf">${mt.stage}</span>` : ""}</h4>${mt.description ? `<div class="desc">${mt.description}</div>` : ""}${mt.how_it_works ? `<div style="margin-top:6px"><span style="color:#3b82f6;font-size:10px;font-weight:600">HOW IT WORKS:</span> <span style="font-size:11px;color:#475569">${mt.how_it_works}</span></div>` : ""}${mt.interpretation ? `<div style="margin-top:4px"><span style="color:#B8904A;font-size:10px;font-weight:600">INTERPRETATION:</span> <span style="font-size:11px;color:#475569">${mt.interpretation}</span></div>` : ""}</div>`).join("");
+    }
+    const body = `${buildHeader(strategyContext, "Knowledge Library Export")}
+      <div class="section">📖 ${isAr ? "مكتبة المعرفة" : "Knowledge Library"}</div>
+      ${data.stats ? `<div style="display:flex;gap:12px;margin-bottom:24px"><div class="stat-box"><div class="num" style="color:#60a5fa">${data.stats.frameworks||0}</div><div class="lbl">Frameworks</div></div><div class="stat-box"><div class="num" style="color:#a78bfa">${data.stats.books||0}</div><div class="lbl">Books</div></div><div class="stat-box"><div class="num" style="color:#f87171">${data.stats.failure_patterns||0}</div><div class="lbl">Failure Patterns</div></div><div class="stat-box"><div class="num" style="color:#34d399">${data.stats.measurement_tools||0}</div><div class="lbl">Measurement Tools</div></div></div>` : ""}
+      ${content}`;
+    openExportWindow("Knowledge Library", body);
+  };
   return (
     <div className="space-y-6">
-      <div className="flex gap-2 flex-wrap">{tabs.map(t => <button key={t.key} onClick={() => setTab(t.key)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${tab===t.key?"bg-amber-500/15 text-amber-300 border border-amber-500/20":"text-gray-500 hover:text-gray-300 border border-transparent"}`}>{t.icon} {t.label}</button>)}</div>
+      <div className="flex gap-2 flex-wrap items-center">{tabs.map(t => <button key={t.key} onClick={() => setTab(t.key)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${tab===t.key?"bg-amber-500/15 text-amber-300 border border-amber-500/20":"text-gray-500 hover:text-gray-300 border border-transparent"}`}>{t.icon} {t.label}</button>)}<div className="flex-1" /><button onClick={exportKnowledge} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{ borderColor: `${GOLD}60`, color: GOLD, background: `${GOLD}15` }}>↓ {isAr ? "تصدير" : "Export"}</button></div>
 
       {tab==="overview" && data.stats && (
         <div className="space-y-4">

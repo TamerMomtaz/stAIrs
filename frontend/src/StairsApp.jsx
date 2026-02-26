@@ -195,10 +195,10 @@ export default function App() {
     }).join("");
     const stats = { total: flatItems.length, onTrack: flatItems.filter(s => s.health === "on_track").length, atRisk: flatItems.filter(s => s.health === "at_risk").length, offTrack: flatItems.filter(s => s.health === "off_track").length, avgProgress: flatItems.length ? Math.round(flatItems.reduce((a,s) => a + (s.progress_percent||0), 0) / flatItems.length) : 0 };
     w.document.write(`<!DOCTYPE html><html><head><title>ST.AIRS Export - ${activeStrat?.name||"Strategy"}</title><style>@page{margin:20mm 15mm}*{box-sizing:border-box;margin:0;padding:0}body{background:#fff;color:#1e293b;font-family:'Segoe UI',system-ui,sans-serif;line-height:1.5}.header{display:flex;align-items:center;gap:16px;padding-bottom:16px;border-bottom:2px solid #B8904A;margin-bottom:20px}.header h1{font-size:28px;font-weight:700}.stats-bar{display:flex;gap:12px;margin-bottom:24px}.stat-box{flex:1;padding:12px;border-radius:8px;text-align:center;border:1px solid #e5e7eb}.stat-box .num{font-size:22px;font-weight:700}.stat-box .lbl{font-size:10px;color:#64748b;text-transform:uppercase}table{width:100%;border-collapse:collapse}thead th{text-align:left;padding:10px 8px;border-bottom:2px solid #B8904A;color:#B8904A;font-size:11px;text-transform:uppercase;font-weight:600}.footer{text-align:center;margin-top:30px;padding-top:16px;border-top:1px solid #e5e7eb;color:#94a3b8;font-size:10px}</style></head><body>
-    <div class="header"><span style="font-size:36px">${activeStrat?.icon||"🎯"}</span><div><h1>${activeStrat?.name||"Strategy"}</h1><div style="font-size:12px;color:#64748b">${activeStrat?.company||""} · Exported ${new Date().toLocaleDateString()}</div></div></div>
+    <div class="header"><span style="font-size:36px">${activeStrat?.icon||"🎯"}</span><div><div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:2px;margin-bottom:4px">ST.AIRS</div><h1>${activeStrat?.name||"Strategy"}</h1><div style="font-size:12px;color:#64748b">${activeStrat?.company||""} · Staircase Export · ${new Date().toLocaleDateString()}</div></div></div>
     <div class="stats-bar"><div class="stat-box"><div class="num" style="color:#2563eb">${stats.total}</div><div class="lbl">Elements</div></div><div class="stat-box"><div class="num" style="color:#059669">${stats.onTrack}</div><div class="lbl">On Track</div></div><div class="stat-box"><div class="num" style="color:#d97706">${stats.atRisk}</div><div class="lbl">At Risk</div></div><div class="stat-box"><div class="num" style="color:#dc2626">${stats.offTrack}</div><div class="lbl">Off Track</div></div><div class="stat-box"><div class="num" style="color:#7c3aed">${stats.avgProgress}%</div><div class="lbl">Avg Progress</div></div></div>
     <table><thead><tr><th style="width:60%">Element</th><th style="text-align:center">Health</th><th style="text-align:center;width:120px">Progress</th></tr></thead><tbody>${rows}</tbody></table>
-    <div class="footer">ST.AIRS v3.7.0-cors-fix · By DEVONEERS · "Human IS the Loop"</div></body></html>`);
+    <div class="footer" style="text-align:center;margin-top:40px;padding-top:20px;border-top:2px solid #B8904A"><div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:3px;margin-bottom:4px">HUMAN IS THE LOOP</div><div style="font-size:10px;color:#94a3b8">ST.AIRS — Strategy AI Interactive Real-time System · By DEVONEERS · ${new Date().getFullYear()}</div></div></body></html>`);
     w.document.close();
     w.print();
   };
@@ -253,13 +253,13 @@ export default function App() {
       </nav>
 
       <main className="max-w-6xl mx-auto px-6 py-6">
-        {view === "dashboard" && <DashboardView data={dashData} lang={lang} matrixResults={matrixResults} onMatrixClick={openMatrix} />}
+        {view === "dashboard" && <DashboardView data={dashData} lang={lang} matrixResults={matrixResults} onMatrixClick={openMatrix} strategyContext={activeStrat} />}
         {view === "staircase" && <StaircaseView tree={stairTree} lang={lang} onEdit={s => { setEditStair(s); setShowEditor(true); }} onAdd={() => { setEditStair(null); setShowEditor(true); }} onExport={exportPDF} onMove={moveStair} strategyContext={activeStrat} onSaveNote={saveToNotes} onExecutionRoom={s => setExecRoomStair(s)} />}
         {view === "ai" && <AIChatView lang={lang} userId={user.id || user.email} strategyContext={activeStrat} onSaveNote={saveToNotes} onMatrixClick={openMatrix} />}
         {view === "actionplans" && <ActionPlansView strategyContext={activeStrat} lang={lang} onMatrixClick={openMatrix} />}
-        {view === "alerts" && <AlertsView alerts={alerts} lang={lang} />}
-        {view === "knowledge" && <KnowledgeLibrary lang={lang} />}
-        {view === "tools" && <StrategyToolsPanel lang={lang} onMatrixClick={openMatrix} matrixResults={matrixResults} />}
+        {view === "alerts" && <AlertsView alerts={alerts} lang={lang} strategyContext={activeStrat} />}
+        {view === "knowledge" && <KnowledgeLibrary lang={lang} strategyContext={activeStrat} />}
+        {view === "tools" && <StrategyToolsPanel lang={lang} onMatrixClick={openMatrix} matrixResults={matrixResults} strategyContext={activeStrat} />}
         {view === "notes" && <NotesView lang={lang} userId={user.id || user.email} strategyName={activeStrat?.name} />}
       </main>
 
@@ -267,7 +267,7 @@ export default function App() {
 
       {execRoomStair && <ExecutionRoom stair={execRoomStair} strategyContext={activeStrat} lang={lang} onBack={() => setExecRoomStair(null)} onSaveNote={saveToNotes} onMatrixClick={openMatrix} />}
 
-      <StrategyMatrixToolkit open={matrixToolkit.open} matrixKey={matrixToolkit.key} onClose={closeMatrix} onSave={saveMatrixResult} />
+      <StrategyMatrixToolkit open={matrixToolkit.open} matrixKey={matrixToolkit.key} onClose={closeMatrix} onSave={saveMatrixResult} strategyContext={activeStrat} />
 
       <footer className="text-center py-6 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • ST.AIRS v3.7.0 • "Human IS the Loop" • {new Date().getFullYear()}</footer>
 
