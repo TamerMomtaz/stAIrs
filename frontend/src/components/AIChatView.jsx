@@ -18,8 +18,15 @@ export const AIChatView = ({ lang, userId, strategyContext, onSaveNote, onMatrix
   const newChat = () => { if (!store) return; const c = store.create("New"); store.saveMsgs(c.id,[welc()]); store.setActive(c.id); setActiveId(c.id); setMessages([welc()]); setConvs(store.list()); };
   const loadConv = (id) => { if (!store) return; store.setActive(id); setActiveId(id); setMessages(store.msgs(id)); setShowHist(false); };
   const delConv = (id) => { if (!store) return; store.remove(id); const rem = store.list(); setConvs(rem); if (id===activeId) { if (rem.length>0) loadConv(rem[0].id); else { setActiveId(null); setMessages([]); } } };
-  const send = async () => {
-    if (!input.trim()||loading) return; const msg = input.trim(); setInput(""); let cid = activeId;
+  const suggestionChips = [
+    { emoji: "📊", label: "Build IFE Matrix", prompt: "Analyze my strategy and build a complete IFE Matrix with factors, weights, and ratings" },
+    { emoji: "🌍", label: "Build EFE Matrix", prompt: "Analyze my strategy and build a complete EFE Matrix with external opportunities, threats, weights, and ratings" },
+    { emoji: "📍", label: "SPACE Analysis", prompt: "Perform a SPACE Matrix analysis for my strategy with Financial Strength, Competitive Advantage, Environmental Stability, and Industry Strength dimensions" },
+    { emoji: "⭐", label: "BCG Matrix", prompt: "Build a BCG Growth-Share Matrix for my strategy with business units, market growth rates, and relative market shares" },
+    { emoji: "🏭", label: "Porter's Five Forces", prompt: "Analyze my strategy using Porter's Five Forces framework with ratings for each force" },
+  ];
+  const send = async (directMsg) => {
+    const msg = directMsg || input.trim(); if (!msg||loading) return; setInput(""); let cid = activeId;
     if (!cid&&store) { const c = store.create(msg.slice(0,50)); store.saveMsgs(c.id,[welc()]); store.setActive(c.id); cid=c.id; setActiveId(c.id); setConvs(store.list()); setMessages([welc()]); }
     const srcRule = "When citing frameworks, books, or statistics, include a brief source reference.";
     let contextMsg = strategyContext ? `[CONTEXT: Strategy "${strategyContext.name}" for "${strategyContext.company||strategyContext.name}"${strategyContext.industry?`, industry: ${strategyContext.industry}`:""}. ${srcRule}]\n\n${msg}` : `[${srcRule}]\n\n${msg}`;
@@ -68,6 +75,7 @@ export const AIChatView = ({ lang, userId, strategyContext, onSaveNote, onMatrix
           <div ref={endRef}/>
         </div>
         {messages.length<=1 && <div className="shrink-0 flex flex-wrap gap-2 mb-3">{quicks.map((q,i) => <button key={i} onClick={() => setInput(q)} className="text-xs px-3 py-1.5 rounded-full border border-amber-500/20 text-amber-400/70 hover:bg-amber-500/10 transition">{q}</button>)}</div>}
+        {strategyContext && messages.length<=1 && !input.trim() && <div className="shrink-0 flex flex-wrap gap-2 mb-3">{suggestionChips.map((chip,i) => <button key={i} onClick={() => send(chip.prompt)} className="text-xs px-3 py-1.5 rounded-full border border-amber-500/30 text-amber-300/80 hover:bg-amber-500/15 hover:border-amber-500/50 transition-all bg-amber-500/5">{chip.emoji} {chip.label}</button>)}</div>}
         <div className="shrink-0 flex gap-2">
           <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key==="Enter"&&!e.shiftKey) { e.preventDefault(); send(); } }} placeholder={isAr?"اسأل المستشار... (Shift+Enter لسطر جديد)":"Ask the strategy AI... (Shift+Enter for new line)"} disabled={loading} rows={3} className="flex-1 px-4 py-3 rounded-xl bg-[#0a1628]/60 border border-[#1e3a5f] text-white placeholder-gray-600 focus:border-amber-500/40 focus:outline-none transition text-sm resize-none" />
           <button onClick={send} disabled={loading||!input.trim()} className="px-5 py-3 rounded-xl font-medium text-sm disabled:opacity-30 transition-all hover:scale-105 self-end" style={{ background:`linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, color:DEEP }}>{isAr?"إرسال":"Send"}</button>

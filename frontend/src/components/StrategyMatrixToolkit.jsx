@@ -325,7 +325,10 @@ export const LoadMatrixButtons = ({ text, onLoadMatrix }) => {
     if (!text) return [];
     const detected = detectFrameworks(text);
     if (detected.length === 0) return [];
+    const seen = new Set();
     return detected.map(key => {
+      if (seen.has(key)) return null;
+      seen.add(key);
       const data = parseFrameworkData(text, key);
       return data ? { key, data } : null;
     }).filter(Boolean);
