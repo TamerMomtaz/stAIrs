@@ -59,7 +59,11 @@ async def list_sources(
 
 
 @router.get("/{strategy_id}/sources/count")
-async def count_sources(strategy_id: str, auth: AuthContext = Depends(get_auth)):
+async def count_sources(
+    strategy_id: str,
+    source_type: Optional[str] = Query(None, description="Filter by source type"),
+    auth: AuthContext = Depends(get_auth),
+):
     pool = await get_pool()
     async with pool.acquire() as conn:
         strat = await conn.fetchrow(
@@ -68,10 +72,16 @@ async def count_sources(strategy_id: str, auth: AuthContext = Depends(get_auth))
         )
         if not strat:
             raise HTTPException(404, "Strategy not found")
-        count = await conn.fetchval(
-            "SELECT COUNT(*) FROM strategy_sources WHERE strategy_id = $1",
-            strategy_id,
-        )
+        if source_type:
+            count = await conn.fetchval(
+                "SELECT COUNT(*) FROM strategy_sources WHERE strategy_id = $1 AND source_type = $2",
+                strategy_id, source_type,
+            )
+        else:
+            count = await conn.fetchval(
+                "SELECT COUNT(*) FROM strategy_sources WHERE strategy_id = $1",
+                strategy_id,
+            )
         return {"count": count, "strategy_id": strategy_id}
 
 
