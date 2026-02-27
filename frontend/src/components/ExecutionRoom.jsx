@@ -31,6 +31,19 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   const [savedPlanId, setSavedPlanId] = useState(null);
   const [retryMsg, setRetryMsg] = useState(null);
   const [savedCustomPlanId, setSavedCustomPlanId] = useState(null);
+  // ── Explain chat state ──
+  const [explainTaskId, setExplainTaskId] = useState(null);
+  const [explainChats, setExplainChats] = useState({});
+  const [explainChatInput, setExplainChatInput] = useState("");
+  const [explainChatLoading, setExplainChatLoading] = useState(false);
+  const explainChatEndRef = useRef(null);
+  // ── Implementation Room state ──
+  const [implRoomTaskId, setImplRoomTaskId] = useState(null);
+  const [implRoomData, setImplRoomData] = useState({});
+  const [implRoomLoading, setImplRoomLoading] = useState(false);
+  const [implRoomChatInput, setImplRoomChatInput] = useState("");
+  const [implRoomChatLoading, setImplRoomChatLoading] = useState(false);
+  const implRoomEndRef = useRef(null);
   const isAr = lang === "ar";
   const color = typeColors[stair.element_type] || "#94a3b8";
 
@@ -40,6 +53,8 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
   useEffect(() => { actionChatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [actionChats, actionChatTaskId]);
+  useEffect(() => { explainChatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [explainChats, explainTaskId]);
+  useEffect(() => { implRoomEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [implRoomData, implRoomTaskId]);
 
   useEffect(() => {
     const loadOrGenerate = async () => {
@@ -197,6 +212,270 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
         }],
       }));
     }
+  };
+
+  // ── Explain Chat Functions ──
+  const toggleExplainChat = (task) => {
+    if (explainTaskId === task.id) {
+      setExplainTaskId(null);
+      setExplainChatInput("");
+      return;
+    }
+    setExplainTaskId(task.id);
+    setExplainChatInput("");
+    if (!explainChats[task.id]) {
+      setExplainChatLoading(true);
+      const explainPrompt = `[${stratCtx} Execution Room for: ${stairCtx}]
+
+${sourceRef}
+
+The user wants to understand this specific action item BEFORE assessing their ability to do it. Explain it in simple, practical terms.
+
+Action Item:
+- Task: ${task.name}
+- Owner: ${task.owner}
+- Timeline: ${task.timeline}
+- Priority: ${task.priority}
+- Details: ${task.details}
+
+Provide a clear explanation covering:
+1. **What it means** — Plain-language breakdown of this action
+2. **Why it matters** — How this task contributes to the strategic goal
+3. **What success looks like** — Concrete outcomes when done well
+4. **Resources needed** — People, tools, budget, time, or permissions required
+
+IMPORTANT: Use the strategy's Source of Truth data (uploaded documents, verified sources, company data) to make your explanation specific to the user's actual situation. Reference specific data points from their documents where relevant. Do NOT give generic advice — ground everything in their real data.
+
+Keep the explanation concise but thorough. The user should feel confident they understand exactly what this action involves before deciding how far they can do it.`;
+      api.aiPost("/api/v1/ai/chat", {
+        message: explainPrompt,
+        strategy_id: strategyContext?.id || null,
+        context_stair_id: stair.id,
+      }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`))
+        .then(res => {
+          setRetryMsg(null);
+          setExplainChats(prev => ({
+            ...prev,
+            [task.id]: [{
+              role: "ai",
+              text: res.response,
+              tokens: res.tokens_used,
+              sources_used: res.sources_used,
+              ts: new Date().toISOString(),
+            }],
+          }));
+        })
+        .catch(e => {
+          setRetryMsg(null);
+          setExplainChats(prev => ({
+            ...prev,
+            [task.id]: [{
+              role: "ai",
+              text: `Error generating explanation: ${e.message}`,
+              error: true,
+              ts: new Date().toISOString(),
+            }],
+          }));
+        })
+        .finally(() => setExplainChatLoading(false));
+    }
+  };
+
+  const sendExplainChat = async (taskId) => {
+    const task = tasks.find(t => t.id === taskId) || customTasks.find(t => t.id === taskId);
+    if (!explainChatInput.trim() || explainChatLoading || !task) return;
+    const msg = explainChatInput.trim();
+    setExplainChatInput("");
+    const userMsg = { role: "user", text: msg, ts: new Date().toISOString() };
+    setExplainChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), userMsg] }));
+    setExplainChatLoading(true);
+    try {
+      const history = (explainChats[taskId] || []).map(m => `${m.role === "user" ? "User" : "AI"}: ${m.text}`).join("\n\n");
+      const contextMsg = `[${stratCtx} Execution Room for: ${stairCtx}]
+
+${sourceRef}
+
+The user is asking follow-up questions about this action item's explanation. They want to understand it better before assessing their ability to execute it.
+
+Action Item: ${task.name} (${task.priority} priority)
+Details: ${task.details}
+
+Continue using the strategy's Source of Truth data to give specific, grounded answers. Reference their uploaded documents and verified sources.
+
+Conversation so far:
+${history}
+
+User: ${msg}`;
+      const res = await api.aiPost("/api/v1/ai/chat", {
+        message: contextMsg,
+        strategy_id: strategyContext?.id || null,
+        context_stair_id: stair.id,
+      }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+      setRetryMsg(null);
+      const aiMsg = { role: "ai", text: res.response, tokens: res.tokens_used, sources_used: res.sources_used, ts: new Date().toISOString() };
+      setExplainChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), aiMsg] }));
+    } catch (e) {
+      setRetryMsg(null);
+      setExplainChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), { role: "ai", text: `Error: ${e.message}`, error: true, ts: new Date().toISOString() }] }));
+    }
+    setExplainChatLoading(false);
+  };
+
+  // ── Implementation Room Functions ──
+  const openImplRoom = async (task, isCustomTask = false) => {
+    if (implRoomTaskId === task.id) {
+      setImplRoomTaskId(null);
+      setImplRoomChatInput("");
+      return;
+    }
+    setImplRoomTaskId(task.id);
+    setImplRoomChatInput("");
+    if (!implRoomData[task.id]) {
+      setImplRoomLoading(true);
+      try {
+        const feedbackContext = actionChats[task.id]
+          ? actionChats[task.id].map(m => `${m.role === "user" ? "User" : "AI"}: ${m.text}`).join("\n")
+          : "";
+        const implPrompt = `[${stratCtx} Execution Room for: ${stairCtx}]
+
+${sourceRef}
+
+The user has already assessed their ability to execute this action and received a customized plan. Now they want a detailed, step-by-step implementation guide — like having a personal coach walking them through execution.
+
+Action Item:
+- Task: ${task.name}
+- Owner: ${task.owner}
+- Timeline: ${task.timeline}
+- Priority: ${task.priority}
+- Details: ${task.details}
+${feedbackContext ? `\nUser's feedback from assessment:\n${feedbackContext}\n` : ""}
+
+Generate a comprehensive implementation guide with these EXACT sections:
+
+## Prerequisites
+What the user needs before starting (tools, access, approvals, information). Be specific to their situation using Source of Truth data.
+
+## Step-by-Step Instructions
+Numbered, concrete, actionable steps written for someone who has never done this before. Each step should be:
+- Clear enough to follow without asking questions
+- Include specific details (not vague directives)
+- Reference the user's actual company data, documents, and verified sources where relevant
+
+Format each step as:
+**Step N: [Step Title]**
+[Detailed instructions]
+
+## Resources from Source of Truth
+Specific references to data from the user's uploaded documents that apply to this implementation. Cite document names and specific data points.
+
+## Timeline
+Realistic time estimate for each step. Format as:
+- Step 1: [time estimate]
+- Step 2: [time estimate]
+- Total estimated time: [total]
+
+## Success Criteria
+How to know this action has been completed successfully. Include measurable indicators.
+
+IMPORTANT: Ground ALL guidance in the user's actual data from Source of Truth. Reference specific numbers, documents, and verified information. Do NOT give generic advice.`;
+        const res = await api.aiPost("/api/v1/ai/chat", {
+          message: implPrompt,
+          strategy_id: strategyContext?.id || null,
+          context_stair_id: stair.id,
+        }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+        setRetryMsg(null);
+        // Parse steps from the response to create checkboxes
+        const stepMatches = res.response.match(/\*\*Step\s+\d+[:.]\s*(.+?)\*\*/g) || [];
+        const steps = stepMatches.map((s, i) => ({
+          id: `impl_step_${task.id}_${i}`,
+          label: s.replace(/\*\*/g, "").replace(/^Step\s+\d+[:.]\s*/, "").trim(),
+          done: false,
+        }));
+        setImplRoomData(prev => ({
+          ...prev,
+          [task.id]: {
+            content: res.response,
+            steps,
+            tokens: res.tokens_used,
+            sources_used: res.sources_used,
+            messages: [],
+            ts: new Date().toISOString(),
+          },
+        }));
+      } catch (e) {
+        setRetryMsg(null);
+        setImplRoomData(prev => ({
+          ...prev,
+          [task.id]: {
+            content: `Error generating implementation guide: ${e.message}`,
+            steps: [],
+            messages: [],
+            error: true,
+            ts: new Date().toISOString(),
+          },
+        }));
+      }
+      setImplRoomLoading(false);
+    }
+  };
+
+  const toggleImplStep = (taskId, stepId) => {
+    setImplRoomData(prev => {
+      const data = prev[taskId];
+      if (!data) return prev;
+      return {
+        ...prev,
+        [taskId]: {
+          ...data,
+          steps: data.steps.map(s => s.id === stepId ? { ...s, done: !s.done } : s),
+        },
+      };
+    });
+  };
+
+  const sendImplRoomChat = async (taskId) => {
+    const task = tasks.find(t => t.id === taskId) || customTasks.find(t => t.id === taskId);
+    const data = implRoomData[taskId];
+    if (!implRoomChatInput.trim() || implRoomChatLoading || !task || !data) return;
+    const msg = implRoomChatInput.trim();
+    setImplRoomChatInput("");
+    const userMsg = { role: "user", text: msg, ts: new Date().toISOString() };
+    setImplRoomData(prev => ({
+      ...prev,
+      [taskId]: { ...prev[taskId], messages: [...(prev[taskId].messages || []), userMsg] },
+    }));
+    setImplRoomChatLoading(true);
+    try {
+      const chatHistory = (data.messages || []).map(m => `${m.role === "user" ? "User" : "AI"}: ${m.text}`).join("\n\n");
+      const contextMsg = `[${stratCtx} Execution Room for: ${stairCtx}]
+
+${sourceRef}
+
+The user is in the Implementation Room for task: "${task.name}". They have a step-by-step implementation guide and are asking follow-up questions. Help them like a personal coach — be specific, practical, and reference their Source of Truth data.
+
+Implementation guide summary: ${data.content?.slice(0, 1000)}
+
+${chatHistory ? `Previous Q&A:\n${chatHistory}\n` : ""}
+User question: ${msg}`;
+      const res = await api.aiPost("/api/v1/ai/chat", {
+        message: contextMsg,
+        strategy_id: strategyContext?.id || null,
+        context_stair_id: stair.id,
+      }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+      setRetryMsg(null);
+      const aiMsg = { role: "ai", text: res.response, tokens: res.tokens_used, ts: new Date().toISOString() };
+      setImplRoomData(prev => ({
+        ...prev,
+        [taskId]: { ...prev[taskId], messages: [...(prev[taskId].messages || []), aiMsg] },
+      }));
+    } catch (e) {
+      setRetryMsg(null);
+      setImplRoomData(prev => ({
+        ...prev,
+        [taskId]: { ...prev[taskId], messages: [...(prev[taskId].messages || []), { role: "ai", text: `Error: ${e.message}`, error: true, ts: new Date().toISOString() }] },
+      }));
+    }
+    setImplRoomChatLoading(false);
   };
 
   const sendActionChat = async (taskId) => {
@@ -545,23 +824,123 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
                               <span className="text-[10px] text-gray-600">
                                 <span className="text-gray-500">⏱</span> {t.timeline}
                               </span>
-                              <button
-                                onClick={() => toggleActionChat(t)}
-                                data-tutorial="how-far"
-                                className={`ml-auto text-[11px] px-2.5 py-1 rounded-lg border transition font-medium ${
-                                  actionChatTaskId === t.id
-                                    ? "bg-teal-500/20 text-teal-300 border-teal-500/30"
-                                    : "border-amber-500/20 text-amber-400/70 hover:text-amber-400 hover:bg-amber-500/10"
-                                }`}
-                              >
-                                {actionChatTaskId === t.id
-                                  ? (isAr ? "✕ إغلاق" : "✕ Close")
-                                  : (isAr ? "إلى أي مدى أستطيع؟" : "How far can I do this?")}
-                              </button>
+                              {/* Button order: Explain → How far can I do this? → How to Implement */}
+                              <div className="ml-auto flex items-center gap-1.5">
+                                <button
+                                  onClick={() => toggleExplainChat(t)}
+                                  data-tutorial="explain"
+                                  className={`text-[11px] px-2.5 py-1 rounded-lg border transition font-medium ${
+                                    explainTaskId === t.id
+                                      ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
+                                      : "border-blue-500/20 text-blue-400/70 hover:text-blue-400 hover:bg-blue-500/10"
+                                  }`}
+                                >
+                                  {explainTaskId === t.id
+                                    ? (isAr ? "✕ إغلاق" : "✕ Close")
+                                    : (isAr ? "اشرح لي" : "Explain")}
+                                </button>
+                                <button
+                                  onClick={() => toggleActionChat(t)}
+                                  data-tutorial="how-far"
+                                  className={`text-[11px] px-2.5 py-1 rounded-lg border transition font-medium ${
+                                    actionChatTaskId === t.id
+                                      ? "bg-teal-500/20 text-teal-300 border-teal-500/30"
+                                      : "border-amber-500/20 text-amber-400/70 hover:text-amber-400 hover:bg-amber-500/10"
+                                  }`}
+                                >
+                                  {actionChatTaskId === t.id
+                                    ? (isAr ? "✕ إغلاق" : "✕ Close")
+                                    : (isAr ? "إلى أي مدى أستطيع؟" : "How far can I do this?")}
+                                </button>
+                                {customPlan && (
+                                  <button
+                                    onClick={() => openImplRoom(t)}
+                                    data-tutorial="impl-room"
+                                    className={`text-[11px] px-2.5 py-1 rounded-lg border transition font-medium ${
+                                      implRoomTaskId === t.id
+                                        ? "bg-purple-500/20 text-purple-300 border-purple-500/30"
+                                        : "border-purple-500/20 text-purple-400/70 hover:text-purple-400 hover:bg-purple-500/10"
+                                    }`}
+                                  >
+                                    {implRoomTaskId === t.id
+                                      ? (isAr ? "✕ إغلاق" : "✕ Close")
+                                      : (isAr ? "كيف أنفذ →" : "How to Implement →")}
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
 
+                        {/* ── Explain Panel (shown BEFORE feedback) ── */}
+                        {explainTaskId === t.id && (
+                          <div className="border-t border-blue-500/20 px-4 pb-4 pt-3" style={{ background: "rgba(59,130,246,0.03)" }}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-blue-400 text-xs font-semibold">{isAr ? "شرح هذا الإجراء" : "Understanding This Action"}</span>
+                              {explainChats[t.id]?.[0]?.sources_used?.length > 0 && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400/70 border border-blue-500/15">
+                                  {isAr ? "مدعوم بمصدر الحقيقة" : "Grounded in Source of Truth"}
+                                </span>
+                              )}
+                            </div>
+                            <div className="max-h-72 overflow-y-auto space-y-2 mb-3">
+                              {explainChatLoading && !explainChats[t.id] && (
+                                <div className="flex items-center gap-2 py-4 justify-center">
+                                  <div className="flex gap-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-blue-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
+                                  <span className="text-gray-500 text-xs">{retryMsg || (isAr ? "جاري إعداد الشرح..." : "Preparing explanation...")}</span>
+                                </div>
+                              )}
+                              {(explainChats[t.id] || []).map((m, i) => (
+                                <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                                  <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed ${
+                                    m.role === "user"
+                                      ? "bg-blue-500/20 text-blue-100 rounded-br-sm"
+                                      : m.error
+                                        ? "bg-red-500/10 text-red-300 rounded-bl-sm border border-red-500/20"
+                                        : "bg-[#0a1628]/60 text-gray-300 rounded-bl-sm border border-blue-500/15"
+                                  }`}>
+                                    {m.role === "ai" ? <><Markdown text={m.text} onMatrixClick={onMatrixClick} /><LoadMatrixButtons text={m.text} onLoadMatrix={onMatrixClick} /></> : <span className="whitespace-pre-wrap">{m.text}</span>}
+                                  </div>
+                                </div>
+                              ))}
+                              {explainChatLoading && explainChats[t.id] && (
+                                <div className="flex gap-1 px-2 py-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-blue-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
+                              )}
+                              <div ref={explainChatEndRef} />
+                            </div>
+                            {explainChats[t.id] && explainChats[t.id].length === 1 && !explainChats[t.id][0].error && (
+                              <div className="flex flex-wrap gap-1.5 mb-2">
+                                {(isAr
+                                  ? ["هل يمكنك تبسيط أكثر؟", "ما الذي قد يفشل؟", "أعطني مثالاً عملياً"]
+                                  : ["Can you simplify further?", "What could go wrong?", "Give me a real example"]
+                                ).map((q, i) => (
+                                  <button key={i} onClick={() => setExplainChatInput(q)} className="text-[10px] px-2.5 py-1 rounded-full border border-blue-500/20 text-blue-400/70 hover:bg-blue-500/10 transition">{q}</button>
+                                ))}
+                              </div>
+                            )}
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={explainTaskId === t.id ? explainChatInput : ""}
+                                onChange={e => setExplainChatInput(e.target.value)}
+                                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendExplainChat(t.id); } }}
+                                placeholder={isAr ? "اسأل لفهم أعمق..." : "Ask to understand more..."}
+                                disabled={explainChatLoading}
+                                className="flex-1 px-3 py-2 rounded-lg bg-[#0a1628]/60 border border-blue-500/20 text-white placeholder-gray-600 focus:border-blue-500/40 focus:outline-none transition text-xs"
+                              />
+                              <button
+                                onClick={() => sendExplainChat(t.id)}
+                                disabled={explainChatLoading || !explainChatInput.trim()}
+                                className="px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-30 transition-all hover:scale-105"
+                                style={{ background: "linear-gradient(135deg, #3b82f6, #60a5fa)", color: DEEP }}
+                              >
+                                {isAr ? "إرسال" : "Send"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* ── How far can I do this? Panel (existing) ── */}
                         {actionChatTaskId === t.id && (
                           <div className="border-t border-[#1e3a5f] px-4 pb-4 pt-3">
                             <div className="max-h-64 overflow-y-auto space-y-2 mb-3">
@@ -612,6 +991,107 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
                                 {isAr ? "إرسال" : "Send"}
                               </button>
                             </div>
+                          </div>
+                        )}
+
+                        {/* ── Implementation Room Panel ── */}
+                        {implRoomTaskId === t.id && (
+                          <div className="border-t border-purple-500/20 px-4 pb-4 pt-3" style={{ background: "rgba(139,92,246,0.03)" }}>
+                            <div className="flex items-center gap-2 mb-3">
+                              <span className="text-purple-400 text-sm font-semibold">{isAr ? "غرفة التنفيذ" : "Implementation Room"}</span>
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400/70 border border-purple-500/15">
+                                {isAr ? "مرشدك الشخصي" : "Your Personal Coach"}
+                              </span>
+                              {implRoomData[t.id]?.sources_used?.length > 0 && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400/70 border border-blue-500/15">
+                                  {isAr ? "مدعوم بمصدر الحقيقة" : "Source of Truth"}
+                                </span>
+                              )}
+                            </div>
+                            {implRoomLoading && !implRoomData[t.id] && (
+                              <div className="flex items-center gap-2 py-6 justify-center">
+                                <div className="flex gap-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-purple-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
+                                <span className="text-gray-500 text-xs">{retryMsg || (isAr ? "جاري إعداد دليل التنفيذ..." : "Preparing your implementation guide...")}</span>
+                              </div>
+                            )}
+                            {implRoomData[t.id] && (
+                              <>
+                                {/* Step Checklist */}
+                                {implRoomData[t.id].steps.length > 0 && (
+                                  <div className="mb-3 p-3 rounded-lg border border-purple-500/15" style={{ background: "rgba(139,92,246,0.05)" }}>
+                                    <div className="text-[11px] text-purple-300 font-medium mb-2">{isAr ? "تقدم الخطوات" : "Step Progress"} — {implRoomData[t.id].steps.filter(s => s.done).length}/{implRoomData[t.id].steps.length}</div>
+                                    <div className="space-y-1.5">
+                                      {implRoomData[t.id].steps.map((step, si) => (
+                                        <label key={step.id} className="flex items-start gap-2 cursor-pointer group">
+                                          <button
+                                            onClick={() => toggleImplStep(t.id, step.id)}
+                                            className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition text-[9px] ${
+                                              step.done ? "bg-purple-500/30 border-purple-500/50 text-purple-300" : "border-purple-500/30 hover:border-purple-500/60 group-hover:border-purple-400/50"
+                                            }`}
+                                          >
+                                            {step.done && "✓"}
+                                          </button>
+                                          <span className={`text-[11px] leading-relaxed ${step.done ? "line-through text-gray-600" : "text-gray-300"}`}>
+                                            <span className="text-purple-400/70 font-medium">{si + 1}.</span> {step.label}
+                                          </span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                    <div className="mt-2 h-1.5 rounded-full bg-[#1e3a5f] overflow-hidden">
+                                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${implRoomData[t.id].steps.length ? (implRoomData[t.id].steps.filter(s => s.done).length / implRoomData[t.id].steps.length) * 100 : 0}%`, background: "linear-gradient(90deg, #8b5cf6, #a78bfa)" }} />
+                                    </div>
+                                  </div>
+                                )}
+                                {/* Full Guide */}
+                                <div className="max-h-80 overflow-y-auto mb-3">
+                                  <div className="rounded-lg px-3 py-2 text-xs leading-relaxed bg-[#0a1628]/60 border border-purple-500/15 text-gray-300">
+                                    <Markdown text={implRoomData[t.id].content} onMatrixClick={onMatrixClick} />
+                                    <LoadMatrixButtons text={implRoomData[t.id].content} onLoadMatrix={onMatrixClick} />
+                                  </div>
+                                </div>
+                                {/* Implementation Room Chat */}
+                                {(implRoomData[t.id].messages || []).length > 0 && (
+                                  <div className="max-h-48 overflow-y-auto space-y-2 mb-3">
+                                    {implRoomData[t.id].messages.map((m, i) => (
+                                      <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                                        <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed ${
+                                          m.role === "user"
+                                            ? "bg-purple-500/20 text-purple-100 rounded-br-sm"
+                                            : m.error
+                                              ? "bg-red-500/10 text-red-300 rounded-bl-sm border border-red-500/20"
+                                              : "bg-[#0a1628]/60 text-gray-300 rounded-bl-sm border border-purple-500/15"
+                                        }`}>
+                                          {m.role === "ai" ? <><Markdown text={m.text} onMatrixClick={onMatrixClick} /><LoadMatrixButtons text={m.text} onLoadMatrix={onMatrixClick} /></> : <span className="whitespace-pre-wrap">{m.text}</span>}
+                                        </div>
+                                      </div>
+                                    ))}
+                                    {implRoomChatLoading && implRoomTaskId === t.id && (
+                                      <div className="flex gap-1 px-2 py-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-purple-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
+                                    )}
+                                    <div ref={implRoomEndRef} />
+                                  </div>
+                                )}
+                                <div className="flex gap-2">
+                                  <input
+                                    type="text"
+                                    value={implRoomTaskId === t.id ? implRoomChatInput : ""}
+                                    onChange={e => setImplRoomChatInput(e.target.value)}
+                                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendImplRoomChat(t.id); } }}
+                                    placeholder={isAr ? "اسأل مرشدك عن أي خطوة..." : "Ask your coach about any step..."}
+                                    disabled={implRoomChatLoading}
+                                    className="flex-1 px-3 py-2 rounded-lg bg-[#0a1628]/60 border border-purple-500/20 text-white placeholder-gray-600 focus:border-purple-500/40 focus:outline-none transition text-xs"
+                                  />
+                                  <button
+                                    onClick={() => sendImplRoomChat(t.id)}
+                                    disabled={implRoomChatLoading || !implRoomChatInput.trim()}
+                                    className="px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-30 transition-all hover:scale-105"
+                                    style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: DEEP }}
+                                  >
+                                    {isAr ? "إرسال" : "Send"}
+                                  </button>
+                                </div>
+                              </>
+                            )}
                           </div>
                         )}
                       </div>
@@ -710,9 +1190,205 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
                             <div className="flex items-center gap-4 mt-2">
                               <span className="text-[10px] text-gray-600"><span className="text-gray-500">👤</span> {t.owner}</span>
                               <span className="text-[10px] text-gray-600"><span className="text-gray-500">⏱</span> {t.timeline}</span>
+                              {/* Button order: Explain → How to Implement */}
+                              <div className="ml-auto flex items-center gap-1.5">
+                                <button
+                                  onClick={() => toggleExplainChat(t)}
+                                  className={`text-[11px] px-2.5 py-1 rounded-lg border transition font-medium ${
+                                    explainTaskId === t.id
+                                      ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
+                                      : "border-blue-500/20 text-blue-400/70 hover:text-blue-400 hover:bg-blue-500/10"
+                                  }`}
+                                >
+                                  {explainTaskId === t.id
+                                    ? (isAr ? "✕ إغلاق" : "✕ Close")
+                                    : (isAr ? "اشرح لي" : "Explain")}
+                                </button>
+                                <button
+                                  onClick={() => openImplRoom(t, true)}
+                                  className={`text-[11px] px-2.5 py-1 rounded-lg border transition font-medium ${
+                                    implRoomTaskId === t.id
+                                      ? "bg-purple-500/20 text-purple-300 border-purple-500/30"
+                                      : "border-purple-500/20 text-purple-400/70 hover:text-purple-400 hover:bg-purple-500/10"
+                                  }`}
+                                >
+                                  {implRoomTaskId === t.id
+                                    ? (isAr ? "✕ إغلاق" : "✕ Close")
+                                    : (isAr ? "كيف أنفذ →" : "How to Implement →")}
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
+
+                        {/* ── Explain Panel ── */}
+                        {explainTaskId === t.id && (
+                          <div className="border-t border-blue-500/20 px-4 pb-4 pt-3" style={{ background: "rgba(59,130,246,0.03)" }}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-blue-400 text-xs font-semibold">{isAr ? "شرح هذا الإجراء" : "Understanding This Action"}</span>
+                              {explainChats[t.id]?.[0]?.sources_used?.length > 0 && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400/70 border border-blue-500/15">
+                                  {isAr ? "مدعوم بمصدر الحقيقة" : "Grounded in Source of Truth"}
+                                </span>
+                              )}
+                            </div>
+                            <div className="max-h-72 overflow-y-auto space-y-2 mb-3">
+                              {explainChatLoading && !explainChats[t.id] && (
+                                <div className="flex items-center gap-2 py-4 justify-center">
+                                  <div className="flex gap-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-blue-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
+                                  <span className="text-gray-500 text-xs">{retryMsg || (isAr ? "جاري إعداد الشرح..." : "Preparing explanation...")}</span>
+                                </div>
+                              )}
+                              {(explainChats[t.id] || []).map((m, i) => (
+                                <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                                  <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed ${
+                                    m.role === "user"
+                                      ? "bg-blue-500/20 text-blue-100 rounded-br-sm"
+                                      : m.error
+                                        ? "bg-red-500/10 text-red-300 rounded-bl-sm border border-red-500/20"
+                                        : "bg-[#0a1628]/60 text-gray-300 rounded-bl-sm border border-blue-500/15"
+                                  }`}>
+                                    {m.role === "ai" ? <><Markdown text={m.text} onMatrixClick={onMatrixClick} /><LoadMatrixButtons text={m.text} onLoadMatrix={onMatrixClick} /></> : <span className="whitespace-pre-wrap">{m.text}</span>}
+                                  </div>
+                                </div>
+                              ))}
+                              {explainChatLoading && explainChats[t.id] && (
+                                <div className="flex gap-1 px-2 py-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-blue-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
+                              )}
+                              <div ref={explainChatEndRef} />
+                            </div>
+                            {explainChats[t.id] && explainChats[t.id].length === 1 && !explainChats[t.id][0].error && (
+                              <div className="flex flex-wrap gap-1.5 mb-2">
+                                {(isAr
+                                  ? ["هل يمكنك تبسيط أكثر؟", "ما الذي قد يفشل؟", "أعطني مثالاً عملياً"]
+                                  : ["Can you simplify further?", "What could go wrong?", "Give me a real example"]
+                                ).map((q, i) => (
+                                  <button key={i} onClick={() => setExplainChatInput(q)} className="text-[10px] px-2.5 py-1 rounded-full border border-blue-500/20 text-blue-400/70 hover:bg-blue-500/10 transition">{q}</button>
+                                ))}
+                              </div>
+                            )}
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={explainTaskId === t.id ? explainChatInput : ""}
+                                onChange={e => setExplainChatInput(e.target.value)}
+                                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendExplainChat(t.id); } }}
+                                placeholder={isAr ? "اسأل لفهم أعمق..." : "Ask to understand more..."}
+                                disabled={explainChatLoading}
+                                className="flex-1 px-3 py-2 rounded-lg bg-[#0a1628]/60 border border-blue-500/20 text-white placeholder-gray-600 focus:border-blue-500/40 focus:outline-none transition text-xs"
+                              />
+                              <button
+                                onClick={() => sendExplainChat(t.id)}
+                                disabled={explainChatLoading || !explainChatInput.trim()}
+                                className="px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-30 transition-all hover:scale-105"
+                                style={{ background: "linear-gradient(135deg, #3b82f6, #60a5fa)", color: DEEP }}
+                              >
+                                {isAr ? "إرسال" : "Send"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* ── Implementation Room Panel ── */}
+                        {implRoomTaskId === t.id && (
+                          <div className="border-t border-purple-500/20 px-4 pb-4 pt-3" style={{ background: "rgba(139,92,246,0.03)" }}>
+                            <div className="flex items-center gap-2 mb-3">
+                              <span className="text-purple-400 text-sm font-semibold">{isAr ? "غرفة التنفيذ" : "Implementation Room"}</span>
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400/70 border border-purple-500/15">
+                                {isAr ? "مرشدك الشخصي" : "Your Personal Coach"}
+                              </span>
+                              {implRoomData[t.id]?.sources_used?.length > 0 && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400/70 border border-blue-500/15">
+                                  {isAr ? "مدعوم بمصدر الحقيقة" : "Source of Truth"}
+                                </span>
+                              )}
+                            </div>
+                            {implRoomLoading && !implRoomData[t.id] && (
+                              <div className="flex items-center gap-2 py-6 justify-center">
+                                <div className="flex gap-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-purple-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
+                                <span className="text-gray-500 text-xs">{retryMsg || (isAr ? "جاري إعداد دليل التنفيذ..." : "Preparing your implementation guide...")}</span>
+                              </div>
+                            )}
+                            {implRoomData[t.id] && (
+                              <>
+                                {/* Step Checklist */}
+                                {implRoomData[t.id].steps.length > 0 && (
+                                  <div className="mb-3 p-3 rounded-lg border border-purple-500/15" style={{ background: "rgba(139,92,246,0.05)" }}>
+                                    <div className="text-[11px] text-purple-300 font-medium mb-2">{isAr ? "تقدم الخطوات" : "Step Progress"} — {implRoomData[t.id].steps.filter(s => s.done).length}/{implRoomData[t.id].steps.length}</div>
+                                    <div className="space-y-1.5">
+                                      {implRoomData[t.id].steps.map((step, si) => (
+                                        <label key={step.id} className="flex items-start gap-2 cursor-pointer group">
+                                          <button
+                                            onClick={() => toggleImplStep(t.id, step.id)}
+                                            className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition text-[9px] ${
+                                              step.done ? "bg-purple-500/30 border-purple-500/50 text-purple-300" : "border-purple-500/30 hover:border-purple-500/60 group-hover:border-purple-400/50"
+                                            }`}
+                                          >
+                                            {step.done && "✓"}
+                                          </button>
+                                          <span className={`text-[11px] leading-relaxed ${step.done ? "line-through text-gray-600" : "text-gray-300"}`}>
+                                            <span className="text-purple-400/70 font-medium">{si + 1}.</span> {step.label}
+                                          </span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                    <div className="mt-2 h-1.5 rounded-full bg-[#1e3a5f] overflow-hidden">
+                                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${implRoomData[t.id].steps.length ? (implRoomData[t.id].steps.filter(s => s.done).length / implRoomData[t.id].steps.length) * 100 : 0}%`, background: "linear-gradient(90deg, #8b5cf6, #a78bfa)" }} />
+                                    </div>
+                                  </div>
+                                )}
+                                {/* Full Guide */}
+                                <div className="max-h-80 overflow-y-auto mb-3">
+                                  <div className="rounded-lg px-3 py-2 text-xs leading-relaxed bg-[#0a1628]/60 border border-purple-500/15 text-gray-300">
+                                    <Markdown text={implRoomData[t.id].content} onMatrixClick={onMatrixClick} />
+                                    <LoadMatrixButtons text={implRoomData[t.id].content} onLoadMatrix={onMatrixClick} />
+                                  </div>
+                                </div>
+                                {/* Implementation Room Chat */}
+                                {(implRoomData[t.id].messages || []).length > 0 && (
+                                  <div className="max-h-48 overflow-y-auto space-y-2 mb-3">
+                                    {implRoomData[t.id].messages.map((m, i) => (
+                                      <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                                        <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed ${
+                                          m.role === "user"
+                                            ? "bg-purple-500/20 text-purple-100 rounded-br-sm"
+                                            : m.error
+                                              ? "bg-red-500/10 text-red-300 rounded-bl-sm border border-red-500/20"
+                                              : "bg-[#0a1628]/60 text-gray-300 rounded-bl-sm border border-purple-500/15"
+                                        }`}>
+                                          {m.role === "ai" ? <><Markdown text={m.text} onMatrixClick={onMatrixClick} /><LoadMatrixButtons text={m.text} onLoadMatrix={onMatrixClick} /></> : <span className="whitespace-pre-wrap">{m.text}</span>}
+                                        </div>
+                                      </div>
+                                    ))}
+                                    {implRoomChatLoading && implRoomTaskId === t.id && (
+                                      <div className="flex gap-1 px-2 py-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-purple-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
+                                    )}
+                                    <div ref={implRoomEndRef} />
+                                  </div>
+                                )}
+                                <div className="flex gap-2">
+                                  <input
+                                    type="text"
+                                    value={implRoomTaskId === t.id ? implRoomChatInput : ""}
+                                    onChange={e => setImplRoomChatInput(e.target.value)}
+                                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendImplRoomChat(t.id); } }}
+                                    placeholder={isAr ? "اسأل مرشدك عن أي خطوة..." : "Ask your coach about any step..."}
+                                    disabled={implRoomChatLoading}
+                                    className="flex-1 px-3 py-2 rounded-lg bg-[#0a1628]/60 border border-purple-500/20 text-white placeholder-gray-600 focus:border-purple-500/40 focus:outline-none transition text-xs"
+                                  />
+                                  <button
+                                    onClick={() => sendImplRoomChat(t.id)}
+                                    disabled={implRoomChatLoading || !implRoomChatInput.trim()}
+                                    className="px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-30 transition-all hover:scale-105"
+                                    style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: DEEP }}
+                                  >
+                                    {isAr ? "إرسال" : "Send"}
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
