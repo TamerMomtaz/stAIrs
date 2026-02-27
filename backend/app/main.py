@@ -1,6 +1,6 @@
 """
 ═══════════════════════════════════════════════════════════
-ST.AIRS — Strategy AI Interactive Real-time System
+Stairs — Strategy AI Interactive Real-time System
 FastAPI Backend v3.7.1 — Modular Router Edition
 By Tee | DEVONEERS | "Human IS the Loop"
 
@@ -135,7 +135,7 @@ async def load_knowledge_cache():
 
 
 def _build_basic_system_prompt():
-    return f"""You are ST.AIRS, an AI strategy assistant created by DEVONEERS.
+    return f"""You are Stairs, an AI strategy assistant created by DEVONEERS.
 The current year is {datetime.now().year}.
 You help organizations build, execute, and monitor their strategic plans.
 Expert in: OKR, Balanced Scorecard, OGSM, Hoshin Kanri, Blue Ocean Strategy, Porter's frameworks.
@@ -150,7 +150,7 @@ When performing a Porter's Five Forces analysis, include a markdown table: | For
 
 def _build_enriched_system_prompt():
     parts = [
-        "You are ST.AIRS, an AI strategy assistant created by DEVONEERS.",
+        "You are Stairs, an AI strategy assistant created by DEVONEERS.",
         f"The current year is {datetime.now().year}.",
         'Philosophy: "Human IS the Loop" — you suggest, humans decide.',
         "You help ANY organization build, execute, and monitor their strategic plans.",
@@ -397,7 +397,7 @@ async def ensure_ai_usage_logs_table():
 # ─── LIFESPAN ───
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("🪜 ST.AIRS v3.7.1 Starting up — Modular Router Edition...")
+    print("🪜 Stairs v3.7.1 Starting up — Modular Router Edition...")
     await init_db()
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -433,12 +433,12 @@ async def lifespan(app: FastAPI):
         print(f"  ⚠️ Strategy sources migration: {e}")
     yield
     await close_pool()
-    print("🪜 ST.AIRS Shutting down...")
+    print("🪜 Stairs Shutting down...")
 
 
 # ─── APP ───
 app = FastAPI(
-    title="ST.AIRS API",
+    title="Stairs API",
     description="Strategy AI Interactive Real-time System — Modular Router Edition — By DEVONEERS",
     version="3.7.1",
     lifespan=lifespan,
@@ -568,7 +568,7 @@ def cors_test():
 
 @app.get("/")
 async def root():
-    return {"name": "ST.AIRS API", "version": "3.7.1",
+    return {"name": "Stairs API", "version": "3.7.1",
             "tagline": "Climb Your Strategy — Modular Router Edition",
             "by": "Tee | DEVONEERS", "status": "operational",
             "knowledge_engine": {

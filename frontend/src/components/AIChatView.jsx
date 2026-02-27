@@ -51,7 +51,7 @@ export const AIChatView = ({ lang, userId, strategyContext, onSaveNote, onMatrix
       setVerifiedCount(0);
     }
   }, [strategyContext?.id]);
-  const welcomeText = strategyContext ? `I'm the ST.AIRS Strategy Advisor for **${strategyContext.name}** (${strategyContext.company||""}).\n\nI can analyze risks, suggest improvements, and generate strategic elements.` : "Welcome! I'm the ST.AIRS Strategy Advisor.";
+  const welcomeText = strategyContext ? `I'm the Stairs Strategy Advisor for **${strategyContext.name}** (${strategyContext.company||""}).\n\nI can analyze risks, suggest improvements, and generate strategic elements.` : "Welcome! I'm the Stairs Strategy Advisor.";
   const welc = () => ({ role: "ai", text: welcomeText, ts: new Date().toISOString() });
   const newChat = () => { if (!store) return; const c = store.create("New"); store.saveMsgs(c.id,[welc()]); store.setActive(c.id); setActiveId(c.id); setMessages([welc()]); setConvs(store.list()); };
   const loadConv = (id) => { if (!store) return; store.setActive(id); setActiveId(id); setMessages(store.msgs(id)); setShowHist(false); };

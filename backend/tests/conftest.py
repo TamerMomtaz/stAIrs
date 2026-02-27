@@ -1,5 +1,5 @@
 """
-Test configuration for ST.AIRS backend.
+Test configuration for Stairs backend.
 Uses httpx async client with FastAPI's TestClient.
 """
 

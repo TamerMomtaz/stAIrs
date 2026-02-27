@@ -1,4 +1,4 @@
-"""ST.AIRS — Strategies Router"""
+"""Stairs — Strategies Router"""
 
 import uuid
 from datetime import datetime, timezone

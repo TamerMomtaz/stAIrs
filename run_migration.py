@@ -1,5 +1,5 @@
 """
-ST.AIRS Knowledge Engine Migration Runner
+Stairs Knowledge Engine Migration Runner
 ==========================================
 Run this on your Windows machine:
     python run_migration.py
@@ -25,7 +25,7 @@ if not DB_URL:
 # The full migration SQL inline (so you only need this one file)
 MIGRATION_SQL = r"""
 -- ============================================================================
--- ST.AIRS KNOWLEDGE ENGINE v3.0 — Migration 001
+-- Stairs KNOWLEDGE ENGINE v3.0 — Migration 001
 -- ============================================================================
 
 -- 1. KB_AUTHORS
@@ -227,7 +227,7 @@ INSERT INTO kb_books (title, title_ar, year_published, category, integration_tie
  'Strategy Choice Cascade provides the primary strategy creation wizard flow'),
 ('The Execution Premium', 'علاوة التنفيذ', 2008, 'Strategy Execution', 'tier_1',
  ARRAY['Six-Stage Closed-Loop','Strategy Maps','Office of Strategy Management'],
- 'The six-stage system IS the operational backbone of ST.AIRS monitoring'),
+ 'The six-stage system IS the operational backbone of Stairs monitoring'),
 ('Measure What Matters', 'قياس ما يهم', 2018, 'Goal Setting', 'tier_1',
  ARRAY['OKR Framework','Stretch Goals','CFR (Conversations Feedback Recognition)'],
  'OKR is the default goal-setting framework, scoring and cadence logic'),
@@ -497,7 +497,7 @@ SELECT 'Migration complete!' AS status;
 """
 
 def run():
-    print("🪜 ST.AIRS Knowledge Engine Migration")
+    print("🪜 Stairs Knowledge Engine Migration")
     print("=" * 50)
     print(f"Connecting to Railway Postgres...")
     

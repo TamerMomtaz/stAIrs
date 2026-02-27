@@ -1,4 +1,4 @@
-"""ST.AIRS — Strategy Sources Router (Source of Truth)"""
+"""Stairs — Strategy Sources Router (Source of Truth)"""
 
 import json
 import logging

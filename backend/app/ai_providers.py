@@ -1,5 +1,5 @@
 """
-ST.AIRS — Multi-AI Provider Fallback System
+Stairs — Multi-AI Provider Fallback System
 Supports: Anthropic Claude (primary), OpenAI GPT-4o (fallback 1), Google Gemini Pro (fallback 2)
 """
 
@@ -249,7 +249,7 @@ async def call_ai_with_fallback(
     no_keys = all(not _get_api_key(p) for p in PROVIDER_CHAIN)
     if no_keys:
         return {
-            "text": "⚙️ AI features require an API key. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GOOGLE_API_KEY to enable ST.AIRS AI.",
+            "text": "⚙️ AI features require an API key. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GOOGLE_API_KEY to enable Stairs AI.",
             "tokens": 0,
             "provider": "none",
             "fallback_used": False,

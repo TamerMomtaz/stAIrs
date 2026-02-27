@@ -1,4 +1,4 @@
-"""ST.AIRS — Supabase Storage Helper for Document Uploads"""
+"""Stairs — Supabase Storage Helper for Document Uploads"""
 
 import os
 import httpx

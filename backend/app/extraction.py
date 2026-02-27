@@ -1,4 +1,4 @@
-"""ST.AIRS — Document Text Extraction"""
+"""Stairs — Document Text Extraction"""
 
 import csv
 import io

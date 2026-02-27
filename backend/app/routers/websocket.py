@@ -1,4 +1,4 @@
-"""ST.AIRS — WebSocket Connection Manager & Endpoint"""
+"""Stairs — WebSocket Connection Manager & Endpoint"""
 
 import asyncio
 from typing import Optional

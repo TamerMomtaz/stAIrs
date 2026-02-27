@@ -1,4 +1,4 @@
-"""ST.AIRS — Dashboard, Alerts, Teams, Export, Onboarding Routers"""
+"""Stairs — Dashboard, Alerts, Teams, Export, Onboarding Routers"""
 
 import uuid
 from datetime import datetime, date

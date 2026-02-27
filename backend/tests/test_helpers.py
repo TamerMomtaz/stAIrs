@@ -1,4 +1,4 @@
-"""Tests for ST.AIRS helper functions."""
+"""Tests for Stairs helper functions."""
 
 import os
 import pytest

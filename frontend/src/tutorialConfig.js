@@ -10,7 +10,7 @@ export const TUTORIAL_STORAGE_KEY = "stairs_tutorial";
 export const tutorialSteps = [
   {
     id: "welcome",
-    title: "Welcome to ST.AIRS",
+    title: "Welcome to Stairs",
     description: "This is your strategic planning platform — where big ideas become actionable steps. Let's walk through how to climb your strategy, one stair at a time.",
     selector: null, // Full-screen welcome — no element highlight
     icon: "🏗️",

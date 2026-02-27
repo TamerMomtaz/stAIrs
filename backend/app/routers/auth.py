@@ -1,4 +1,4 @@
-"""ST.AIRS — Auth Router"""
+"""Stairs — Auth Router"""
 
 import uuid
 from fastapi import APIRouter, Depends
