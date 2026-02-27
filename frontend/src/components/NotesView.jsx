@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { NotesStore } from "../api";
 import { GOLD, GOLD_L, glass, inputCls } from "../constants";
 import { DEVONEERS_LOGO_URI } from "../exportUtils";
-import { DEVONEERS_LOGO_URI } from "../exportUtils";
 
 export const NotesView = ({ lang, userId, strategyName }) => {
   const storeRef = useRef(null); if (!storeRef.current && userId) storeRef.current = new NotesStore(userId); const store = storeRef.current;
