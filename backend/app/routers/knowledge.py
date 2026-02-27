@@ -1,4 +1,4 @@
-"""ST.AIRS — Knowledge Engine Router"""
+"""Stairs — Knowledge Engine Router"""
 
 from fastapi import APIRouter, HTTPException, Depends
 

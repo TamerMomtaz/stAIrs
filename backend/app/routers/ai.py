@@ -1,4 +1,4 @@
-"""ST.AIRS — AI Engine Router (with multi-provider fallback)"""
+"""Stairs — AI Engine Router (with multi-provider fallback)"""
 
 import asyncio
 import json

@@ -1,4 +1,4 @@
-"""ST.AIRS — Admin Router (AI monitoring)"""
+"""Stairs — Admin Router (AI monitoring)"""
 
 import logging
 from datetime import datetime, timezone, timedelta

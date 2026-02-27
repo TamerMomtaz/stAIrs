@@ -1,4 +1,4 @@
-"""ST.AIRS — Stairs CRUD Router"""
+"""Stairs — Stairs CRUD Router"""
 
 import json
 import uuid

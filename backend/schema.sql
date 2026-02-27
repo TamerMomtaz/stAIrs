@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════
--- ST.AIRS Database Schema — PostgreSQL 15+
+-- Stairs Database Schema — PostgreSQL 15+
 -- Strategy AI Interactive Real-time System
 -- By Tee | DEVONEERS | "Human IS the Loop"
 -- ═══════════════════════════════════════════════════════════
@@ -459,7 +459,7 @@ INSERT INTO stairs (id, organization_id, code, title, title_ar, description, ele
 -- Objective 1: Market Leadership
 ('c0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000001',
  'OBJ-001', 'Market Leadership in MENA', 'الريادة في سوق الشرق الأوسط',
- 'Establish ST.AIRS as the #1 strategy platform for MENA SMEs',
+ 'Establish Stairs as the #1 strategy platform for MENA SMEs',
  'objective', (SELECT id FROM frameworks WHERE code='okr'),
  'c0000000-0000-0000-0000-000000000001', 1, 0,
  'b0000000-0000-0000-0000-000000000001', 'active', 'on_track', 55, 72,
@@ -468,7 +468,7 @@ INSERT INTO stairs (id, organization_id, code, title, title_ar, description, ele
 -- KR 1.1: 15 Pilot Companies
 ('c0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000001',
  'KR-001', 'Onboard 15 Pilot Companies', '15 شركة تجريبية',
- 'Sign and onboard 15 companies to pilot ST.AIRS platform',
+ 'Sign and onboard 15 companies to pilot Stairs platform',
  'key_result', (SELECT id FROM frameworks WHERE code='okr'),
  'c0000000-0000-0000-0000-000000000002', 2, 0,
  'b0000000-0000-0000-0000-000000000001', 'active', 'at_risk', 33, 45,

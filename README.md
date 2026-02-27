@@ -1,4 +1,4 @@
-# 🪜 ST.AIRS — Strategy AI Interactive Real-time System
+# 🪜 Stairs — Strategy AI Interactive Real-time System
 
 > **"Human IS the Loop"** — AI suggests, Human decides.
 
@@ -101,4 +101,4 @@ Password: stairs2026
 
 ---
 
-**ST.AIRS v2.0** • Made with 🧗 by Tee • DEVONEERS • *"Climb Your Strategy"*
+**Stairs v2.0** • Made with 🧗 by Tee • DEVONEERS • *"Climb Your Strategy"*

@@ -1,6 +1,6 @@
-# CLAUDE.md — ST.AIRS Development Guide
+# CLAUDE.md — Stairs Development Guide
 
-ST.AIRS (Strategy AI Interactive Real-time System) is a full-stack strategic planning platform with AI-powered analysis. FastAPI + PostgreSQL backend, React + Vite + Tailwind frontend.
+Stairs (Strategy AI Interactive Real-time System) is a full-stack strategic planning platform with AI-powered analysis. FastAPI + PostgreSQL backend, React + Vite + Tailwind frontend.
 
 ## Project Structure
 

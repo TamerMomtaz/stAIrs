@@ -14,7 +14,7 @@ export const LoginScreen = ({ onLogin }) => {
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", background: `linear-gradient(135deg, ${DEEP} 0%, #162544 40%, #1a3055 70%, #0f1f3a 100%)` }}>
       <form onSubmit={go} style={{ position: "relative", zIndex: 10, width: "100%", maxWidth: "440px", padding: "48px 40px", borderRadius: "16px", backdropFilter: "blur(20px)", background: "rgba(22, 37, 68, 0.85)", border: `1px solid ${GOLD}33`, boxShadow: "0 25px 60px rgba(0,0,0,0.5)" }}>
         <div style={{ textAlign: "center", marginBottom: "40px" }}>
-          <div style={{ fontSize: "52px", fontWeight: "bold", letterSpacing: "-1px", marginBottom: "8px", background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L}, ${CHAMPAGNE})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "'Instrument Serif', Georgia, serif" }}>ST.AIRS</div>
+          <div style={{ fontSize: "52px", fontWeight: "bold", letterSpacing: "-1px", marginBottom: "8px", background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L}, ${CHAMPAGNE})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "'Instrument Serif', Georgia, serif" }}>Stairs</div>
           <div style={{ color: "#9ca3af", fontSize: "13px", letterSpacing: "4px", textTransform: "uppercase", marginTop: "4px" }}>Strategic Staircase</div>
           <div style={{ width: "64px", height: "2px", margin: "16px auto 0", background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
         </div>

@@ -1,5 +1,5 @@
 """
-ST.AIRS — Database Connection
+Stairs — Database Connection
 Using asyncpg for async PostgreSQL operations
 Compatible with Railway, Docker, and local dev
 """

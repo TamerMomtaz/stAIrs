@@ -111,7 +111,7 @@ describe('TutorialOverlay', () => {
 
   it('shows first step content', () => {
     render(<TutorialOverlay active={true} onClose={() => {}} />);
-    expect(screen.getByText('Welcome to ST.AIRS')).toBeTruthy();
+    expect(screen.getByText('Welcome to Stairs')).toBeTruthy();
     expect(screen.getByText(/strategic planning platform/)).toBeTruthy();
   });
 

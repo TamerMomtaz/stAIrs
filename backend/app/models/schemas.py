@@ -1,5 +1,5 @@
 """
-ST.AIRS — Pydantic Models
+Stairs — Pydantic Models
 Strategy AI Interactive Real-time System
 v3.5.1 — Strategy Container Edition
 """

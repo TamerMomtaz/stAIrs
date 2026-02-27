@@ -374,7 +374,7 @@ const slideConfigs = [
             fontSize: "56px", fontWeight: "800", fontFamily: "'Instrument Serif', Georgia, serif",
             background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_L})`,
             WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-          }}>ST.AIRS</span>
+          }}>Stairs</span>
         </div>
         <div
           className={animate ? "slideshow-fadeUp" : ""}
@@ -496,7 +496,7 @@ const slideConfigs = [
             fontSize: "48px", fontWeight: "800", fontFamily: "'Instrument Serif', Georgia, serif",
             background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_L})`,
             WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-          }}>ST.AIRS</span>
+          }}>Stairs</span>
         </div>
         <div
           className={animate ? "slideshow-fadeUp" : ""}

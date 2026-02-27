@@ -16,7 +16,7 @@ class TestBuildSystemPrompt:
     def test_basic_system_prompt(self):
         from app.main import _build_basic_system_prompt
         prompt = _build_basic_system_prompt()
-        assert "ST.AIRS" in prompt
+        assert "Stairs" in prompt
         assert "DEVONEERS" in prompt
         assert "Human IS the Loop" in prompt
 

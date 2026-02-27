@@ -371,7 +371,7 @@ export const TutorialOverlay = ({ active, onClose, steps: customSteps }) => {
               You're ready to climb!
             </h2>
             <p className="text-gray-400 text-sm mb-6 leading-relaxed">
-              You've completed the ST.AIRS tour. Every feature is now at your
+              You've completed the Stairs tour. Every feature is now at your
               fingertips — go build something strategic.
             </p>
             <button

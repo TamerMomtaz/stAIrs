@@ -37,9 +37,9 @@ describe('WelcomeSlideshow rendering', () => {
     expect(screen.getByTestId('welcome-slideshow')).toBeTruthy();
   });
 
-  it('shows opening slide with ST.AIRS logo text', () => {
+  it('shows opening slide with Stairs logo text', () => {
     render(<WelcomeSlideshow open={true} onClose={() => {}} />);
-    expect(screen.getByText('ST.AIRS')).toBeTruthy();
+    expect(screen.getByText('Stairs')).toBeTruthy();
     expect(screen.getByText(/We begin there/)).toBeTruthy();
   });
 

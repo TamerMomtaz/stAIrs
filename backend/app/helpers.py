@@ -1,5 +1,5 @@
 """
-ST.AIRS — Shared Helpers
+Stairs — Shared Helpers
 Row conversion, health computation, code generation, and auth utilities.
 """
 
