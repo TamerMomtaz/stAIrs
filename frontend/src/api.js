@@ -67,6 +67,19 @@ class StairsAPI {
 export const api = new StairsAPI();
 
 
+// ═══ DOCUMENT TEXT EXTRACTION (Wizard) ═══
+export async function extractDocumentText(files) {
+  const formData = new FormData();
+  files.forEach(f => formData.append("files", f));
+  const h = {};
+  if (api.token) h["Authorization"] = `Bearer ${api.token}`;
+  const r = await fetch(`${API}/api/v1/ai/extract-document-text`, { method: "POST", headers: h, body: formData });
+  if (r.status === 401) { api._handleUnauthorized(); }
+  if (!r.ok) throw new Error(`Text extraction failed: ${r.status}`);
+  return r.json();
+}
+
+
 // ═══ ACTION PLANS API ═══
 export const ActionPlansAPI = {
   async save(stairId, planType, rawText, tasks, feedback) {

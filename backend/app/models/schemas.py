@@ -279,6 +279,15 @@ class QuestionnaireGenerateResponse(BaseModel):
     groups: List[QuestionnaireGroup]
 
 
+class PrefillQuestionnaireRequest(BaseModel):
+    company_name: str
+    company_brief: Optional[str] = None
+    industry: Optional[str] = None
+    strategy_type: str
+    document_text: str
+    groups: list  # questionnaire groups with questions
+
+
 # ─── ALERTS ───
 class AlertOut(BaseModel):
     id: UUID

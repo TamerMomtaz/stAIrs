@@ -5,7 +5,9 @@ import json
 import logging
 import uuid
 
-from fastapi import APIRouter, HTTPException, Depends
+from typing import List
+
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 import httpx
 
 from app.db.connection import get_pool
@@ -17,6 +19,7 @@ from app.helpers import (
 from app.models.schemas import (
     AIChatRequest, AIChatResponse, AIGenerateRequest,
     QuestionnaireGenerateRequest, QuestionnaireGenerateResponse,
+    PrefillQuestionnaireRequest,
 )
 from app.routers.websocket import ws_manager
 from app.routers.sources import log_source
@@ -469,3 +472,124 @@ Use conditional_on sparingly (2-3 questions). The expected_answer must exactly m
         pass
 
     return questionnaire
+
+
+@router.post("/extract-document-text")
+async def extract_document_text(
+    files: List[UploadFile] = File(...),
+    auth: AuthContext = Depends(get_auth),
+):
+    """Extract text from uploaded files without storing them. Used by the strategy wizard."""
+    from app.extraction import extract_text, clean_extracted_text, assess_extraction_quality
+    from app.storage import ALLOWED_EXTENSIONS, MAX_FILE_SIZE
+
+    documents = []
+    for file in files:
+        fname = file.filename or "untitled"
+        ext = ""
+        if "." in fname:
+            ext = "." + fname.rsplit(".", 1)[-1].lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            documents.append({"filename": fname, "text": "", "extraction_quality": "failed", "error": f"Unsupported file type '{ext}'"})
+            continue
+
+        file_bytes = await file.read()
+        if len(file_bytes) > MAX_FILE_SIZE:
+            documents.append({"filename": fname, "text": "", "extraction_quality": "failed", "error": "File too large (max 10MB)"})
+            continue
+
+        content_type = file.content_type or "application/octet-stream"
+        try:
+            extracted_text, extra_meta = extract_text(file_bytes, fname, content_type)
+            if extracted_text:
+                cleaned = clean_extracted_text(extracted_text)
+                quality = assess_extraction_quality(cleaned)
+                documents.append({"filename": fname, "text": cleaned, "extraction_quality": quality})
+            else:
+                documents.append({"filename": fname, "text": "", "extraction_quality": "failed"})
+        except Exception as e:
+            logger.warning("Text extraction failed for %s: %s", fname, e)
+            documents.append({"filename": fname, "text": "", "extraction_quality": "failed"})
+
+    return {"documents": documents}
+
+
+@router.post("/prefill-questionnaire")
+async def prefill_questionnaire(
+    req: PrefillQuestionnaireRequest,
+    auth: AuthContext = Depends(get_auth),
+):
+    """Use AI to pre-fill questionnaire answers from uploaded document text."""
+    type_label = req.strategy_type.replace("_", " ").title()
+    brief_section = f"\nDescription: {req.company_brief}" if req.company_brief else ""
+    industry_section = f"\nIndustry: {req.industry}" if req.industry else ""
+
+    # Build the questions section from groups
+    questions_section = []
+    for group in req.groups:
+        group_name = group.get("name", "") if isinstance(group, dict) else group.name
+        questions = group.get("questions", []) if isinstance(group, dict) else group.questions
+        for q in questions:
+            qid = q.get("id", "") if isinstance(q, dict) else q.id
+            qtext = q.get("question", "") if isinstance(q, dict) else q.question
+            qtype = q.get("type", "short_text") if isinstance(q, dict) else q.type
+            qopts = q.get("options") if isinstance(q, dict) else q.options
+            qexpl = q.get("explanation", "") if isinstance(q, dict) else q.explanation
+
+            q_line = f"  {qid}: {qtext} (type: {qtype})"
+            if qopts:
+                q_line += f"\n    Options: {qopts}"
+            if qexpl:
+                q_line += f"\n    Context: {qexpl}"
+            questions_section.append(q_line)
+
+    # Truncate document text
+    max_chars = 20000
+    doc_text = req.document_text[:max_chars]
+    if len(req.document_text) > max_chars:
+        doc_text += "\n\n[Document text truncated]"
+
+    prompt = f"""You are a strategy consultant. Based on the company information and uploaded documents below, answer the questionnaire questions.
+
+COMPANY INFORMATION:
+- Name: {req.company_name}{industry_section}{brief_section}
+- Strategy Type: {type_label}
+
+UPLOADED DOCUMENTS:
+{doc_text}
+
+QUESTIONNAIRE QUESTIONS:
+{chr(10).join(questions_section)}
+
+INSTRUCTIONS:
+- For "multiple_choice" questions: your answer MUST be EXACTLY one of the provided options (case-sensitive match)
+- For "yes_no" questions: answer exactly "Yes" or "No"
+- For "scale" questions: answer a single digit from "1" to "5"
+- For "short_text" questions: provide a concise answer (1-3 sentences) based on the documents
+- Only answer questions where the documents provide relevant information
+- If the documents don't contain relevant info for a question, skip it entirely
+
+Return ONLY valid JSON:
+{{"answers": {{"q1": "exact answer", "q3": "text answer"}}}}"""
+
+    result = await call_claude([{"role": "user", "content": prompt}], max_tokens=2048)
+    text = result["content"][0]["text"] if result.get("content") else "{}"
+
+    try:
+        start = text.find("{")
+        end = text.rfind("}") + 1
+        if start >= 0 and end > start:
+            parsed = json.loads(text[start:end])
+        else:
+            parsed = {"answers": {}}
+    except Exception:
+        parsed = {"answers": {}}
+
+    answers = parsed.get("answers", {})
+    # Ensure all values are strings
+    clean_answers = {}
+    for k, v in answers.items():
+        if v is not None and str(v).strip():
+            clean_answers[k] = str(v)
+
+    return {"answers": clean_answers}
