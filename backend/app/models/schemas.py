@@ -232,6 +232,17 @@ class AIChatRequest(BaseModel):
     conversation_id: Optional[UUID] = None
     strategy_id: Optional[UUID] = None
 
+class AgentInfo(BaseModel):
+    name: str
+    role: Optional[str] = None
+
+class ValidationInfo(BaseModel):
+    confidence_score: Optional[int] = None
+    validated: Optional[bool] = None
+    warnings: Optional[List[str]] = None
+    contradictions: Optional[List[str]] = None
+    suggestions: Optional[List[str]] = None
+
 class AIChatResponse(BaseModel):
     response: str
     conversation_id: UUID
@@ -240,6 +251,8 @@ class AIChatResponse(BaseModel):
     provider: Optional[str] = None
     provider_display: Optional[str] = None
     sources_used: Optional[List[dict]] = None
+    agents_used: Optional[List[AgentInfo]] = None
+    validation: Optional[ValidationInfo] = None
 
 class AIAnalysisResponse(BaseModel):
     risk_score: float
@@ -314,6 +327,8 @@ class AgentResponse(BaseModel):
     provider_display: Optional[str] = None
     agent_chain: Optional[List[str]] = None
     confidence_score: Optional[int] = None
+    agents_used: Optional[List[AgentInfo]] = None
+    validation: Optional[ValidationInfo] = None
 
 
 # ─── ALERTS ───

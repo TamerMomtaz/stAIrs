@@ -4,6 +4,7 @@ import { GOLD, GOLD_L, DEEP, BORDER, glass } from "../constants";
 import { Markdown } from "./Markdown";
 import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
 import { buildHeader, openExportWindow } from "../exportUtils";
+import { ConfidenceBadge, ValidationWarnings, AgentActivityIndicator } from "./SharedUI";
 
 const SourcesUsed = ({ sources }) => {
   const [open, setOpen] = useState(false);
@@ -38,7 +39,8 @@ export const AIChatView = ({ lang, userId, strategyContext, onSaveNote, onMatrix
   const [convs, setConvs] = useState([]); const [activeId, setActiveId] = useState(null);
   const [messages, setMessages] = useState([]); const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false); const [retryMsg, setRetryMsg] = useState(null); const [showHist, setShowHist] = useState(false);
-  const [verifiedCount, setVerifiedCount] = useState(0);
+  const [verifiedCount, setVerifiedCount] = useState(0); const [agentStep, setAgentStep] = useState(0);
+  const agentStepRef = useRef(null);
   const endRef = useRef(null); const isAr = lang === "ar";
   useEffect(() => { if (!store) return; const cs = store.list(); setConvs(cs); const aid = store.activeId(); if (aid&&cs.find(c => c.id===aid)) { setActiveId(aid); setMessages(store.msgs(aid)); } else if (cs.length>0) { setActiveId(cs[0].id); setMessages(store.msgs(cs[0].id)); } }, [store]);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
@@ -69,15 +71,16 @@ export const AIChatView = ({ lang, userId, strategyContext, onSaveNote, onMatrix
     const srcRule = "When citing frameworks, books, or statistics, include a brief source reference.";
     let contextMsg = strategyContext ? `[CONTEXT: Strategy "${strategyContext.name}" for "${strategyContext.company||strategyContext.name}"${strategyContext.industry?`, industry: ${strategyContext.industry}`:""}. ${srcRule}]\n\n${msg}` : `[${srcRule}]\n\n${msg}`;
     const userMsg = { role: "user", text: msg, ts: new Date().toISOString() }; const newMsgs = [...messages, userMsg]; setMessages(newMsgs); if (store&&cid) store.saveMsgs(cid,newMsgs); setLoading(true);
+    setAgentStep(0); agentStepRef.current = setInterval(() => setAgentStep(s => s + 1), 2500);
     try {
       const body = { message: contextMsg };
       if (strategyContext?.id) body.strategy_id = strategyContext.id;
       const res = await api.aiPost("/api/v1/ai/chat", body, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
       setRetryMsg(null);
-      const aiMsg = { role: "ai", text: res.response, tokens: res.tokens_used, provider_display: res.provider_display || null, sources_used: res.sources_used || null, ts: new Date().toISOString() }; const final = [...newMsgs, aiMsg]; setMessages(final);
+      const aiMsg = { role: "ai", text: res.response, tokens: res.tokens_used, provider_display: res.provider_display || null, sources_used: res.sources_used || null, agents_used: res.agents_used || null, validation: res.validation || null, ts: new Date().toISOString() }; const final = [...newMsgs, aiMsg]; setMessages(final);
       if (store&&cid) { store.saveMsgs(cid,final); const conv = store.list().find(c => c.id===cid); if (conv) { if (conv.title==="New") conv.title=msg.slice(0,60); conv.updated_at=new Date().toISOString(); conv.count=final.length; store.save(conv); setConvs(store.list()); } }
-    } catch (e) { setRetryMsg(null); const err = { role: "ai", text: `⚠️ ${e.message}`, error: true, ts: new Date().toISOString() }; const final = [...newMsgs, err]; setMessages(final); if (store&&cid) store.saveMsgs(cid,final); }
-    setLoading(false);
+    } catch (e) { setRetryMsg(null); const err = { role: "ai", text: `\u26A0\uFE0F ${e.message}`, error: true, ts: new Date().toISOString() }; const final = [...newMsgs, err]; setMessages(final); if (store&&cid) store.saveMsgs(cid,final); }
+    clearInterval(agentStepRef.current); setLoading(false);
   };
   const exportConversation = () => {
     if (messages.length <= 1) return;
@@ -110,8 +113,9 @@ export const AIChatView = ({ lang, userId, strategyContext, onSaveNote, onMatrix
         </div>
         <div className="flex-1 overflow-y-auto space-y-3 pb-4 px-1 min-h-0">
           {messages.length===0 && <div className="text-gray-600 text-center py-12 text-sm">{isAr?"ابدأ محادثة جديدة":"Start a new conversation"}</div>}
-          {messages.map((m,i) => <div key={i} className={`flex ${m.role==="user"?"justify-end":"justify-start"}`}><div className={`group/msg relative max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed ${m.role==="user"?"bg-amber-500/20 text-amber-100 rounded-br-md":m.error?"bg-red-500/10 text-red-300 rounded-bl-md border border-red-500/20":"bg-[#162544] text-gray-200 rounded-bl-md border border-[#1e3a5f]"}`}>{m.role==="ai"?<><Markdown text={m.text} onMatrixClick={onMatrixClick}/><LoadMatrixButtons text={m.text} onLoadMatrix={onMatrixClick}/></>:<div className="whitespace-pre-wrap">{m.text}</div>}{m.role==="ai"&&!m.error&&<><SourcesUsed sources={m.sources_used} /><div className="flex items-center gap-2 mt-2">{m.provider_display&&<span className="text-[10px] text-gray-500 bg-gray-700/30 px-1.5 py-0.5 rounded">⚡ {m.provider_display}</span>}{m.tokens>0&&<span className="text-[10px] text-gray-600">{m.tokens} tokens</span>}<div className="flex-1"/>{onSaveNote&&<button onClick={() => onSaveNote(m.text.slice(0,60), m.text, "ai_chat")} className="opacity-0 group-hover/msg:opacity-100 text-[10px] text-gray-600 hover:text-amber-400 transition px-1.5 py-0.5 rounded hover:bg-amber-500/10" title="Save to Notes">📌 Save</button>}</div></>}</div></div>)}
-          {loading && <div className="flex items-center gap-2 px-4 py-2">{[0,1,2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-amber-500/40 animate-bounce" style={{animationDelay:`${i*0.15}s`}}/>)}{retryMsg && <span className="text-amber-400/80 text-xs ml-1">{retryMsg}</span>}</div>}
+          {messages.map((m,i) => <div key={i} className={`flex ${m.role==="user"?"justify-end":"justify-start"}`}><div className={`group/msg relative max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed ${m.role==="user"?"bg-amber-500/20 text-amber-100 rounded-br-md":m.error?"bg-red-500/10 text-red-300 rounded-bl-md border border-red-500/20":"bg-[#162544] text-gray-200 rounded-bl-md border border-[#1e3a5f]"}`}>{m.role==="ai"?<><Markdown text={m.text} onMatrixClick={onMatrixClick}/><LoadMatrixButtons text={m.text} onLoadMatrix={onMatrixClick}/></>:<div className="whitespace-pre-wrap">{m.text}</div>}{m.role==="ai"&&!m.error&&<><SourcesUsed sources={m.sources_used} />{m.validation && <ValidationWarnings validation={m.validation} />}<div className="flex items-center gap-2 mt-2 flex-wrap">{m.validation && <ConfidenceBadge validation={m.validation} agentsUsed={m.agents_used} />}{m.provider_display&&<span className="text-[10px] text-gray-500 bg-gray-700/30 px-1.5 py-0.5 rounded">{"\u26A1"} {m.provider_display}</span>}{m.tokens>0&&<span className="text-[10px] text-gray-600">{m.tokens} tokens</span>}{m.agents_used&&m.agents_used.length>0&&<span className="text-[10px] text-gray-600">{m.agents_used.length} agent{m.agents_used.length!==1?"s":""}</span>}<div className="flex-1"/>{onSaveNote&&<button onClick={() => onSaveNote(m.text.slice(0,60), m.text, "ai_chat")} className="opacity-0 group-hover/msg:opacity-100 text-[10px] text-gray-600 hover:text-amber-400 transition px-1.5 py-0.5 rounded hover:bg-amber-500/10" title="Save to Notes">{"\uD83D\uDCCC"} Save</button>}</div></>}</div></div>)}
+          {loading && <AgentActivityIndicator agentStep={agentStep} />}
+          {loading && retryMsg && <div className="px-4"><span className="text-amber-400/80 text-xs">{retryMsg}</span></div>}
           <div ref={endRef}/>
         </div>
         {messages.length<=1 && <div className="shrink-0 flex flex-wrap gap-2 mb-3">{quicks.map((q,i) => <button key={i} onClick={() => setInput(q)} className="text-xs px-3 py-1.5 rounded-full border border-amber-500/20 text-amber-400/70 hover:bg-amber-500/10 transition">{q}</button>)}</div>}

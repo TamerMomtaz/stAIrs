@@ -1,7 +1,61 @@
+import { useState, useEffect } from "react";
 import { glass, GOLD, GOLD_L } from "../constants";
 import { HealthBadge, ProgressRing } from "./SharedUI";
 import { MATRIX_FRAMEWORKS } from "./StrategyMatrixToolkit";
 import { buildHeader, openExportWindow } from "../exportUtils";
+import { AdminAPI } from "../api";
+
+const AGENT_ICONS = {
+  strategy_advisor: "\uD83D\uDCCA",
+  strategy_analyst: "\uD83D\uDCC8",
+  document_analyst: "\uD83D\uDCC4",
+  execution_planner: "\uD83D\uDE80",
+  validation: "\u26A0\uFE0F",
+};
+
+const AgentActivityLog = ({ isAr }) => {
+  const [activity, setActivity] = useState(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    AdminAPI.getAgentStats()
+      .then(data => { setActivity(data); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+  if (loading) return <div className="text-xs text-gray-500 py-4 text-center">{isAr ? "\u062C\u0627\u0631\u064A \u0627\u0644\u062A\u062D\u0645\u064A\u0644..." : "Loading agent activity..."}</div>;
+  if (!activity || !activity.recent_activity || activity.recent_activity.length === 0) return null;
+  const confColor = (s) => !s ? "text-gray-500" : s >= 85 ? "text-emerald-400" : s >= 60 ? "text-amber-400" : "text-red-400";
+  return (
+    <div data-testid="agent-activity-log">
+      <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-3">{isAr ? "\u0633\u062C\u0644 \u0646\u0634\u0627\u0637 \u0627\u0644\u0648\u0643\u0644\u0627\u0621" : "Agent Activity"}</h3>
+      <div className="rounded-xl overflow-hidden" style={glass(0.4)}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-gray-500 border-b border-gray-700/30">
+                <th className="text-left px-3 py-2 font-medium">{isAr ? "\u0627\u0644\u0648\u0642\u062A" : "Time"}</th>
+                <th className="text-left px-3 py-2 font-medium">{isAr ? "\u0627\u0644\u0648\u0643\u064A\u0644" : "Agent"}</th>
+                <th className="text-left px-3 py-2 font-medium">{isAr ? "\u0627\u0644\u0645\u0647\u0645\u0629" : "Task"}</th>
+                <th className="text-center px-3 py-2 font-medium">{isAr ? "\u0627\u0644\u062B\u0642\u0629" : "Confidence"}</th>
+                <th className="text-left px-3 py-2 font-medium">{isAr ? "\u0627\u0644\u0646\u0645\u0648\u0630\u062C" : "Model"}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {activity.recent_activity.slice(0, 20).map((entry, i) => (
+                <tr key={i} className="border-b border-gray-700/20 hover:bg-white/[0.02] transition">
+                  <td className="px-3 py-1.5 text-gray-500 whitespace-nowrap">{entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "\u2014"}</td>
+                  <td className="px-3 py-1.5 text-white whitespace-nowrap">{AGENT_ICONS[entry.agent_name] || "\uD83E\uDD16"} {entry.agent_name}</td>
+                  <td className="px-3 py-1.5 text-gray-400 truncate max-w-[160px]">{entry.task_type}</td>
+                  <td className={`px-3 py-1.5 text-center font-medium ${confColor(entry.confidence_score)}`}>{entry.confidence_score != null ? `${entry.confidence_score}%` : "\u2014"}</td>
+                  <td className="px-3 py-1.5 text-gray-500">{entry.model_used || "\u2014"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const DashboardView = ({ data, lang, matrixResults, onMatrixClick, strategyContext }) => {
   const s = data?.stats || {}; const isAr = lang === "ar";
@@ -44,6 +98,7 @@ export const DashboardView = ({ data, lang, matrixResults, onMatrixClick, strate
           })}
         </div>
       </div>}
+      <AgentActivityLog isAr={isAr} />
     </div>
   );
 };

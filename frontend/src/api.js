@@ -245,6 +245,14 @@ export class ManifestStore {
 }
 
 
+// ═══ ADMIN / AGENT TRANSPARENCY API ═══
+export const AdminAPI = {
+  async getAgentStats() {
+    return api.get("/api/v1/admin/agents");
+  },
+};
+
+
 // ═══ MATRIX RESULTS STORE ═══
 export class MatrixResultsStore {
   constructor(strategyId) { this.key = `stairs_matrix_${strategyId}`; }
