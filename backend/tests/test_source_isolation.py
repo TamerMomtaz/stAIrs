@@ -180,16 +180,16 @@ class TestAIChatSourceIsolation:
 
         mock_pool = _make_mock_pool(mock_conn)
 
+        # Mock call_ai_with_fallback (used by agents via BaseAgent.call)
         mock_ai_result = {
-            "content": [{"type": "text", "text": "Based on your data, operating costs reduced 10%."}],
-            "usage": {"input_tokens": 100, "output_tokens": 50},
-            "_provider": "claude",
-            "_provider_display": "Claude",
-            "_fallback_used": False,
+            "text": "Based on your data, operating costs reduced 10%.",
+            "tokens": 50,
+            "provider": "claude",
+            "fallback_used": False,
         }
 
         with patch("app.routers.ai.get_pool", new_callable=AsyncMock, return_value=mock_pool), \
-             patch("app.routers.ai.call_claude", new_callable=AsyncMock, return_value=mock_ai_result), \
+             patch("app.ai_providers.call_ai_with_fallback", new_callable=AsyncMock, return_value=mock_ai_result), \
              patch("app.routers.ai.log_source", new_callable=AsyncMock):
             result = await ai_chat(req, auth)
 
@@ -237,15 +237,14 @@ class TestAIChatSourceIsolation:
         mock_pool = _make_mock_pool(mock_conn)
 
         mock_ai_result = {
-            "content": [{"type": "text", "text": "Strategy A summary"}],
-            "usage": {"input_tokens": 100, "output_tokens": 50},
-            "_provider": "claude",
-            "_provider_display": "Claude",
-            "_fallback_used": False,
+            "text": "Strategy A summary",
+            "tokens": 50,
+            "provider": "claude",
+            "fallback_used": False,
         }
 
         with patch("app.routers.ai.get_pool", new_callable=AsyncMock, return_value=mock_pool), \
-             patch("app.routers.ai.call_claude", new_callable=AsyncMock, return_value=mock_ai_result) as mock_claude, \
+             patch("app.ai_providers.call_ai_with_fallback", new_callable=AsyncMock, return_value=mock_ai_result) as mock_fallback, \
              patch("app.routers.ai.log_source", new_callable=AsyncMock):
             result = await ai_chat(req, auth)
 
@@ -260,16 +259,19 @@ class TestAIChatSourceIsolation:
                 )
         assert found_strategy_filter, "Stairs query must filter by strategy_id"
 
-        # Verify the AI prompt was called with strategy A context, not strategy B
-        call_args = mock_claude.call_args
-        messages = call_args[0][0]
-        user_content = messages[0]["content"]
-
-        # Strategy A stairs should be in context
-        assert "Grow Revenue" in user_content or "Expand Market" in user_content
-        # Strategy B stairs should NOT be in context
-        assert "Reduce Costs" not in user_content
-        assert "Improve Satisfaction" not in user_content
+        # Verify the AI was called with strategy A context, not strategy B
+        # The call goes through the orchestrator → advisor agent → call_ai_with_fallback
+        # Find the call that has the user's context in messages
+        for call_args in mock_fallback.call_args_list:
+            messages = call_args.kwargs.get("messages", [])
+            if messages and messages[0].get("role") == "user":
+                user_content = messages[0]["content"]
+                # Strategy A stairs should be in context
+                assert "Grow Revenue" in user_content or "Expand Market" in user_content
+                # Strategy B stairs should NOT be in context
+                assert "Reduce Costs" not in user_content
+                assert "Improve Satisfaction" not in user_content
+                break
 
     @pytest.mark.asyncio
     async def test_strategy_id_resolved_before_stairs_query(self):
@@ -318,15 +320,14 @@ class TestAIChatSourceIsolation:
         mock_pool = _make_mock_pool(mock_conn)
 
         mock_ai_result = {
-            "content": [{"type": "text", "text": "Analysis complete"}],
-            "usage": {"input_tokens": 50, "output_tokens": 30},
-            "_provider": "claude",
-            "_provider_display": "Claude",
-            "_fallback_used": False,
+            "text": "Analysis complete",
+            "tokens": 30,
+            "provider": "claude",
+            "fallback_used": False,
         }
 
         with patch("app.routers.ai.get_pool", new_callable=AsyncMock, return_value=mock_pool), \
-             patch("app.routers.ai.call_claude", new_callable=AsyncMock, return_value=mock_ai_result), \
+             patch("app.ai_providers.call_ai_with_fallback", new_callable=AsyncMock, return_value=mock_ai_result), \
              patch("app.routers.ai.log_source", new_callable=AsyncMock):
             await ai_chat(req, auth)
 

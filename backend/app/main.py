@@ -366,6 +366,33 @@ async def ensure_strategy_sources_table():
             print("  ✅ strategy_sources table created")
 
 
+async def ensure_agent_logs_table():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        exists = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'agent_logs')"
+        )
+        if not exists:
+            print("  → Creating agent_logs table...")
+            await conn.execute("""
+                CREATE TABLE agent_logs (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    strategy_id UUID,
+                    agent_name VARCHAR(50) NOT NULL,
+                    task_type VARCHAR(100) NOT NULL,
+                    input_summary TEXT,
+                    output_summary TEXT,
+                    tokens_used INTEGER DEFAULT 0,
+                    model_used VARCHAR(50),
+                    confidence_score INTEGER,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
+            await conn.execute("CREATE INDEX idx_agent_logs_strategy ON agent_logs(strategy_id, created_at DESC)")
+            await conn.execute("CREATE INDEX idx_agent_logs_agent ON agent_logs(agent_name, created_at DESC)")
+            print("  ✅ agent_logs table created")
+
+
 async def ensure_ai_usage_logs_table():
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -423,6 +450,10 @@ async def lifespan(app: FastAPI):
         await ensure_action_plans_table()
     except Exception as e:
         print(f"  ⚠️ Action plans migration: {e}")
+    try:
+        await ensure_agent_logs_table()
+    except Exception as e:
+        print(f"  ⚠️ Agent logs migration: {e}")
     try:
         await ensure_ai_usage_logs_table()
     except Exception as e:
