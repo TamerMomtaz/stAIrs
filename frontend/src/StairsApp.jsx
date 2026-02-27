@@ -15,6 +15,7 @@ import { ActionPlansView } from "./components/ActionPlansView";
 import { StairEditor } from "./components/StairEditor";
 import { ExecutionRoom } from "./components/ExecutionRoom";
 import { TutorialOverlay, TutorialUpdatePrompt, FeaturesExploredBadge } from "./components/TutorialOverlay";
+import { WelcomeSlideshow } from "./components/WelcomeSlideshow";
 import { StrategyMatrixToolkit } from "./components/StrategyMatrixToolkit";
 import { StrategyToolsPanel } from "./components/StrategyToolsPanel";
 import { SourceOfTruthView } from "./components/SourceOfTruthView";
@@ -39,6 +40,7 @@ export default function App() {
   const [tutorialCustomSteps, setTutorialCustomSteps] = useState(null);
   const [showFeaturesBadge, setShowFeaturesBadge] = useState(false);
   const [aiProvider, setAiProvider] = useState(null);
+  const [showWelcomeSlideshow, setShowWelcomeSlideshow] = useState(false);
   const [matrixToolkit, setMatrixToolkit] = useState({ open: false, key: null, initialData: null });
   const openMatrix = (key, initialData = null) => setMatrixToolkit({ open: true, key, initialData });
   const closeMatrix = () => setMatrixToolkit({ open: false, key: null, initialData: null });
@@ -224,7 +226,7 @@ export default function App() {
 
   // ═══ RENDER ═══
   if (!user) return <LoginScreen onLogin={setUser} />;
-  if (!activeStrat) return <StrategyLanding strategies={strategies} onSelect={selectStrategy} onCreate={createStrategy} onDelete={deleteStrategy} userName={user.name||user.email} onLogout={logout} onLangToggle={toggleLang} lang={lang} loading={stratLoading} />;
+  if (!activeStrat) return <StrategyLanding strategies={strategies} onSelect={selectStrategy} onCreate={createStrategy} onDelete={deleteStrategy} userName={user.name||user.email} onLogout={logout} onLangToggle={toggleLang} lang={lang} loading={stratLoading} userId={user.id || user.email} />;
 
   const navItems = [
     { key: "dashboard", icon: "📊", label: isAr ? "لوحة القيادة" : "Dashboard", tutorial: "nav-dashboard" },
@@ -252,6 +254,9 @@ export default function App() {
         </div>
         <div className="flex items-center gap-3">
           {aiProvider && <span className="text-[10px] text-gray-500 flex items-center gap-1 px-2 py-1 rounded-md border border-gray-700/50 bg-gray-800/30" title={`AI powered by ${aiProvider.provider_display}`}>⚡ {aiProvider.provider_display}</span>}
+          <button onClick={() => setShowWelcomeSlideshow(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition uppercase tracking-wider" title="Watch the ST.AIRS introduction" data-testid="watch-intro-btn">
+            <span className="text-sm">🎬</span> <span className="hidden sm:inline">{isAr ? "مقدمة" : "Watch Intro"}</span>
+          </button>
           <button onClick={startTutorial} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition uppercase tracking-wider" title="How to Climb These Stairs Guide" data-tutorial="guide-btn">
             <span className="text-sm">🪜</span> <span className="hidden sm:inline">{isAr ? "دليل الاستخدام" : "Guide"}</span>
           </button>
@@ -288,6 +293,8 @@ export default function App() {
       {execRoomStair && <ExecutionRoom stair={execRoomStair} strategyContext={activeStrat} lang={lang} onBack={() => setExecRoomStair(null)} onSaveNote={saveToNotes} onMatrixClick={openMatrix} />}
 
       <StrategyMatrixToolkit open={matrixToolkit.open} matrixKey={matrixToolkit.key} onClose={closeMatrix} onSave={saveMatrixResult} strategyContext={activeStrat} initialData={matrixToolkit.initialData} />
+
+      <WelcomeSlideshow open={showWelcomeSlideshow} onClose={() => setShowWelcomeSlideshow(false)} />
 
       <footer className="text-center py-6 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • ST.AIRS v3.7.0 • "Human IS the Loop" • {new Date().getFullYear()}</footer>
 
