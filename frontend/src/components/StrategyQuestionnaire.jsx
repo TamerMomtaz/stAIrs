@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { GOLD, GOLD_L, DEEP, BORDER, glass, inputCls } from "../constants";
 
-export const StrategyQuestionnaire = ({ groups, answers, onAnswer, strategyType }) => {
+export const StrategyQuestionnaire = ({ groups, answers, onAnswer, strategyType, prefilledQuestions }) => {
   const [expandedGroup, setExpandedGroup] = useState(0);
 
   const isQuestionVisible = (q) => {
@@ -126,6 +126,12 @@ export const StrategyQuestionnaire = ({ groups, answers, onAnswer, strategyType 
                         <div className="text-[11px] text-gray-500 mt-0.5 italic">{q.explanation}</div>
                       )}
                       {renderInput(q)}
+                      {prefilledQuestions?.has(q.id) && answers[q.id] && (
+                        <div className="flex items-center gap-1 mt-1.5 text-[10px] text-indigo-400/70">
+                          <span>🤖</span>
+                          <span>Pre-filled from your documents</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

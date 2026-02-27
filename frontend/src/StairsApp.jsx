@@ -140,6 +140,14 @@ export default function App() {
         try { await SourcesAPI.create(created.id, src.source_type, src.content, src.metadata || {}); } catch (e) { console.warn("Failed to log source:", e.message); }
       }
     }
+    // Upload pending document files to Source of Truth (fire and forget)
+    if (created.source === "server" && stratData._pendingDocumentFiles?.length > 0) {
+      Promise.all(
+        stratData._pendingDocumentFiles.map(file =>
+          SourcesAPI.uploadDocument(created.id, file).catch(e => console.warn("Failed to upload document:", file.name, e.message))
+        )
+      );
+    }
     await loadStrategies();
     selectStrategy(created);
   };
