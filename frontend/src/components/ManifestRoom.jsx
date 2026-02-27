@@ -76,26 +76,73 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
   const [expandedManifest, setExpandedManifest] = useState(null);
   const isAr = lang === "ar";
 
+  // Fix 2: Migrate/reconcile orphaned manifest entries by matching task name + stair_id
+  const reconcileManifests = useCallback((allManifests, groups) => {
+    if (!groups || groups.length === 0) return allManifests;
+    const store = new ManifestStore(strategyContext.id);
+
+    // Build lookup of valid keys and name-based index from plan groups
+    const validKeys = new Set();
+    const keysByStairAndName = {};
+    for (const group of groups) {
+      for (const plan of group.plans) {
+        (plan.tasks || []).forEach((t, i) => {
+          const key = `${group.stair_id}_${t.id || `task_${i}_${plan.id}`}`;
+          validKeys.add(key);
+          const nameKey = `${group.stair_id}_${(t.name || "").toLowerCase().trim()}`;
+          if (!keysByStairAndName[nameKey]) {
+            keysByStairAndName[nameKey] = { key, taskId: t.id || `task_${i}_${plan.id}`, taskName: t.name };
+          }
+        });
+      }
+    }
+
+    // Check for orphaned manifests (keys that don't match any plan task) and migrate them
+    let updated = false;
+    const result = { ...allManifests };
+    for (const [mk, manifest] of Object.entries(allManifests)) {
+      if (validKeys.has(mk)) continue; // Already matches — skip
+      if (!(manifest.explanation || manifest.ability_assessment || manifest.customized_plan || manifest.impl_guide)) continue;
+
+      // Try to match by task_name + stair_id
+      const nameKey = `${manifest.stair_id}_${(manifest.task_name || "").toLowerCase().trim()}`;
+      const match = keysByStairAndName[nameKey];
+      if (match && !result[match.key]) {
+        // Migrate: copy manifest data to the correct key
+        const migrated = { ...manifest, task_id: match.taskId };
+        store.set(manifest.stair_id, match.taskId, migrated);
+        result[match.key] = migrated;
+        updated = true;
+      }
+    }
+
+    return result;
+  }, [strategyContext?.id]);
+
   const loadData = useCallback(async () => {
     if (!strategyContext?.id) return;
     setLoading(true);
     try {
       const store = new ManifestStore(strategyContext.id);
       const allManifests = store.getAll();
-      setManifestData(allManifests);
 
       const data = await ActionPlansAPI.getForStrategy(strategyContext.id);
-      setPlanGroups(data || []);
+      const groups = data || [];
+      setPlanGroups(groups);
+
+      // Fix 2: Reconcile/migrate orphaned manifest entries to correct keys
+      const reconciledManifests = reconcileManifests(allManifests, groups);
+      setManifestData(reconciledManifests);
     } catch (e) {
       console.error("Load manifest data:", e);
       setPlanGroups([]);
     }
     setLoading(false);
-  }, [strategyContext?.id]);
+  }, [strategyContext?.id, reconcileManifests]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Listen for manifest updates from ExecutionRoom via storage events
+  // Fix 3: Listen for manifest updates from ExecutionRoom via storage events (cross-tab)
   useEffect(() => {
     const handleStorage = (e) => {
       if (e.key === `stairs_manifest_${strategyContext?.id}`) {
@@ -106,7 +153,19 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
     return () => window.removeEventListener("storage", handleStorage);
   }, [strategyContext?.id]);
 
-  // Build manifest-enriched groups: only include tasks that have manifest data
+  // Fix 3: Listen for same-tab manifest updates via custom event
+  useEffect(() => {
+    const handleManifestUpdate = (e) => {
+      if (e.detail?.strategyId === strategyContext?.id) {
+        const store = new ManifestStore(strategyContext.id);
+        setManifestData(store.getAll());
+      }
+    };
+    window.addEventListener("manifest-updated", handleManifestUpdate);
+    return () => window.removeEventListener("manifest-updated", handleManifestUpdate);
+  }, [strategyContext?.id]);
+
+  // Fix 1: Build manifest-enriched groups — show ALL tasks that have ANY manifest data
   const manifestGroups = planGroups.map(group => {
     const allTasks = group.plans.flatMap(p => (p.tasks || []).map((t, i) => ({
       ...t,
@@ -115,7 +174,14 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
       _taskIndex: i,
       _manifestKey: `${group.stair_id}_${t.id || `task_${i}_${p.id}`}`,
     })));
-    const tasksWithManifest = allTasks.filter(t => {
+    // Deduplicate tasks by _manifestKey (prefer tasks with manifest data)
+    const seen = new Set();
+    const uniqueTasks = allTasks.filter(t => {
+      if (seen.has(t._manifestKey)) return false;
+      seen.add(t._manifestKey);
+      return true;
+    });
+    const tasksWithManifest = uniqueTasks.filter(t => {
       const mk = t._manifestKey;
       const m = manifestData[mk];
       return m && (m.explanation || m.ability_assessment || m.customized_plan || m.impl_guide);
@@ -356,8 +422,9 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
                     const mDone = mSteps.filter(s => s.done).length;
                     const mPct = mSteps.length ? Math.round((mDone / mSteps.length) * 100) : 0;
 
-                    // Count how many sections this manifest has
-                    const sections = [m.explanation, m.ability_assessment, m.customized_plan, m.impl_guide].filter(Boolean).length;
+                    // Count how many sections are completed vs total
+                    const completedSections = [m.explanation, m.ability_assessment, m.customized_plan, m.impl_guide].filter(Boolean).length;
+                    const sections = completedSections;
 
                     return (
                       <div key={mk} className="rounded-lg overflow-hidden" style={{ ...glass(0.3), borderLeft: `3px solid ${GOLD}60` }}>
@@ -370,7 +437,7 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
                           <div className="flex-1 min-w-0">
                             <span className="text-xs font-semibold text-white">{task.name || m.task_name || "Action"}</span>
                             <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[10px] text-gray-600">{sections} {isAr ? "أقسام" : sections === 1 ? "section" : "sections"}</span>
+                              <span className="text-[10px] text-gray-600">{completedSections}/4 {isAr ? "أقسام" : "sections"}</span>
                               {mSteps.length > 0 && <span className="text-[10px] text-purple-400/70">{mDone}/{mSteps.length} {isAr ? "خطوات" : "steps"}</span>}
                             </div>
                           </div>
@@ -397,7 +464,7 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
                         {isManifestExpanded && (
                           <div className="border-t px-4 py-4 space-y-4" style={{ borderColor: BORDER }}>
                             {/* Explanation */}
-                            {m.explanation && (
+                            {m.explanation ? (
                               <div className="rounded-lg p-3 border border-blue-500/15" style={{ background: "rgba(59,130,246,0.03)" }}>
                                 <div className="flex items-center gap-2 mb-2">
                                   <span className="text-blue-400 text-xs font-semibold">{isAr ? "الشرح" : "Explanation"}</span>
@@ -411,30 +478,45 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
                                   <Markdown text={m.explanation} />
                                 </div>
                               </div>
+                            ) : (
+                              <div className="rounded-lg p-3 border border-blue-500/10 opacity-50">
+                                <span className="text-blue-400/60 text-xs font-semibold">{isAr ? "الشرح" : "Explanation"}</span>
+                                <span className="text-[10px] text-gray-600 ml-2">{isAr ? "لم يبدأ بعد" : "Not yet started"}</span>
+                              </div>
                             )}
 
                             {/* Ability Assessment */}
-                            {m.ability_assessment && (
+                            {m.ability_assessment ? (
                               <div className="rounded-lg p-3 border border-teal-500/15" style={{ background: "rgba(13,148,136,0.03)" }}>
                                 <div className="text-teal-400 text-xs font-semibold mb-2">{isAr ? "تقييم القدرة" : "Ability Assessment"}</div>
                                 <div className="text-xs leading-relaxed text-gray-300">
                                   <Markdown text={m.ability_assessment} />
                                 </div>
                               </div>
+                            ) : (
+                              <div className="rounded-lg p-3 border border-teal-500/10 opacity-50">
+                                <span className="text-teal-400/60 text-xs font-semibold">{isAr ? "تقييم القدرة" : "Ability Assessment"}</span>
+                                <span className="text-[10px] text-gray-600 ml-2">{isAr ? "لم يبدأ بعد" : "Not yet started"}</span>
+                              </div>
                             )}
 
                             {/* Customized Plan */}
-                            {m.customized_plan && (
+                            {m.customized_plan ? (
                               <div className="rounded-lg p-3 border border-amber-500/15" style={{ background: "rgba(184,144,74,0.03)" }}>
                                 <div className="text-amber-400 text-xs font-semibold mb-2">{isAr ? "الخطة المخصصة" : "Customized Plan"}</div>
                                 <div className="text-xs leading-relaxed text-gray-300">
                                   <Markdown text={m.customized_plan} />
                                 </div>
                               </div>
+                            ) : (
+                              <div className="rounded-lg p-3 border border-amber-500/10 opacity-50">
+                                <span className="text-amber-400/60 text-xs font-semibold">{isAr ? "الخطة المخصصة" : "Customized Plan"}</span>
+                                <span className="text-[10px] text-gray-600 ml-2">{isAr ? "لم يبدأ بعد" : "Not yet started"}</span>
+                              </div>
                             )}
 
                             {/* Implementation Guide */}
-                            {m.impl_guide && (
+                            {m.impl_guide ? (
                               <div className="rounded-lg p-3 border border-purple-500/15" style={{ background: "rgba(139,92,246,0.03)" }}>
                                 <div className="flex items-center gap-2 mb-2">
                                   <span className="text-purple-400 text-xs font-semibold">{isAr ? "دليل التنفيذ" : "Implementation Guide"}</span>
@@ -447,6 +529,11 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
                                 <div className="text-xs leading-relaxed text-gray-300">
                                   <Markdown text={m.impl_guide} />
                                 </div>
+                              </div>
+                            ) : (
+                              <div className="rounded-lg p-3 border border-purple-500/10 opacity-50">
+                                <span className="text-purple-400/60 text-xs font-semibold">{isAr ? "دليل التنفيذ" : "Implementation Guide"}</span>
+                                <span className="text-[10px] text-gray-600 ml-2">{isAr ? "لم يبدأ بعد" : "Not yet started"}</span>
                               </div>
                             )}
 
