@@ -428,6 +428,24 @@ CREATE INDEX idx_strategy_sources_search ON strategy_sources USING GIN(
 CREATE TRIGGER trg_strategy_sources_updated_at BEFORE UPDATE ON strategy_sources FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 
+-- ─── 18. AGENT LOGS (Multi-Agent Ensemble Traceability) ───
+CREATE TABLE agent_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    strategy_id UUID,
+    agent_name VARCHAR(50) NOT NULL,
+    task_type VARCHAR(100) NOT NULL,
+    input_summary TEXT,
+    output_summary TEXT,
+    tokens_used INTEGER DEFAULT 0,
+    model_used VARCHAR(50),
+    confidence_score INTEGER,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_agent_logs_strategy ON agent_logs(strategy_id, created_at DESC);
+CREATE INDEX idx_agent_logs_agent ON agent_logs(agent_name, created_at DESC);
+
+
 -- ═══════════════════════════════════════════════════════════
 -- SEED DATA — DEVONEERS / RootRise
 -- ═══════════════════════════════════════════════════════════

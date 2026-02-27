@@ -356,8 +356,8 @@ async def analyze_document_source(
     source_id: str,
     auth: AuthContext = Depends(get_auth),
 ):
-    """Send document text to AI for strategy-relevant categorization."""
-    from app.routers.ai import call_claude
+    """Send document text to AI for strategy-relevant categorization via Document Agent."""
+    from app.agents.orchestrator import Orchestrator
 
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -383,23 +383,16 @@ async def analyze_document_source(
     if not document_text or document_text == "extraction_failed":
         raise HTTPException(400, "No extracted text available for this document")
 
-    # Truncate very long documents to avoid exceeding token limits
-    max_chars = 15000
-    truncated = document_text[:max_chars]
-    if len(document_text) > max_chars:
-        truncated += "\n\n[Document truncated — full text is longer]"
-
-    prompt = AI_EXTRACTION_PROMPT.format(
-        categories=", ".join(AI_EXTRACTION_CATEGORIES),
-        document_text=truncated,
+    # Route through Orchestrator → Document Agent
+    orchestrator = Orchestrator()
+    agent_result = await orchestrator.process(
+        task_type="document_analysis",
+        strategy_id=strategy_id,
+        payload={"document_text": document_text},
     )
 
-    result = await call_claude(
-        [{"role": "user", "content": prompt}],
-        max_tokens=2048,
-    )
-    text = result["content"][0]["text"] if result.get("content") else "{}"
-    provider = result.get("_provider", "claude")
+    text = agent_result.get("text", "{}")
+    provider = agent_result.get("provider", "claude")
 
     # Parse AI response
     try:

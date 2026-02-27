@@ -288,6 +288,34 @@ class PrefillQuestionnaireRequest(BaseModel):
     groups: list  # questionnaire groups with questions
 
 
+# ─── AGENT ENDPOINTS ───
+class ActionPlanGenerateRequest(BaseModel):
+    stair_id: UUID
+    strategy_id: Optional[UUID] = None
+
+class CustomizedPlanRequest(BaseModel):
+    original_plan: str
+    feedback: str
+    strategy_id: Optional[UUID] = None
+
+class ExplainActionRequest(BaseModel):
+    action: str
+    stair_id: Optional[UUID] = None
+    strategy_id: Optional[UUID] = None
+
+class ImplementationGuideRequest(BaseModel):
+    stair_id: UUID
+    strategy_id: Optional[UUID] = None
+
+class AgentResponse(BaseModel):
+    response: str
+    tokens_used: Optional[int] = None
+    provider: Optional[str] = None
+    provider_display: Optional[str] = None
+    agent_chain: Optional[List[str]] = None
+    confidence_score: Optional[int] = None
+
+
 # ─── ALERTS ───
 class AlertOut(BaseModel):
     id: UUID

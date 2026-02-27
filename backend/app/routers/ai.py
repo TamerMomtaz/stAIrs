@@ -1,4 +1,4 @@
-"""Stairs — AI Engine Router (with multi-provider fallback)"""
+"""Stairs — AI Engine Router (with multi-agent ensemble + multi-provider fallback)"""
 
 import asyncio
 import json
@@ -20,12 +20,15 @@ from app.models.schemas import (
     AIChatRequest, AIChatResponse, AIGenerateRequest,
     QuestionnaireGenerateRequest, QuestionnaireGenerateResponse,
     PrefillQuestionnaireRequest,
+    ActionPlanGenerateRequest, CustomizedPlanRequest,
+    ExplainActionRequest, ImplementationGuideRequest, AgentResponse,
 )
 from app.routers.websocket import ws_manager
 from app.routers.sources import log_source
 from app.ai_providers import (
     call_ai_with_fallback, PROVIDER_DISPLAY, get_ai_status,
 )
+from app.agents.orchestrator import Orchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +36,9 @@ router = APIRouter(prefix="/api/v1/ai", tags=["ai"])
 
 AI_RETRY_MAX = 3
 AI_RETRY_DELAY = 5  # seconds
+
+# Module-level orchestrator instance
+_orchestrator = Orchestrator()
 
 
 async def _log_ai_usage(
@@ -65,7 +71,10 @@ async def _log_ai_usage(
 
 async def call_claude(messages: list, system: str = None, max_tokens: int = 1024) -> dict:
     """Wrapper that uses the multi-provider fallback system but returns
-    the same dict shape the rest of the codebase expects."""
+    the same dict shape the rest of the codebase expects.
+
+    Kept for backward compatibility (used by sources.py and other routers).
+    New code should use the orchestrator instead."""
     result = await call_ai_with_fallback(
         messages=messages,
         system=system,
@@ -110,11 +119,11 @@ async def ai_chat(req: AIChatRequest, auth: AuthContext = Depends(get_auth)):
             if stair_row and stair_row.get("strategy_id"):
                 strategy_id = str(stair_row["strategy_id"])
 
+    # Build context from strategy, stairs, and Source of Truth
+    strategy_company = None
+    strategy_industry = None
+    strategy_name = None
     async with pool.acquire() as conn:
-        # Fetch the strategy's own company/industry to use as primary identity
-        strategy_company = None
-        strategy_industry = None
-        strategy_name = None
         if strategy_id:
             strat_row = await conn.fetchrow(
                 "SELECT name, company, industry FROM strategies WHERE id = $1",
@@ -205,23 +214,40 @@ async def ai_chat(req: AIChatRequest, auth: AuthContext = Depends(get_auth)):
                     for fn, cats in file_sources.items()
                 ]
 
-    messages = [{"role": "user", "content": f"CONTEXT:\n{chr(10).join(context_parts)}\n\nUSER QUESTION:\n{req.message}"}]
-    result = await call_claude(messages)
-    text = result["content"][0]["text"] if result.get("content") else "No response generated"
+    # Build pre-built strategy context for the orchestrator (avoids duplicate DB queries)
+    strategy_context = {
+        "strategy_id": strategy_id,
+        "company": strategy_company or "",
+        "industry": strategy_industry or "",
+        "strategy_name": strategy_name or "",
+        "source_of_truth": "",  # SoT is already in context_parts
+        "previous_outputs": [],
+    }
+
+    # Route through Orchestrator → Advisor Agent (may chain to Strategy Agent)
+    agent_result = await _orchestrator.process(
+        task_type="chat",
+        strategy_id=strategy_id,
+        payload={"message": req.message, "context_parts": context_parts},
+        strategy_context=strategy_context,
+    )
+
+    text = agent_result.get("text", "No response generated")
+    tokens = agent_result.get("tokens", 0)
+    provider = agent_result.get("provider", "claude")
+    provider_display = agent_result.get("provider_display", "Claude")
 
     # Check which sources were actually cited in the response
     for src in sources_used:
         src["cited"] = src["filename"].lower() in text.lower() if src.get("filename") else False
 
-    provider = result.get("_provider", "claude")
-    provider_display = result.get("_provider_display", "Claude")
     model_used = provider_display
     conv_id = str(req.conversation_id) if req.conversation_id else str(uuid.uuid4())
     async with pool.acquire() as conn:
         await conn.execute("""INSERT INTO ai_conversations (id, organization_id, user_id, context_type, context_stair_id, title)
             VALUES ($1,$2,$3,'chat',$4,$5) ON CONFLICT (id) DO NOTHING""",
             conv_id, auth.org_id, auth.user_id, str(req.context_stair_id) if req.context_stair_id else None, req.message[:100])
-        total_tokens = result.get("usage", {}).get("input_tokens", 0) + result.get("usage", {}).get("output_tokens", 0)
+        total_tokens = tokens
         await conn.execute("INSERT INTO ai_messages (id, conversation_id, role, content, tokens_used, model_used) VALUES ($1,$2,'user',$3,0,$4)",
             str(uuid.uuid4()), conv_id, req.message, model_used)
         await conn.execute("INSERT INTO ai_messages (id, conversation_id, role, content, tokens_used, model_used) VALUES ($1,$2,'assistant',$3,$4,$5)",
@@ -240,6 +266,7 @@ async def ai_chat(req: AIChatRequest, auth: AuthContext = Depends(get_auth)):
                     "provider": provider,
                     "context": "ai_advisor",
                     "sources_used": [s["filename"] for s in sources_used] if sources_used else [],
+                    "agent_chain": agent_result.get("agent_chain", []),
                 },
                 user_id=auth.user_id,
             )
@@ -417,61 +444,18 @@ def _mock_questionnaire(strategy_type: str) -> dict:
 
 @router.post("/questionnaire", response_model=QuestionnaireGenerateResponse)
 async def ai_generate_questionnaire(req: QuestionnaireGenerateRequest, auth: AuthContext = Depends(get_auth)):
-    type_label = req.strategy_type.replace("_", " ").title()
-    brief_section = f"\nCompany Brief: {req.company_brief}" if req.company_brief else ""
-    industry_section = f"\nIndustry: {req.industry}" if req.industry else ""
+    # Route through Orchestrator → Strategy Agent
+    agent_result = await _orchestrator.process(
+        task_type="questionnaire",
+        payload={
+            "company_name": req.company_name,
+            "company_brief": req.company_brief,
+            "industry": req.industry,
+            "strategy_type": req.strategy_type,
+        },
+    )
 
-    prompt = f"""You are an expert strategy consultant. Generate a tailored questionnaire for creating a {type_label} strategy.
-
-Company: {req.company_name}{industry_section}{brief_section}
-
-Generate 8-15 questions that are SPECIFIC to {type_label} strategy planning.
-
-IMPORTANT RULES:
-1. Do NOT ask about anything already stated in the company brief above — read it carefully first
-2. Questions must gather information that is MISSING but essential for a {type_label} strategy
-3. Mix question types: multiple_choice, short_text, yes_no, scale
-4. Group questions into 3-5 logical themes with descriptive group names
-5. Include 2-3 conditional questions that only apply based on a prior answer
-6. Each question must have a one-line explanation of WHY it matters
-
-Return ONLY valid JSON in this exact format:
-{{
-  "groups": [
-    {{
-      "name": "Theme Name",
-      "questions": [
-        {{
-          "id": "q1",
-          "question": "The question?",
-          "type": "multiple_choice",
-          "explanation": "Why this question matters for the strategy",
-          "options": ["Option A", "Option B", "Option C"],
-          "conditional_on": null
-        }},
-        {{
-          "id": "q2",
-          "question": "Follow-up question?",
-          "type": "short_text",
-          "explanation": "Why this matters",
-          "options": null,
-          "conditional_on": {{"question_id": "q1", "expected_answer": "Option A"}}
-        }}
-      ]
-    }}
-  ]
-}}
-
-Question type rules:
-- "scale": options must be ["1", "2", "3", "4", "5"]
-- "yes_no": options must be ["Yes", "No"]
-- "multiple_choice": provide 3-5 specific, relevant options
-- "short_text": options must be null
-
-Use conditional_on sparingly (2-3 questions). The expected_answer must exactly match one of the parent question's options."""
-
-    result = await call_claude([{"role": "user", "content": prompt}], max_tokens=2048)
-    text = result["content"][0]["text"] if result.get("content") else "{}"
+    text = agent_result.get("text", "{}")
 
     try:
         start = text.find("{")
@@ -484,11 +468,10 @@ Use conditional_on sparingly (2-3 questions). The expected_answer must exactly m
         questionnaire = _mock_questionnaire(req.strategy_type)
 
     # Auto-log questionnaire generation to Source of Truth
-    # Note: strategy_id may not exist yet during wizard; frontend will log answers with strategy_id later
     try:
         question_count = sum(len(g.get("questions", [])) if isinstance(g, dict) else len(g.questions) for g in (questionnaire.get("groups", []) if isinstance(questionnaire, dict) else questionnaire["groups"]))
         await log_source(
-            strategy_id="00000000-0000-0000-0000-000000000000",  # placeholder, frontend re-logs with actual ID
+            strategy_id="00000000-0000-0000-0000-000000000000",
             source_type="questionnaire",
             content=f"Questionnaire generated for {req.company_name} ({req.strategy_type}): {question_count} questions",
             metadata={
@@ -497,6 +480,7 @@ Use conditional_on sparingly (2-3 questions). The expected_answer must exactly m
                 "strategy_type": req.strategy_type,
                 "industry": req.industry,
                 "question_count": question_count,
+                "agent_chain": agent_result.get("agent_chain", []),
             },
             user_id=auth.user_id,
         )
@@ -552,10 +536,6 @@ async def prefill_questionnaire(
     auth: AuthContext = Depends(get_auth),
 ):
     """Use AI to pre-fill questionnaire answers from uploaded document text."""
-    type_label = req.strategy_type.replace("_", " ").title()
-    brief_section = f"\nDescription: {req.company_brief}" if req.company_brief else ""
-    industry_section = f"\nIndustry: {req.industry}" if req.industry else ""
-
     # Build the questions section from groups
     questions_section = []
     for group in req.groups:
@@ -575,37 +555,20 @@ async def prefill_questionnaire(
                 q_line += f"\n    Context: {qexpl}"
             questions_section.append(q_line)
 
-    # Truncate document text
-    max_chars = 20000
-    doc_text = req.document_text[:max_chars]
-    if len(req.document_text) > max_chars:
-        doc_text += "\n\n[Document text truncated]"
+    # Route through Orchestrator → Document Agent + Advisor Agent
+    agent_result = await _orchestrator.process(
+        task_type="prefill_questionnaire",
+        payload={
+            "company_name": req.company_name,
+            "company_brief": req.company_brief,
+            "industry": req.industry,
+            "strategy_type": req.strategy_type,
+            "document_text": req.document_text,
+            "questions_section": chr(10).join(questions_section),
+        },
+    )
 
-    prompt = f"""You are a strategy consultant. Based on the company information and uploaded documents below, answer the questionnaire questions.
-
-COMPANY INFORMATION:
-- Name: {req.company_name}{industry_section}{brief_section}
-- Strategy Type: {type_label}
-
-UPLOADED DOCUMENTS:
-{doc_text}
-
-QUESTIONNAIRE QUESTIONS:
-{chr(10).join(questions_section)}
-
-INSTRUCTIONS:
-- For "multiple_choice" questions: your answer MUST be EXACTLY one of the provided options (case-sensitive match)
-- For "yes_no" questions: answer exactly "Yes" or "No"
-- For "scale" questions: answer a single digit from "1" to "5"
-- For "short_text" questions: provide a concise answer (1-3 sentences) based on the documents
-- Only answer questions where the documents provide relevant information
-- If the documents don't contain relevant info for a question, skip it entirely
-
-Return ONLY valid JSON:
-{{"answers": {{"q1": "exact answer", "q3": "text answer"}}}}"""
-
-    result = await call_claude([{"role": "user", "content": prompt}], max_tokens=2048)
-    text = result["content"][0]["text"] if result.get("content") else "{}"
+    text = agent_result.get("text", "{}")
 
     try:
         start = text.find("{")
@@ -625,3 +588,145 @@ Return ONLY valid JSON:
             clean_answers[k] = str(v)
 
     return {"answers": clean_answers}
+
+
+# ─── NEW AGENT ENDPOINTS ───
+
+@router.post("/action-plan", response_model=AgentResponse)
+async def ai_action_plan(req: ActionPlanGenerateRequest, auth: AuthContext = Depends(get_auth)):
+    """Generate an action plan for a strategy stair element."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        stair = await conn.fetchrow(
+            "SELECT * FROM stairs WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL",
+            str(req.stair_id), auth.org_id,
+        )
+        if not stair:
+            raise HTTPException(404, "Stair not found")
+
+    strategy_id = str(req.strategy_id) if req.strategy_id else (str(stair["strategy_id"]) if stair.get("strategy_id") else None)
+
+    stair_context = (
+        f"Element: {stair['title']} ({stair['element_type']})\n"
+        f"Description: {stair['description'] or 'No description'}\n"
+        f"Status: {stair['status']}, Health: {stair['health']}, Progress: {stair['progress_percent']}%\n"
+        f"Target: {stair['target_value']} {stair['unit'] or ''}, Current: {stair['current_value']}\n"
+        f"Start: {stair['start_date']}, End: {stair['end_date']}\n"
+        f"Priority: {stair['priority']}"
+    )
+
+    agent_result = await _orchestrator.process(
+        task_type="action_plan",
+        strategy_id=strategy_id,
+        payload={"stair_context": stair_context},
+    )
+
+    validation = agent_result.get("validation", {})
+    return {
+        "response": agent_result.get("text", ""),
+        "tokens_used": agent_result.get("tokens", 0),
+        "provider": agent_result.get("provider"),
+        "provider_display": agent_result.get("provider_display"),
+        "agent_chain": agent_result.get("agent_chain"),
+        "confidence_score": validation.get("confidence_score"),
+    }
+
+
+@router.post("/customized-plan", response_model=AgentResponse)
+async def ai_customized_plan(req: CustomizedPlanRequest, auth: AuthContext = Depends(get_auth)):
+    """Customize an existing action plan based on user feedback."""
+    strategy_id = str(req.strategy_id) if req.strategy_id else None
+
+    agent_result = await _orchestrator.process(
+        task_type="customized_plan",
+        strategy_id=strategy_id,
+        payload={"original_plan": req.original_plan, "feedback": req.feedback},
+    )
+
+    validation = agent_result.get("validation", {})
+    return {
+        "response": agent_result.get("text", ""),
+        "tokens_used": agent_result.get("tokens", 0),
+        "provider": agent_result.get("provider"),
+        "provider_display": agent_result.get("provider_display"),
+        "agent_chain": agent_result.get("agent_chain"),
+        "confidence_score": validation.get("confidence_score"),
+    }
+
+
+@router.post("/explain-action", response_model=AgentResponse)
+async def ai_explain_action(req: ExplainActionRequest, auth: AuthContext = Depends(get_auth)):
+    """Explain a strategic action in practical terms."""
+    stair_context = ""
+    strategy_id = str(req.strategy_id) if req.strategy_id else None
+
+    if req.stair_id:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            stair = await conn.fetchrow(
+                "SELECT * FROM stairs WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL",
+                str(req.stair_id), auth.org_id,
+            )
+            if stair:
+                stair_context = (
+                    f"Element: {stair['title']} ({stair['element_type']})\n"
+                    f"Description: {stair['description'] or 'No description'}\n"
+                    f"Status: {stair['status']}, Health: {stair['health']}"
+                )
+                if not strategy_id and stair.get("strategy_id"):
+                    strategy_id = str(stair["strategy_id"])
+
+    agent_result = await _orchestrator.process(
+        task_type="explain_action",
+        strategy_id=strategy_id,
+        payload={"action": req.action, "stair_context": stair_context},
+    )
+
+    return {
+        "response": agent_result.get("text", ""),
+        "tokens_used": agent_result.get("tokens", 0),
+        "provider": agent_result.get("provider"),
+        "provider_display": agent_result.get("provider_display"),
+        "agent_chain": agent_result.get("agent_chain"),
+        "confidence_score": None,
+    }
+
+
+@router.post("/implementation-guide", response_model=AgentResponse)
+async def ai_implementation_guide(req: ImplementationGuideRequest, auth: AuthContext = Depends(get_auth)):
+    """Generate a comprehensive implementation guide for a stair element."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        stair = await conn.fetchrow(
+            "SELECT * FROM stairs WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL",
+            str(req.stair_id), auth.org_id,
+        )
+        if not stair:
+            raise HTTPException(404, "Stair not found")
+
+    strategy_id = str(req.strategy_id) if req.strategy_id else (str(stair["strategy_id"]) if stair.get("strategy_id") else None)
+
+    element_context = (
+        f"Element: {stair['title']} ({stair['element_type']})\n"
+        f"Description: {stair['description'] or 'No description'}\n"
+        f"Status: {stair['status']}, Health: {stair['health']}, Progress: {stair['progress_percent']}%\n"
+        f"Target: {stair['target_value']} {stair['unit'] or ''}, Current: {stair['current_value']}\n"
+        f"Start: {stair['start_date']}, End: {stair['end_date']}\n"
+        f"Priority: {stair['priority']}"
+    )
+
+    agent_result = await _orchestrator.process(
+        task_type="implementation_guide",
+        strategy_id=strategy_id,
+        payload={"element_context": element_context},
+    )
+
+    validation = agent_result.get("validation", {})
+    return {
+        "response": agent_result.get("text", ""),
+        "tokens_used": agent_result.get("tokens", 0),
+        "provider": agent_result.get("provider"),
+        "provider_display": agent_result.get("provider_display"),
+        "agent_chain": agent_result.get("agent_chain"),
+        "confidence_score": validation.get("confidence_score"),
+    }
