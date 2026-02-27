@@ -364,7 +364,7 @@ const slideConfigs = [
           className={animate ? "slideshow-fadeUp" : ""}
           style={{ opacity: animate ? 0 : 1, animationDelay: "100ms", animationFillMode: "forwards" }}
         >
-          <img src={LOGO_SRC} alt="DEVONEERS" style={{ height: "48px", marginBottom: "8px" }} />
+          <img src={LOGO_SRC} alt="DEVONEERS" style={{ width: "200px", marginBottom: "8px" }} />
         </div>
         <div
           className={animate ? "slideshow-fadeUp" : ""}

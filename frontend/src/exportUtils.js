@@ -45,7 +45,7 @@ export const buildHeader = (strategyContext, exportType) => `
   <div class="stairs-header">
     <img src="${DEVONEERS_LOGO_URI}" class="stairs-logo-img" alt="DEVONEERS" />
     <div>
-      <div class="stairs-logo">ST.AIRS</div>
+      <div class="stairs-logo">ST.AIRS <span style="color:#64748b;font-weight:400;font-size:12px;letter-spacing:1px">&nbsp;|&nbsp; ${strategyContext?.name || "Strategy"} &nbsp;|&nbsp; ${new Date().toLocaleDateString()}</span></div>
       <h1>${strategyContext?.name || "Strategy"}</h1>
       <div style="font-size: 12px; color: #64748b">${strategyContext?.company || ""} ${strategyContext?.company ? "·" : ""} ${exportType} · ${new Date().toLocaleDateString()}</div>
     </div>
@@ -53,7 +53,7 @@ export const buildHeader = (strategyContext, exportType) => `
 
 export const buildFooter = () => `
   <div class="stairs-footer">
-    <div class="motto">BY DEVONEERS &bull; 'HUMAN IS THE LOOP' &bull; ${new Date().getFullYear()}</div>
+    <div class="motto">BY DEVONEERS &bull; HUMAN IS THE LOOP &bull; ${new Date().getFullYear()}</div>
     <div class="meta">ST.AIRS — Strategy AI Interactive Real-time System</div>
   </div>`;
 

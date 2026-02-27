@@ -55,7 +55,7 @@ const buildStairHeader = (group, plan, isAr) => {
 const openPrintWindow = (title, bodyContent) => {
   const w = window.open("", "_blank");
   if (!w) return;
-  w.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>${pdfStyles}</style></head><body>${bodyContent}<div class="footer" style="text-align:center;margin-top:40px;padding-top:20px;border-top:2px solid #B8904A"><div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:3px;margin-bottom:4px">BY DEVONEERS &bull; 'HUMAN IS THE LOOP' &bull; ${new Date().getFullYear()}</div><div style="font-size:10px;color:#94a3b8">ST.AIRS — Strategy AI Interactive Real-time System</div></div></body></html>`);
+  w.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>${pdfStyles}</style></head><body>${bodyContent}<div class="footer" style="text-align:center;margin-top:40px;padding-top:20px;border-top:2px solid #B8904A"><div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:3px;margin-bottom:4px">BY DEVONEERS &bull; HUMAN IS THE LOOP &bull; ${new Date().getFullYear()}</div><div style="font-size:10px;color:#94a3b8">ST.AIRS — Strategy AI Interactive Real-time System</div></div></body></html>`);
   w.document.close();
   w.print();
 };
@@ -71,7 +71,7 @@ const exportSinglePlan = (group, plan, strategyContext, isAr) => {
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
         <img src="${DEVONEERS_LOGO_URI}" style="height:32px" alt="DEVONEERS" />
         <div>
-          <div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:2px;margin-bottom:4px">ST.AIRS</div>
+          <div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:2px;margin-bottom:4px">ST.AIRS <span style="color:#64748b;font-weight:400;font-size:12px;letter-spacing:1px">&nbsp;|&nbsp; ${strategyContext?.name || "Strategy"} &nbsp;|&nbsp; ${new Date().toLocaleDateString()}</span></div>
           <h1 style="font-size:24px;font-weight:700;margin:0">${strategyContext?.name || "Strategy"}</h1>
           <div style="font-size:12px;color:#64748b">${strategyContext?.company || ""} &middot; Action Plan Export &middot; ${new Date().toLocaleDateString()}</div>
         </div>
@@ -98,7 +98,7 @@ const exportAllPlans = (planGroups, strategyContext, isAr) => {
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
         <img src="${DEVONEERS_LOGO_URI}" style="height:32px" alt="DEVONEERS" />
         <div>
-          <div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:2px;margin-bottom:4px">ST.AIRS</div>
+          <div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:2px;margin-bottom:4px">ST.AIRS <span style="color:#64748b;font-weight:400;font-size:12px;letter-spacing:1px">&nbsp;|&nbsp; ${strategyContext?.name || "Strategy"} &nbsp;|&nbsp; ${new Date().toLocaleDateString()}</span></div>
           <h1 style="font-size:24px;font-weight:700;margin:0">${strategyContext?.name || "Strategy"}</h1>
           <div style="font-size:12px;color:#64748b">${strategyContext?.company || ""} &middot; Action Plans Export &middot; ${new Date().toLocaleDateString()}</div>
         </div>

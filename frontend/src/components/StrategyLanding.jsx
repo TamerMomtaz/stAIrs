@@ -31,7 +31,7 @@ export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, user
         </div>
       </header>
       <div className="max-w-5xl mx-auto px-6 pt-16 pb-8 text-center" data-tutorial="strategy-landing">
-        <h1 className="text-3xl font-bold text-white mb-3" style={{ fontFamily: "'Instrument Serif', Georgia, serif" }}>{isAr ? "استراتيجياتك" : "Your Strategies"}</h1>
+        <h1 className="text-3xl font-bold text-white mb-3 flex items-center justify-center gap-3" style={{ fontFamily: "'Instrument Serif', Georgia, serif" }}><img src="/devoneers-logo.png" alt="DEVONEERS" style={{ height: "32px" }} />{isAr ? "استراتيجياتك" : "Your Strategies"}</h1>
         <p className="text-gray-500 text-sm max-w-lg mx-auto">{isAr ? "كل استراتيجية هي سلم مستقل." : "Each strategy is an independent staircase for a company, product, or project."}</p>
       </div>
       <div className="max-w-5xl mx-auto px-6 pb-12">
