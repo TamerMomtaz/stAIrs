@@ -4,6 +4,7 @@ import { GOLD, GOLD_L, BORDER } from "../constants";
 const BG = "#0a0e1a";
 const ACCENT = "#f5b731";
 const ACCENT_L = "#ffd666";
+const LOGO_SRC = "/devoneers-logo.png";
 
 // ═══ LOCALSTORAGE KEY ═══
 const WELCOME_SEEN_KEY = "stairs_welcome_seen";
@@ -114,36 +115,54 @@ const FileCards = ({ animate }) => {
     { name: "Market Research.xlsx", icon: "📈", color: "#34d399" },
   ];
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "16px", alignItems: "center", maxWidth: "400px", margin: "0 auto" }}>
-      {files.map((f, i) => (
-        <div
-          key={i}
-          className={animate ? "slideshow-fadeUp" : ""}
-          style={{
-            display: "flex", alignItems: "center", gap: "16px", padding: "16px 24px", borderRadius: "12px",
-            background: "rgba(22, 37, 68, 0.7)", border: `1px solid ${BORDER}`, width: "100%",
-            opacity: animate ? 0 : 1,
-            animationDelay: animate ? `${i * 400 + 300}ms` : undefined,
-            animationFillMode: "forwards",
-          }}
-        >
-          <span style={{ fontSize: "28px" }}>{f.icon}</span>
-          <div style={{ flex: 1 }}>
-            <div style={{ color: "#fff", fontSize: "14px", fontWeight: "600" }}>{f.name}</div>
-            <div style={{ color: "#64748b", fontSize: "11px", marginTop: "2px" }}>Uploaded successfully</div>
-          </div>
-          <span
+    <div style={{ display: "flex", flexDirection: "column", gap: "12px", maxWidth: "480px", margin: "0 auto" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "12px", alignItems: "center" }}>
+        {files.map((f, i) => (
+          <div
+            key={i}
             className={animate ? "slideshow-fadeUp" : ""}
             style={{
-              fontSize: "12px", color: "#34d399", fontWeight: "600", padding: "4px 10px", borderRadius: "8px",
-              background: "rgba(52, 211, 153, 0.1)", border: "1px solid rgba(52, 211, 153, 0.2)",
+              display: "flex", alignItems: "center", gap: "16px", padding: "14px 20px", borderRadius: "12px",
+              background: "rgba(22, 37, 68, 0.7)", border: `1px solid ${BORDER}`, width: "100%",
               opacity: animate ? 0 : 1,
-              animationDelay: animate ? `${i * 400 + 600}ms` : undefined,
+              animationDelay: animate ? `${i * 300 + 200}ms` : undefined,
               animationFillMode: "forwards",
             }}
-          >Extracted ✓</span>
+          >
+            <span style={{ fontSize: "24px" }}>{f.icon}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ color: "#fff", fontSize: "13px", fontWeight: "600" }}>{f.name}</div>
+              <div style={{ color: "#64748b", fontSize: "10px", marginTop: "2px" }}>Uploaded successfully</div>
+            </div>
+            <span
+              className={animate ? "slideshow-fadeUp" : ""}
+              style={{
+                fontSize: "11px", color: "#34d399", fontWeight: "600", padding: "3px 8px", borderRadius: "8px",
+                background: "rgba(52, 211, 153, 0.1)", border: "1px solid rgba(52, 211, 153, 0.2)",
+                opacity: animate ? 0 : 1,
+                animationDelay: animate ? `${i * 300 + 400}ms` : undefined,
+                animationFillMode: "forwards",
+              }}
+            >Extracted ✓</span>
+          </div>
+        ))}
+      </div>
+      <div
+        className={animate ? "slideshow-fadeUp" : ""}
+        style={{
+          display: "flex", alignItems: "center", gap: "10px", padding: "10px 16px", borderRadius: "10px",
+          background: `${ACCENT}08`, border: `1px dashed ${ACCENT}30`,
+          opacity: animate ? 0 : 1,
+          animationDelay: animate ? "1200ms" : undefined,
+          animationFillMode: "forwards",
+        }}
+      >
+        <span style={{ fontSize: "16px" }}>🔍</span>
+        <div>
+          <div style={{ color: ACCENT, fontSize: "11px", fontWeight: "700" }}>Source of Truth</div>
+          <div style={{ color: "#94a3b8", fontSize: "10px" }}>AI extraction feeds verified sources into everything</div>
         </div>
-      ))}
+      </div>
     </div>
   );
 };
@@ -158,108 +177,76 @@ const FrameworkBadges = ({ animate }) => {
     { name: "Porter's Five Forces", icon: "🛡️", desc: "Competitive Analysis" },
   ];
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: "14px", justifyContent: "center", maxWidth: "600px", margin: "0 auto" }}>
-      {frameworks.map((fw, i) => (
-        <div
-          key={i}
-          className={animate ? "slideshow-fadeUp" : ""}
-          style={{
-            padding: "16px 20px", borderRadius: "14px", background: "rgba(22, 37, 68, 0.7)", border: `1px solid ${BORDER}`,
-            display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", width: "160px",
-            opacity: animate ? 0 : 1,
-            animationDelay: animate ? `${i * 200 + 200}ms` : undefined,
-            animationFillMode: "forwards",
-          }}
-        >
-          <span style={{ fontSize: "28px" }}>{fw.icon}</span>
-          <span style={{ color: "#fff", fontSize: "13px", fontWeight: "600", textAlign: "center" }}>{fw.name}</span>
-          <span style={{ color: "#64748b", fontSize: "10px", textAlign: "center" }}>{fw.desc}</span>
-          <span style={{ fontSize: "10px", color: "#34d399", fontWeight: "600", padding: "3px 8px", borderRadius: "6px", background: "rgba(52, 211, 153, 0.1)", border: "1px solid rgba(52, 211, 153, 0.2)", marginTop: "4px" }}>Auto-populated from your data ✓</span>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// ═══ EXECUTION SLIDE (Slide 5) ═══
-const ExecutionView = ({ animate }) => {
-  const items = [
-    { label: "Quarterly Marketing Campaign", status: "In Progress", color: "#60a5fa" },
-    { label: "Product Launch Preparation", status: "Planning", color: ACCENT },
-    { label: "Market Research Phase 2", status: "Ready", color: "#34d399" },
-  ];
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "16px", alignItems: "center", maxWidth: "440px", margin: "0 auto" }}>
-      {items.map((item, i) => (
-        <div
-          key={i}
-          className={animate ? "slideshow-fadeUp" : ""}
-          style={{
-            display: "flex", alignItems: "center", gap: "14px", padding: "14px 20px", borderRadius: "12px",
-            background: "rgba(22, 37, 68, 0.7)", border: `1px solid ${BORDER}`, width: "100%",
-            opacity: animate ? 0 : 1,
-            animationDelay: animate ? `${i * 300 + 200}ms` : undefined,
-            animationFillMode: "forwards",
-          }}
-        >
-          <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: item.color, flexShrink: 0 }} />
-          <span style={{ color: "#fff", fontSize: "13px", fontWeight: "500", flex: 1 }}>{item.label}</span>
-          <span style={{ fontSize: "10px", color: item.color, fontWeight: "600", padding: "3px 8px", borderRadius: "6px", background: `${item.color}15`, border: `1px solid ${item.color}30` }}>{item.status}</span>
-        </div>
-      ))}
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px", maxWidth: "600px", margin: "0 auto" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "14px", justifyContent: "center" }}>
+        {frameworks.map((fw, i) => (
+          <div
+            key={i}
+            className={animate ? "slideshow-fadeUp" : ""}
+            style={{
+              padding: "16px 20px", borderRadius: "14px", background: "rgba(22, 37, 68, 0.7)", border: `1px solid ${BORDER}`,
+              display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", width: "160px",
+              opacity: animate ? 0 : 1,
+              animationDelay: animate ? `${i * 200 + 200}ms` : undefined,
+              animationFillMode: "forwards",
+            }}
+          >
+            <span style={{ fontSize: "28px" }}>{fw.icon}</span>
+            <span style={{ color: "#fff", fontSize: "13px", fontWeight: "600", textAlign: "center" }}>{fw.name}</span>
+            <span style={{ color: "#64748b", fontSize: "10px", textAlign: "center" }}>{fw.desc}</span>
+            <span style={{ fontSize: "10px", color: "#34d399", fontWeight: "600", padding: "3px 8px", borderRadius: "6px", background: "rgba(52, 211, 153, 0.1)", border: "1px solid rgba(52, 211, 153, 0.2)", marginTop: "4px" }}>Auto-populated from your data ✓</span>
+          </div>
+        ))}
+      </div>
       <div
         className={animate ? "slideshow-fadeUp" : ""}
         style={{
-          marginTop: "8px", display: "flex", alignItems: "center", gap: "10px", padding: "12px 18px", borderRadius: "12px",
-          background: `${ACCENT}10`, border: `1px dashed ${ACCENT}40`,
+          display: "flex", gap: "8px", justifyContent: "center", flexWrap: "wrap",
           opacity: animate ? 0 : 1,
-          animationDelay: animate ? "1200ms" : undefined,
+          animationDelay: animate ? "1400ms" : undefined,
           animationFillMode: "forwards",
         }}
       >
-        <span style={{ fontSize: "18px" }}>🔄</span>
-        <div>
-          <div style={{ color: ACCENT, fontSize: "12px", fontWeight: "700" }}>"How far can I take this?"</div>
-          <div style={{ color: "#94a3b8", fontSize: "10px", marginTop: "2px" }}>AI feedback loop — your execution, refined</div>
-        </div>
-        <span style={{ fontSize: "10px", color: "#a78bfa", fontWeight: "600", padding: "3px 8px", borderRadius: "6px", background: "rgba(167, 139, 250, 0.1)", border: "1px solid rgba(167, 139, 250, 0.2)", marginLeft: "auto", whiteSpace: "nowrap" }}>Customized Plan</span>
+        {["Analyze", "Compare", "Export", "AI Insights"].map((chip, i) => (
+          <span key={i} style={{ fontSize: "10px", color: ACCENT, fontWeight: "600", padding: "4px 12px", borderRadius: "8px", background: `${ACCENT}12`, border: `1px solid ${ACCENT}30` }}>{chip}</span>
+        ))}
       </div>
     </div>
   );
 };
 
-// ═══ DATA FLOW (Slide 6) ═══
-const DataFlow = ({ animate }) => {
-  const nodes = [
-    { label: "Documents", icon: "📄", desc: "Pitch deck, research, plans" },
-    { label: "AI Extraction", icon: "🤖", desc: "Intelligent parsing" },
-    { label: "AI Advisor", icon: "💡", desc: "Strategic analysis" },
-    { label: "Frameworks", icon: "📐", desc: "IFE, EFE, SPACE, BCG, Porter" },
-    { label: "Execution", icon: "🚀", desc: "Action plans & KPIs" },
+// ═══ EXECUTION FLOW (Slide 5) ═══
+const ExecutionFlow = ({ animate }) => {
+  const steps = [
+    { label: "Action", icon: "⚡", desc: "Select any action item", color: "#60a5fa" },
+    { label: "Explain", icon: "💡", desc: "AI explains strategic context", color: "#a78bfa" },
+    { label: "Assess Ability", icon: "📏", desc: "Evaluate what's achievable", color: "#0d9488" },
+    { label: "Customized Plan", icon: "✨", desc: "Tailored to your capacity", color: ACCENT },
+    { label: "Implementation Room", icon: "🚀", desc: "Step-by-step execution", color: "#34d399" },
   ];
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", flexWrap: "wrap", maxWidth: "800px", margin: "0 auto" }}>
-      {nodes.map((n, i) => (
-        <div key={i} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", flexWrap: "wrap", maxWidth: "800px", margin: "0 auto" }}>
+      {steps.map((s, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
           <div
             className={animate ? "slideshow-fadeUp" : ""}
             style={{
-              display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", padding: "14px 16px", borderRadius: "14px",
+              display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", padding: "12px 14px", borderRadius: "14px",
               background: "rgba(22, 37, 68, 0.7)", border: `1px solid ${BORDER}`, width: "120px",
               opacity: animate ? 0 : 1,
               animationDelay: animate ? `${i * 250 + 200}ms` : undefined,
               animationFillMode: "forwards",
             }}
           >
-            <span style={{ fontSize: "24px" }}>{n.icon}</span>
-            <span style={{ color: "#fff", fontSize: "12px", fontWeight: "600", textAlign: "center" }}>{n.label}</span>
-            <span style={{ color: "#64748b", fontSize: "9px", textAlign: "center" }}>{n.desc}</span>
+            <span style={{ fontSize: "22px" }}>{s.icon}</span>
+            <span style={{ color: s.color, fontSize: "11px", fontWeight: "700", textAlign: "center" }}>{s.label}</span>
+            <span style={{ color: "#64748b", fontSize: "9px", textAlign: "center" }}>{s.desc}</span>
           </div>
-          {i < nodes.length - 1 && (
+          {i < steps.length - 1 && (
             <span
               className={animate ? "slideshow-fadeUp" : ""}
               style={{
-                color: ACCENT, fontSize: "18px", opacity: animate ? 0 : 0.5,
+                color: ACCENT, fontSize: "16px", opacity: animate ? 0 : 0.4,
                 animationDelay: animate ? `${i * 250 + 350}ms` : undefined,
                 animationFillMode: "forwards",
               }}
@@ -271,6 +258,102 @@ const DataFlow = ({ animate }) => {
   );
 };
 
+// ═══ MANIFEST ROOM (Slide 6) ═══
+const ManifestPreview = ({ animate }) => {
+  const items = [
+    { title: "Quarterly Marketing Campaign", sections: 4, steps: "8/12", pct: 67 },
+    { title: "Product Launch Preparation", sections: 3, steps: "3/9", pct: 33 },
+    { title: "Market Research Phase 2", sections: 4, steps: "10/10", pct: 100 },
+  ];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "12px", maxWidth: "440px", margin: "0 auto" }}>
+      {items.map((item, i) => (
+        <div
+          key={i}
+          className={animate ? "slideshow-fadeUp" : ""}
+          style={{
+            display: "flex", alignItems: "center", gap: "14px", padding: "14px 18px", borderRadius: "12px",
+            background: "rgba(22, 37, 68, 0.7)", border: `1px solid ${BORDER}`, borderLeft: `3px solid ${ACCENT}60`,
+            opacity: animate ? 0 : 1,
+            animationDelay: animate ? `${i * 300 + 200}ms` : undefined,
+            animationFillMode: "forwards",
+          }}
+        >
+          <span style={{ fontSize: "18px" }}>📦</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ color: "#fff", fontSize: "12px", fontWeight: "600", marginBottom: "4px" }}>{item.title}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontSize: "10px", color: "#94a3b8" }}>{item.sections}/4 sections</span>
+              <span style={{ fontSize: "10px", color: "#a78bfa" }}>{item.steps} steps</span>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", shrinkFlex: 0 }}>
+            <div style={{ width: "40px", height: "4px", borderRadius: "2px", background: "#1e3a5f", overflow: "hidden" }}>
+              <div style={{ height: "100%", borderRadius: "2px", background: item.pct === 100 ? "#34d399" : `linear-gradient(90deg, ${ACCENT}, ${ACCENT_L})`, width: `${item.pct}%` }} />
+            </div>
+            <span style={{ fontSize: "10px", color: item.pct === 100 ? "#34d399" : ACCENT, fontWeight: "600" }}>{item.pct}%</span>
+          </div>
+        </div>
+      ))}
+      <div
+        className={animate ? "slideshow-fadeUp" : ""}
+        style={{
+          display: "flex", gap: "8px", justifyContent: "center",
+          opacity: animate ? 0 : 1,
+          animationDelay: animate ? "1200ms" : undefined,
+          animationFillMode: "forwards",
+        }}
+      >
+        {["Export All PDF", "Track Progress", "Source References"].map((chip, i) => (
+          <span key={i} style={{ fontSize: "10px", color: ACCENT, fontWeight: "600", padding: "4px 10px", borderRadius: "8px", background: `${ACCENT}12`, border: `1px solid ${ACCENT}30` }}>{chip}</span>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ═══ ALERTS & KNOWLEDGE (Slide 7) ═══
+const AlertsKnowledge = ({ animate }) => (
+  <div style={{ display: "flex", gap: "20px", maxWidth: "600px", margin: "0 auto", flexWrap: "wrap", justifyContent: "center" }}>
+    <div
+      className={animate ? "slideshow-fadeUp" : ""}
+      style={{
+        flex: "1 1 260px", padding: "18px", borderRadius: "14px", background: "rgba(22, 37, 68, 0.7)", border: `1px solid ${BORDER}`,
+        opacity: animate ? 0 : 1,
+        animationDelay: animate ? "200ms" : undefined,
+        animationFillMode: "forwards",
+      }}
+    >
+      <div style={{ fontSize: "24px", marginBottom: "10px" }}>🔔</div>
+      <div style={{ color: "#fff", fontSize: "14px", fontWeight: "700", marginBottom: "6px" }}>Strategy Alerts</div>
+      <div style={{ color: "#94a3b8", fontSize: "11px", lineHeight: "1.6", marginBottom: "10px" }}>Real-time health monitoring across your entire staircase. Get notified when elements go off-track.</div>
+      <div style={{ display: "flex", gap: "6px" }}>
+        {[{ label: "Critical", color: "#f87171" }, { label: "At Risk", color: "#fbbf24" }, { label: "Info", color: "#60a5fa" }].map((a, i) => (
+          <span key={i} style={{ fontSize: "9px", color: a.color, padding: "2px 8px", borderRadius: "6px", background: `${a.color}15`, border: `1px solid ${a.color}30`, fontWeight: "600" }}>{a.label}</span>
+        ))}
+      </div>
+    </div>
+    <div
+      className={animate ? "slideshow-fadeUp" : ""}
+      style={{
+        flex: "1 1 260px", padding: "18px", borderRadius: "14px", background: "rgba(22, 37, 68, 0.7)", border: `1px solid ${BORDER}`,
+        opacity: animate ? 0 : 1,
+        animationDelay: animate ? "500ms" : undefined,
+        animationFillMode: "forwards",
+      }}
+    >
+      <div style={{ fontSize: "24px", marginBottom: "10px" }}>📖</div>
+      <div style={{ color: "#fff", fontSize: "14px", fontWeight: "700", marginBottom: "6px" }}>Knowledge Library</div>
+      <div style={{ color: "#94a3b8", fontSize: "11px", lineHeight: "1.6", marginBottom: "10px" }}>Curated frameworks, books, failure patterns, and measurement tools to inform your strategy.</div>
+      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+        {["Frameworks", "Books", "Patterns", "Tools"].map((k, i) => (
+          <span key={i} style={{ fontSize: "9px", color: ACCENT, padding: "2px 8px", borderRadius: "6px", background: `${ACCENT}12`, border: `1px solid ${ACCENT}30`, fontWeight: "600" }}>{k}</span>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
 // ═══ SLIDE DEFINITIONS ═══
 const slideConfigs = [
   {
@@ -279,7 +362,13 @@ const slideConfigs = [
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "24px", padding: "40px 20px" }}>
         <div
           className={animate ? "slideshow-fadeUp" : ""}
-          style={{ opacity: animate ? 0 : 1, animationDelay: "200ms", animationFillMode: "forwards" }}
+          style={{ opacity: animate ? 0 : 1, animationDelay: "100ms", animationFillMode: "forwards" }}
+        >
+          <img src={LOGO_SRC} alt="DEVONEERS" style={{ height: "48px", marginBottom: "8px" }} />
+        </div>
+        <div
+          className={animate ? "slideshow-fadeUp" : ""}
+          style={{ opacity: animate ? 0 : 1, animationDelay: "300ms", animationFillMode: "forwards" }}
         >
           <span style={{
             fontSize: "56px", fontWeight: "800", fontFamily: "'Instrument Serif', Georgia, serif",
@@ -289,7 +378,7 @@ const slideConfigs = [
         </div>
         <div
           className={animate ? "slideshow-fadeUp" : ""}
-          style={{ opacity: animate ? 0 : 1, animationDelay: "500ms", animationFillMode: "forwards", textAlign: "center" }}
+          style={{ opacity: animate ? 0 : 1, animationDelay: "600ms", animationFillMode: "forwards", textAlign: "center" }}
         >
           <p style={{ color: "#94a3b8", fontSize: "18px", lineHeight: "1.7", maxWidth: "500px", fontStyle: "italic" }}>
             Most strategy tools stop at the recommendation.<br />
@@ -317,13 +406,13 @@ const slideConfigs = [
   {
     id: "upload",
     render: (animate) => (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "32px", padding: "20px" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "28px", padding: "20px" }}>
         <div
           className={animate ? "slideshow-fadeUp" : ""}
           style={{ textAlign: "center", opacity: animate ? 0 : 1, animationDelay: "100ms", animationFillMode: "forwards" }}
         >
-          <h2 style={{ color: "#fff", fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Upload Your Documents</h2>
-          <p style={{ color: "#64748b", fontSize: "13px" }}>We extract insights automatically from your existing work</p>
+          <h2 style={{ color: "#fff", fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Upload & Source of Truth</h2>
+          <p style={{ color: "#64748b", fontSize: "13px" }}>Upload documents, AI extracts insights, verified sources feed everything</p>
         </div>
         <FileCards animate={animate} />
       </div>
@@ -332,13 +421,13 @@ const slideConfigs = [
   {
     id: "frameworks",
     render: (animate) => (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "32px", padding: "20px" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "28px", padding: "20px" }}>
         <div
           className={animate ? "slideshow-fadeUp" : ""}
           style={{ textAlign: "center", opacity: animate ? 0 : 1, animationDelay: "100ms", animationFillMode: "forwards" }}
         >
           <h2 style={{ color: "#fff", fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Strategic Frameworks</h2>
-          <p style={{ color: "#64748b", fontSize: "13px" }}>Five powerful matrix tools, auto-populated from your data</p>
+          <p style={{ color: "#64748b", fontSize: "13px" }}>Five powerful matrix tools with quick-action chips, auto-populated from AI</p>
         </div>
         <FrameworkBadges animate={animate} />
       </div>
@@ -347,40 +436,61 @@ const slideConfigs = [
   {
     id: "execution",
     render: (animate) => (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "32px", padding: "20px" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "28px", padding: "20px" }}>
         <div
           className={animate ? "slideshow-fadeUp" : ""}
           style={{ textAlign: "center", opacity: animate ? 0 : 1, animationDelay: "100ms", animationFillMode: "forwards" }}
         >
-          <h2 style={{ color: "#fff", fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Execution & Feedback</h2>
-          <p style={{ color: "#64748b", fontSize: "13px" }}>Action items with AI-powered feedback loops and customized plans</p>
+          <h2 style={{ color: "#fff", fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Execution & Implementation</h2>
+          <p style={{ color: "#64748b", fontSize: "13px" }}>From action to implementation — a complete execution pipeline</p>
         </div>
-        <ExecutionView animate={animate} />
+        <ExecutionFlow animate={animate} />
       </div>
     ),
   },
   {
-    id: "source-of-truth",
+    id: "manifest",
     render: (animate) => (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "32px", padding: "20px" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "28px", padding: "20px" }}>
         <div
           className={animate ? "slideshow-fadeUp" : ""}
           style={{ textAlign: "center", opacity: animate ? 0 : 1, animationDelay: "100ms", animationFillMode: "forwards" }}
         >
-          <h2 style={{ color: "#fff", fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Source of Truth</h2>
-          <p style={{ color: "#64748b", fontSize: "13px" }}>Every insight tracked from document to execution</p>
+          <h2 style={{ color: "#fff", fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Manifest Room</h2>
+          <p style={{ color: "#64748b", fontSize: "13px" }}>Organized, exportable view of all your implementation threads</p>
         </div>
-        <DataFlow animate={animate} />
+        <ManifestPreview animate={animate} />
+      </div>
+    ),
+  },
+  {
+    id: "alerts-knowledge",
+    render: (animate) => (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "28px", padding: "20px" }}>
+        <div
+          className={animate ? "slideshow-fadeUp" : ""}
+          style={{ textAlign: "center", opacity: animate ? 0 : 1, animationDelay: "100ms", animationFillMode: "forwards" }}
+        >
+          <h2 style={{ color: "#fff", fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Alerts & Knowledge</h2>
+          <p style={{ color: "#64748b", fontSize: "13px" }}>Strategy health monitoring and curated learning resources</p>
+        </div>
+        <AlertsKnowledge animate={animate} />
       </div>
     ),
   },
   {
     id: "closing",
     render: (animate, onGetStarted, onSkip, hasStrategies) => (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "24px", padding: "40px 20px" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "20px", padding: "40px 20px" }}>
         <div
           className={animate ? "slideshow-fadeUp" : ""}
-          style={{ opacity: animate ? 0 : 1, animationDelay: "200ms", animationFillMode: "forwards" }}
+          style={{ opacity: animate ? 0 : 1, animationDelay: "100ms", animationFillMode: "forwards" }}
+        >
+          <img src={LOGO_SRC} alt="DEVONEERS" style={{ height: "44px" }} />
+        </div>
+        <div
+          className={animate ? "slideshow-fadeUp" : ""}
+          style={{ opacity: animate ? 0 : 1, animationDelay: "300ms", animationFillMode: "forwards" }}
         >
           <span style={{
             fontSize: "48px", fontWeight: "800", fontFamily: "'Instrument Serif', Georgia, serif",
@@ -396,6 +506,7 @@ const slideConfigs = [
             Where strategy meets execution.<br />
             <span style={{ color: ACCENT, fontWeight: "700", fontSize: "18px" }}>Human IS the Loop.</span>
           </p>
+          <p style={{ color: "#64748b", fontSize: "13px", marginTop: "8px", letterSpacing: "1px" }}>BY DEVONEERS</p>
         </div>
         <div
           className={animate ? "slideshow-fadeUp" : ""}

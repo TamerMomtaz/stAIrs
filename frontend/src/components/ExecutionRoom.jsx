@@ -3,6 +3,7 @@ import { api, ActionPlansAPI, SourcesAPI, ManifestStore } from "../api";
 import { GOLD, GOLD_L, TEAL, DEEP, BORDER, glass, typeColors, typeIcons } from "../constants";
 import { HealthBadge } from "./SharedUI";
 import { Markdown } from "./Markdown";
+import { DEVONEERS_LOGO_URI } from "../exportUtils";
 import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
 
 // ═══ EXECUTION ROOM ═══
@@ -711,7 +712,7 @@ User question: ${msg}`;
     w.document.write(`<!DOCTYPE html><html><head><title>${titleMap[mode]} - ${stair.title}</title>
       <style>@page{margin:20mm 15mm${mode === "both" ? ";size:landscape" : ""}}*{box-sizing:border-box;margin:0;padding:0}body{background:#fff;color:#1e293b;font-family:'Segoe UI',system-ui,sans-serif;line-height:1.5}.header{padding-bottom:16px;border-bottom:2px solid #B8904A;margin-bottom:20px}table{width:100%;border-collapse:collapse}thead th{text-align:left;padding:10px 8px;border-bottom:2px solid #B8904A;color:#B8904A;font-size:11px;text-transform:uppercase;font-weight:600}.section{margin-top:24px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;color:#B8904A;font-size:16px;font-weight:700}.footer{text-align:center;margin-top:30px;padding-top:16px;border-top:1px solid #e5e7eb;color:#94a3b8;font-size:10px}</style></head><body>
       <div class="header">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px"><span style="font-size:28px">${strategyContext?.icon || "🎯"}</span><div><div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:2px;margin-bottom:4px">ST.AIRS</div><h1 style="font-size:24px;font-weight:700;margin:0">${strategyContext?.name || "Strategy"}</h1><div style="font-size:12px;color:#64748b">${strategyContext?.company || ""} &middot; Execution Room Export &middot; ${new Date().toLocaleDateString()}</div></div></div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px"><img src="${DEVONEERS_LOGO_URI}" style="height:32px" alt="DEVONEERS" /><div><div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:2px;margin-bottom:4px">ST.AIRS</div><h1 style="font-size:24px;font-weight:700;margin:0">${strategyContext?.name || "Strategy"}</h1><div style="font-size:12px;color:#64748b">${strategyContext?.company || ""} &middot; Execution Room Export &middot; ${new Date().toLocaleDateString()}</div></div></div>
         <div style="margin-top:12px;padding:12px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0">
           <div style="font-size:11px;color:#B8904A;text-transform:uppercase;font-weight:600;margin-bottom:4px">Execution Room: ${stair.element_type?.replace("_", " ")}</div>
           <div style="font-size:16px;font-weight:700;color:#1e293b">${stair.code ? `<span style="color:#94a3b8;font-family:monospace;font-size:12px">${stair.code}</span> ` : ""}${stair.title}</div>
@@ -720,7 +721,7 @@ User question: ${msg}`;
         </div>
       </div>
       ${bodyContent}
-      <div class="footer" style="text-align:center;margin-top:40px;padding-top:20px;border-top:2px solid #B8904A"><div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:3px;margin-bottom:4px">HUMAN IS THE LOOP</div><div style="font-size:10px;color:#94a3b8">ST.AIRS — Strategy AI Interactive Real-time System &middot; By DEVONEERS &middot; ${new Date().getFullYear()}</div></div></body></html>`);
+      <div class="footer" style="text-align:center;margin-top:40px;padding-top:20px;border-top:2px solid #B8904A"><div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:3px;margin-bottom:4px">BY DEVONEERS &bull; 'HUMAN IS THE LOOP' &bull; ${new Date().getFullYear()}</div><div style="font-size:10px;color:#94a3b8">ST.AIRS — Strategy AI Interactive Real-time System</div></div></body></html>`);
     w.document.close();
     w.print();
   };

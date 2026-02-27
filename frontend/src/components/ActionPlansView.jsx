@@ -3,6 +3,7 @@ import { ActionPlansAPI } from "../api";
 import { GOLD, GOLD_L, DEEP, BORDER, glass, typeColors, typeIcons } from "../constants";
 import { Markdown } from "./Markdown";
 import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
+import { DEVONEERS_LOGO_URI } from "../exportUtils";
 
 // ═══ PDF EXPORT HELPERS ═══
 const pdfStyles = `@page{margin:20mm 15mm}*{box-sizing:border-box;margin:0;padding:0}body{background:#fff;color:#1e293b;font-family:'Segoe UI',system-ui,sans-serif;line-height:1.5}table{width:100%;border-collapse:collapse}thead th{text-align:left;padding:10px 8px;border-bottom:2px solid #B8904A;color:#B8904A;font-size:11px;text-transform:uppercase;font-weight:600}.section{margin-top:24px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;color:#B8904A;font-size:16px;font-weight:700}.footer{text-align:center;margin-top:30px;padding-top:16px;border-top:1px solid #e5e7eb;color:#94a3b8;font-size:10px}.header{padding-bottom:16px;border-bottom:2px solid #B8904A;margin-bottom:20px}`;
@@ -54,7 +55,7 @@ const buildStairHeader = (group, plan, isAr) => {
 const openPrintWindow = (title, bodyContent) => {
   const w = window.open("", "_blank");
   if (!w) return;
-  w.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>${pdfStyles}</style></head><body>${bodyContent}<div class="footer" style="text-align:center;margin-top:40px;padding-top:20px;border-top:2px solid #B8904A"><div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:3px;margin-bottom:4px">HUMAN IS THE LOOP</div><div style="font-size:10px;color:#94a3b8">ST.AIRS — Strategy AI Interactive Real-time System &middot; By DEVONEERS &middot; ${new Date().getFullYear()}</div></div></body></html>`);
+  w.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>${pdfStyles}</style></head><body>${bodyContent}<div class="footer" style="text-align:center;margin-top:40px;padding-top:20px;border-top:2px solid #B8904A"><div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:3px;margin-bottom:4px">BY DEVONEERS &bull; 'HUMAN IS THE LOOP' &bull; ${new Date().getFullYear()}</div><div style="font-size:10px;color:#94a3b8">ST.AIRS — Strategy AI Interactive Real-time System</div></div></body></html>`);
   w.document.close();
   w.print();
 };
@@ -68,7 +69,7 @@ const exportSinglePlan = (group, plan, strategyContext, isAr) => {
   let body = `
     <div class="header">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-        <span style="font-size:28px">${strategyContext?.icon || "🎯"}</span>
+        <img src="${DEVONEERS_LOGO_URI}" style="height:32px" alt="DEVONEERS" />
         <div>
           <div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:2px;margin-bottom:4px">ST.AIRS</div>
           <h1 style="font-size:24px;font-weight:700;margin:0">${strategyContext?.name || "Strategy"}</h1>
@@ -95,7 +96,7 @@ const exportAllPlans = (planGroups, strategyContext, isAr) => {
   let body = `
     <div class="header">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-        <span style="font-size:28px">${strategyContext?.icon || "🎯"}</span>
+        <img src="${DEVONEERS_LOGO_URI}" style="height:32px" alt="DEVONEERS" />
         <div>
           <div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:2px;margin-bottom:4px">ST.AIRS</div>
           <h1 style="font-size:24px;font-weight:700;margin:0">${strategyContext?.name || "Strategy"}</h1>

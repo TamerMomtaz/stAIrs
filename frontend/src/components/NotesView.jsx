@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { NotesStore } from "../api";
 import { GOLD, GOLD_L, glass, inputCls } from "../constants";
+import { DEVONEERS_LOGO_URI } from "../exportUtils";
+import { DEVONEERS_LOGO_URI } from "../exportUtils";
 
 export const NotesView = ({ lang, userId, strategyName }) => {
   const storeRef = useRef(null); if (!storeRef.current && userId) storeRef.current = new NotesStore(userId); const store = storeRef.current;
@@ -22,7 +24,7 @@ export const NotesView = ({ lang, userId, strategyName }) => {
   const togglePin = (n) => { if (!store) return; n.pinned = !n.pinned; n.updated_at = new Date().toISOString(); store.save(n); refresh(); };
   const exportNote = (n) => {
     const w = window.open("", "_blank"); if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><title>${n.title}</title><style>body{font-family:system-ui;padding:40px;max-width:700px;margin:0 auto;color:#1e293b;line-height:1.7}h1{color:#B8904A;border-bottom:2px solid #B8904A;padding-bottom:8px}pre{background:#f1f5f9;padding:16px;border-radius:8px;overflow-x:auto;font-size:13px;white-space:pre-wrap}.meta{color:#94a3b8;font-size:12px;margin-bottom:24px}.source{display:inline-block;background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:4px;font-size:11px}</style></head><body><div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:2px;margin-bottom:12px">ST.AIRS</div><h1>${n.title}</h1><div class="meta">${strategyName ? `Strategy: ${strategyName} · ` : ""}${new Date(n.created_at).toLocaleString()} · <span class="source">${n.source}</span></div><pre>${n.content}</pre><div style="margin-top:40px;text-align:center;padding-top:20px;border-top:2px solid #B8904A"><div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:3px;margin-bottom:4px">HUMAN IS THE LOOP</div><div style="font-size:10px;color:#94a3b8">ST.AIRS — Strategy AI Interactive Real-time System · By DEVONEERS · ${new Date().getFullYear()}</div></div></body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><title>${n.title}</title><style>body{font-family:system-ui;padding:40px;max-width:700px;margin:0 auto;color:#1e293b;line-height:1.7}h1{color:#B8904A;border-bottom:2px solid #B8904A;padding-bottom:8px}pre{background:#f1f5f9;padding:16px;border-radius:8px;overflow-x:auto;font-size:13px;white-space:pre-wrap}.meta{color:#94a3b8;font-size:12px;margin-bottom:24px}.source{display:inline-block;background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:4px;font-size:11px}</style></head><body><div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><img src="${DEVONEERS_LOGO_URI}" style="height:28px" alt="DEVONEERS" /><span style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:2px">ST.AIRS</span></div><h1>${n.title}</h1><div class="meta">${strategyName ? `Strategy: ${strategyName} · ` : ""}${new Date(n.created_at).toLocaleString()} · <span class="source">${n.source}</span></div><pre>${n.content}</pre><div style="margin-top:40px;text-align:center;padding-top:20px;border-top:2px solid #B8904A"><div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:3px;margin-bottom:4px">BY DEVONEERS &bull; 'HUMAN IS THE LOOP' &bull; ${new Date().getFullYear()}</div><div style="font-size:10px;color:#94a3b8">ST.AIRS — Strategy AI Interactive Real-time System</div></div></body></html>`);
     w.document.close(); w.print();
   };
   const copyNote = (n) => { navigator.clipboard?.writeText(`${n.title}\n\n${n.content}`).then(() => alert("Copied to clipboard!")); };
