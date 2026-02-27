@@ -376,7 +376,7 @@ const slideConfigs = [
   },
   {
     id: "closing",
-    render: (animate, onGetStarted) => (
+    render: (animate, onGetStarted, onSkip, hasStrategies) => (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "24px", padding: "40px 20px" }}>
         <div
           className={animate ? "slideshow-fadeUp" : ""}
@@ -399,23 +399,42 @@ const slideConfigs = [
         </div>
         <div
           className={animate ? "slideshow-fadeUp" : ""}
-          style={{ opacity: animate ? 0 : 1, animationDelay: "800ms", animationFillMode: "forwards", marginTop: "12px" }}
+          style={{ opacity: animate ? 0 : 1, animationDelay: "800ms", animationFillMode: "forwards", marginTop: "12px", display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}
         >
-          <button
-            onClick={onGetStarted}
-            data-testid="slideshow-get-started"
-            style={{
-              padding: "16px 40px", borderRadius: "14px", border: "none", cursor: "pointer",
-              background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_L})`, color: BG,
-              fontSize: "16px", fontWeight: "700", letterSpacing: "0.5px",
-              boxShadow: `0 0 30px ${ACCENT}40, 0 4px 20px rgba(0,0,0,0.3)`,
-              transition: "all 0.3s ease",
-            }}
-            onMouseEnter={e => { e.target.style.transform = "translateY(-2px) scale(1.02)"; e.target.style.boxShadow = `0 0 40px ${ACCENT}60, 0 8px 30px rgba(0,0,0,0.4)`; }}
-            onMouseLeave={e => { e.target.style.transform = ""; e.target.style.boxShadow = `0 0 30px ${ACCENT}40, 0 4px 20px rgba(0,0,0,0.3)`; }}
-          >
-            Get Started — Create Your First Strategy →
-          </button>
+          {!hasStrategies && (
+            <button
+              onClick={onGetStarted}
+              data-testid="slideshow-get-started"
+              style={{
+                padding: "16px 40px", borderRadius: "14px", border: "none", cursor: "pointer",
+                background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_L})`, color: BG,
+                fontSize: "16px", fontWeight: "700", letterSpacing: "0.5px",
+                boxShadow: `0 0 30px ${ACCENT}40, 0 4px 20px rgba(0,0,0,0.3)`,
+                transition: "all 0.3s ease",
+              }}
+              onMouseEnter={e => { e.target.style.transform = "translateY(-2px) scale(1.02)"; e.target.style.boxShadow = `0 0 40px ${ACCENT}60, 0 8px 30px rgba(0,0,0,0.4)`; }}
+              onMouseLeave={e => { e.target.style.transform = ""; e.target.style.boxShadow = `0 0 30px ${ACCENT}40, 0 4px 20px rgba(0,0,0,0.3)`; }}
+            >
+              Get Started — Create Your First Strategy →
+            </button>
+          )}
+          {hasStrategies && (
+            <button
+              onClick={onSkip}
+              data-testid="slideshow-skip-dashboard"
+              style={{
+                padding: "16px 40px", borderRadius: "14px", border: "none", cursor: "pointer",
+                background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_L})`, color: BG,
+                fontSize: "16px", fontWeight: "700", letterSpacing: "0.5px",
+                boxShadow: `0 0 30px ${ACCENT}40, 0 4px 20px rgba(0,0,0,0.3)`,
+                transition: "all 0.3s ease",
+              }}
+              onMouseEnter={e => { e.target.style.transform = "translateY(-2px) scale(1.02)"; e.target.style.boxShadow = `0 0 40px ${ACCENT}60, 0 8px 30px rgba(0,0,0,0.4)`; }}
+              onMouseLeave={e => { e.target.style.transform = ""; e.target.style.boxShadow = `0 0 30px ${ACCENT}40, 0 4px 20px rgba(0,0,0,0.3)`; }}
+            >
+              Skip to Dashboard →
+            </button>
+          )}
         </div>
       </div>
     ),
@@ -442,7 +461,7 @@ const ensureStyles = () => {
 };
 
 // ═══ MAIN COMPONENT ═══
-export const WelcomeSlideshow = ({ open, onClose, onGetStarted }) => {
+export const WelcomeSlideshow = ({ open, onClose, onGetStarted, hasStrategies }) => {
   const [current, setCurrent] = useState(0);
   const [animKey, setAnimKey] = useState(0);
   const total = slideConfigs.length;
@@ -476,6 +495,10 @@ export const WelcomeSlideshow = ({ open, onClose, onGetStarted }) => {
     onClose();
     if (onGetStarted) onGetStarted();
   }, [onClose, onGetStarted]);
+
+  const handleSkip = useCallback(() => {
+    onClose();
+  }, [onClose]);
 
   if (!open) return null;
 
@@ -521,9 +544,26 @@ export const WelcomeSlideshow = ({ open, onClose, onGetStarted }) => {
         aria-label="Close slideshow"
       >✕</button>
 
+      {/* Skip to Dashboard — persistent button for returning users on non-last slides */}
+      {hasStrategies && !isLast && (
+        <button
+          onClick={handleSkip}
+          data-testid="slideshow-skip"
+          style={{
+            position: "absolute", top: "16px", left: "50%", transform: "translateX(-50%)", zIndex: 10,
+            background: "none", border: `1px solid ${ACCENT}40`, color: ACCENT,
+            fontSize: "12px", fontWeight: "600", cursor: "pointer",
+            padding: "6px 16px", borderRadius: "8px",
+            transition: "all 0.2s",
+          }}
+          onMouseEnter={e => { e.target.style.background = `${ACCENT}15`; }}
+          onMouseLeave={e => { e.target.style.background = "none"; }}
+        >Skip to Dashboard →</button>
+      )}
+
       {/* Slide content */}
       <div key={animKey} style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", overflow: "auto", padding: "20px" }}>
-        {slide.render(true, handleGetStarted)}
+        {slide.render(true, handleGetStarted, handleSkip, hasStrategies)}
       </div>
 
       {/* Controls */}
@@ -563,7 +603,7 @@ export const WelcomeSlideshow = ({ open, onClose, onGetStarted }) => {
         {/* Next */}
         {isLast ? (
           <button
-            onClick={handleGetStarted}
+            onClick={hasStrategies ? handleSkip : handleGetStarted}
             data-testid="slideshow-next"
             style={{
               padding: "10px 20px", borderRadius: "10px", border: "none",
@@ -572,7 +612,7 @@ export const WelcomeSlideshow = ({ open, onClose, onGetStarted }) => {
               transition: "all 0.2s", minWidth: "90px",
               boxShadow: `0 0 20px ${ACCENT}30`,
             }}
-          >Get Started →</button>
+          >{hasStrategies ? "Skip to Dashboard →" : "Get Started →"}</button>
         ) : (
           <button
             onClick={next}

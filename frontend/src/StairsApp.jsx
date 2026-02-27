@@ -294,7 +294,7 @@ export default function App() {
 
       <StrategyMatrixToolkit open={matrixToolkit.open} matrixKey={matrixToolkit.key} onClose={closeMatrix} onSave={saveMatrixResult} strategyContext={activeStrat} initialData={matrixToolkit.initialData} />
 
-      <WelcomeSlideshow open={showWelcomeSlideshow} onClose={() => setShowWelcomeSlideshow(false)} />
+      <WelcomeSlideshow open={showWelcomeSlideshow} onClose={() => setShowWelcomeSlideshow(false)} hasStrategies={true} />
 
       <footer className="text-center py-6 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • ST.AIRS v3.7.0 • "Human IS the Loop" • {new Date().getFullYear()}</footer>
 

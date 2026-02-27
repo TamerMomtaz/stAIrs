@@ -1,19 +1,20 @@
 import { useState, useEffect } from "react";
 import { GOLD, GOLD_L, DEEP, BORDER, glass } from "../constants";
 import { StrategyWizard } from "./StrategyWizard";
-import { WelcomeSlideshow, hasSeenWelcome, markWelcomeSeen } from "./WelcomeSlideshow";
+import { WelcomeSlideshow } from "./WelcomeSlideshow";
 
 export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, userName, onLogout, onLangToggle, lang, loading, userId }) => {
   const [showWizard, setShowWizard] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const isAr = lang === "ar";
+  const hasStrategies = strategies.length > 0;
 
-  // Auto-show welcome slideshow for first-time users (no strategies, never seen)
+  // Auto-show welcome slideshow for ALL users when they open the app
   useEffect(() => {
-    if (!loading && strategies.length === 0 && userId && !hasSeenWelcome(userId)) {
+    if (!loading && userId) {
       setShowWelcome(true);
     }
-  }, [loading, strategies.length, userId]);
+  }, [loading, userId]);
   return (
     <div className="min-h-screen text-white" dir={isAr ? "rtl" : "ltr"} style={{ background: `linear-gradient(180deg, ${DEEP} 0%, #0f1f3a 50%, ${DEEP} 100%)`, fontFamily: isAr ? "'Noto Kufi Arabic', sans-serif" : "'DM Sans', system-ui, sans-serif" }}>
       <header className="flex items-center justify-between px-6 py-4">
@@ -22,6 +23,9 @@ export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, user
           <span className="text-[10px] text-gray-600 uppercase tracking-widest">v3.7.0</span>
         </div>
         <div className="flex items-center gap-3">
+          <button onClick={() => setShowWelcome(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition uppercase tracking-wider" title="Watch the ST.AIRS introduction" data-testid="watch-intro-btn">
+            <span className="text-sm">🎬</span> <span className="hidden sm:inline">{isAr ? "مقدمة" : "Watch Intro"}</span>
+          </button>
           <button onClick={onLangToggle} className="text-xs text-gray-500 hover:text-amber-400 transition">{isAr ? "EN" : "عربي"}</button>
           <button onClick={onLogout} className="text-xs text-gray-600 hover:text-gray-300 transition">{userName} ↗</button>
         </div>
@@ -67,8 +71,9 @@ export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, user
       <StrategyWizard open={showWizard} onClose={() => setShowWizard(false)} onCreate={onCreate} lang={lang} />
       <WelcomeSlideshow
         open={showWelcome}
-        onClose={() => { setShowWelcome(false); if (userId) markWelcomeSeen(userId); }}
-        onGetStarted={() => { setShowWelcome(false); if (userId) markWelcomeSeen(userId); setShowWizard(true); }}
+        onClose={() => setShowWelcome(false)}
+        onGetStarted={() => { setShowWelcome(false); setShowWizard(true); }}
+        hasStrategies={hasStrategies}
       />
       <footer className="text-center py-8 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • ST.AIRS v3.7.0 • {new Date().getFullYear()}</footer>
     </div>
