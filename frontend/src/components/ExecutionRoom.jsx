@@ -50,6 +50,8 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   const saveManifest = (taskId, updates) => {
     if (manifestStoreRef.current && stair?.id && taskId) {
       manifestStoreRef.current.set(stair.id, taskId, { ...updates, task_id: taskId });
+      // Dispatch custom event for same-tab sync (storage events only fire cross-tab)
+      window.dispatchEvent(new CustomEvent("manifest-updated", { detail: { strategyId: strategyContext?.id } }));
     }
   };
 
@@ -95,7 +97,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
           if (recommended) {
             setActionPlan(recommended.raw_text);
             const loadedTasks = (recommended.tasks || []).map((t, i) => ({
-              id: t.id || `task_${i}_${Date.now()}`,
+              id: t.id || `task_${i}_${recommended.id}`,
               name: t.name || `Task ${i + 1}`,
               owner: t.owner || "TBD",
               timeline: t.timeline || "TBD",
@@ -111,7 +113,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
           if (customized) {
             setCustomPlan(customized.raw_text);
             const loadedCustomTasks = (customized.tasks || []).map((t, i) => ({
-              id: t.id || `ctask_${i}_${Date.now()}`,
+              id: t.id || `ctask_${i}_${customized.id}`,
               name: t.name || `Task ${i + 1}`,
               owner: t.owner || "TBD",
               timeline: t.timeline || "TBD",
@@ -144,7 +146,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
       const parsed = parseTasks(res.response);
       setTasks(parsed);
       try {
-        const taskData = parsed.map(t => ({ name: t.name, owner: t.owner, timeline: t.timeline, priority: t.priority, details: t.details, done: false }));
+        const taskData = parsed.map(t => ({ id: t.id, name: t.name, owner: t.owner, timeline: t.timeline, priority: t.priority, details: t.details, done: false }));
         const saved = await ActionPlansAPI.save(stair.id, "recommended", res.response, taskData);
         setSavedPlanId(saved.id);
         setHasSavedPlan(true);
@@ -587,7 +589,7 @@ User question: ${msg}`;
         if (task) saveManifest(task.id, { task_name: task.name, customized_plan: res.response });
       }
       try {
-        const taskData = parsedCustom.map(t => ({ name: t.name, owner: t.owner, timeline: t.timeline, priority: t.priority, details: t.details, done: false }));
+        const taskData = parsedCustom.map(t => ({ id: t.id, name: t.name, owner: t.owner, timeline: t.timeline, priority: t.priority, details: t.details, done: false }));
         const saved = await ActionPlansAPI.save(stair.id, "customized", res.response, taskData, feedback);
         setSavedCustomPlanId(saved.id);
         setHasSavedPlan(true);
