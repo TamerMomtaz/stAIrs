@@ -73,6 +73,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
   const [extractionError, setExtractionError] = useState(null);
   const [prefilling, setPrefilling] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [creating, setCreating] = useState(false);
   const fileInputRef = useRef(null);
   const endRef = useRef(null);
   const iconOpts = ["🎯","🌱","🚀","🗝️","💡","🏭","📊","🌍","⚡","🔬","🛡️","🌐"];
@@ -278,6 +279,8 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
   };
 
   const finishWizard = async () => {
+    if (creating) return;
+    setCreating(true);
     const localElements = [];
     if (generatedElements.length > 0) {
       const codePrefix = { vision: "VIS", objective: "OBJ", key_result: "KR", initiative: "INI", task: "TSK" };
@@ -339,8 +342,13 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
       });
     }
 
-    await onCreate({ name: info.name, company: info.company || info.name, description: info.description, icon: info.icon, color: info.color, industry: info.industry, _localElements: localElements, _pendingSources: pendingSources, _pendingDocumentFiles: uploadedFiles.length > 0 ? uploadedFiles : null });
-    resetWizard();
+    try {
+      await onCreate({ name: info.name, company: info.company || info.name, description: info.description, icon: info.icon, color: info.color, industry: info.industry, _localElements: localElements, _pendingSources: pendingSources, _pendingDocumentFiles: uploadedFiles.length > 0 ? uploadedFiles : null });
+      resetWizard();
+    } catch (e) {
+      console.error("Strategy creation failed:", e);
+      setCreating(false);
+    }
   };
 
   const resetWizard = () => {
@@ -350,6 +358,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
     setQuestionnaireData(null); setQuestionnaireAnswers({}); setQuestionnaireError(null);
     setUploadedFiles([]); setExtractedTexts([]); setPrefilledQuestionIds(new Set());
     setExtracting(false); setExtractionError(null); setPrefilling(false);
+    setCreating(false);
     onClose();
   };
 
@@ -580,7 +589,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
             </div>
           )}
           {generatedElements.length > 0 ? (<div><label className={labelCls}>{generatedElements.length} elements will be created:</label><div className="max-h-60 overflow-y-auto space-y-1 p-3 rounded-lg" style={glass(0.3)}>{generatedElements.map((el,i) => (<div key={i} className="flex items-center gap-2 py-1.5 px-2 rounded" style={{ borderLeft: `2px solid ${typeColors[el.element_type]||"#94a3b8"}` }}><span style={{ color: typeColors[el.element_type], fontSize: 12 }}>{typeIcons[el.element_type]}</span><span className="text-[10px] text-gray-500 uppercase w-16 shrink-0">{el.element_type.replace("_"," ")}</span><span className="text-sm text-gray-200 truncate">{el.title}</span><button onClick={() => setGeneratedElements(prev => prev.filter((_,j) => j!==i))} className="ml-auto text-gray-600 hover:text-red-400 text-xs shrink-0">✕</button></div>))}</div></div>) : (<div className="text-gray-500 text-sm text-center py-6">No elements generated. Add them manually after creation.</div>)}
-          <div className="flex justify-end gap-3 pt-4" style={{ borderTop: `1px solid ${BORDER}` }}><button onClick={() => setStep(3)} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition">← Back to AI</button><button onClick={finishWizard} className="px-5 py-2 rounded-lg text-sm font-semibold text-[#0a1628] transition-all hover:scale-[1.02]" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>Create Strategy {generatedElements.length > 0 ? `(${generatedElements.length} el)` : ""}</button></div>
+          <div className="flex justify-end gap-3 pt-4" style={{ borderTop: `1px solid ${BORDER}` }}><button onClick={() => setStep(3)} disabled={creating} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition disabled:opacity-40">← Back to AI</button><button onClick={finishWizard} disabled={creating} className="px-5 py-2 rounded-lg text-sm font-semibold text-[#0a1628] transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>{creating ? "Creating..." : `Create Strategy ${generatedElements.length > 0 ? `(${generatedElements.length} el)` : ""}`}</button></div>
         </div>
       )}
     </Modal>

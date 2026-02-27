@@ -111,10 +111,37 @@ async def ai_chat(req: AIChatRequest, auth: AuthContext = Depends(get_auth)):
                 strategy_id = str(stair_row["strategy_id"])
 
     async with pool.acquire() as conn:
-        org = await conn.fetchrow("SELECT * FROM organizations WHERE id = $1", auth.org_id)
-        if org:
-            context_parts.append(f"Organization: {org['name']}" +
-                                 (f" (Industry: {org['industry']})" if org.get('industry') else ""))
+        # Fetch the strategy's own company/industry to use as primary identity
+        strategy_company = None
+        strategy_industry = None
+        strategy_name = None
+        if strategy_id:
+            strat_row = await conn.fetchrow(
+                "SELECT name, company, industry FROM strategies WHERE id = $1",
+                strategy_id,
+            )
+            if strat_row:
+                strategy_name = strat_row.get("name")
+                strategy_company = strat_row.get("company")
+                strategy_industry = strat_row.get("industry")
+
+        if strategy_company:
+            context_parts.append(
+                f"You are analyzing the strategy for {strategy_company}"
+                + (f" in the {strategy_industry} sector." if strategy_industry else ".")
+            )
+            context_parts.append(
+                "IMPORTANT: The company you are advising is "
+                + f"{strategy_company}. Do NOT use any other company name, "
+                + "even if uploaded documents mention other companies."
+            )
+            if strategy_name:
+                context_parts.append(f"Strategy: {strategy_name}")
+        else:
+            org = await conn.fetchrow("SELECT * FROM organizations WHERE id = $1", auth.org_id)
+            if org:
+                context_parts.append(f"Organization: {org['name']}" +
+                                     (f" (Industry: {org['industry']})" if org.get('industry') else ""))
         if strategy_id:
             stairs = await conn.fetch("""SELECT code, title, element_type, health, progress_percent, status
                 FROM stairs WHERE organization_id = $1 AND strategy_id = $2 AND deleted_at IS NULL ORDER BY level, sort_order LIMIT 30""", auth.org_id, strategy_id)
