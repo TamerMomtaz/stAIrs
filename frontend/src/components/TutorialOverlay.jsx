@@ -285,6 +285,11 @@ export const TutorialOverlay = ({ active, onClose, steps: customSteps }) => {
 
             {/* Step content */}
             <div className="px-5 py-4">
+              {step.id === "welcome" && (
+                <div className="flex justify-center mb-3">
+                  <img src="/devoneers-logo.png" alt="DEVONEERS" style={{ height: "32px" }} />
+                </div>
+              )}
               <div className="flex items-center gap-3 mb-3">
                 <span className="text-2xl">{step.icon}</span>
                 <h3

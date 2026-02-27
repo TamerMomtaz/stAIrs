@@ -63,10 +63,10 @@ describe('tutorialConfig', () => {
   });
 
   it('getNewSteps filters out completed steps', () => {
-    saveTutorialState({ completedVersion: 1, completedStepIds: ['welcome', 'company_brief'], featuresUsed: [], dismissed: false });
+    saveTutorialState({ completedVersion: 1, completedStepIds: ['welcome', 'dashboard'], featuresUsed: [], dismissed: false });
     const newSteps = getNewSteps();
     expect(newSteps.find(s => s.id === 'welcome')).toBeUndefined();
-    expect(newSteps.find(s => s.id === 'company_brief')).toBeUndefined();
+    expect(newSteps.find(s => s.id === 'dashboard')).toBeUndefined();
     expect(newSteps.length).toBe(tutorialSteps.length - 2);
   });
 

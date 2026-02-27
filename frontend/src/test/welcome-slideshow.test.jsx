@@ -54,9 +54,9 @@ describe('WelcomeSlideshow rendering', () => {
     expect(screen.getByTestId('slideshow-next')).toBeTruthy();
   });
 
-  it('shows 7 dot navigation buttons', () => {
+  it('shows 8 dot navigation buttons', () => {
     render(<WelcomeSlideshow open={true} onClose={() => {}} />);
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 8; i++) {
       expect(screen.getByTestId(`slideshow-dot-${i}`)).toBeTruthy();
     }
   });
@@ -86,7 +86,7 @@ describe('WelcomeSlideshow navigation', () => {
   it('navigates via dot click', () => {
     render(<WelcomeSlideshow open={true} onClose={() => {}} />);
     fireEvent.click(screen.getByTestId('slideshow-dot-2'));
-    expect(screen.getByText('Upload Your Documents')).toBeTruthy();
+    expect(screen.getByText('Upload & Source of Truth')).toBeTruthy();
   });
 
   it('navigates with arrow keys', () => {
@@ -129,10 +129,10 @@ describe('WelcomeSlideshow slides content', () => {
     expect(screen.getByText(/Review, adjust/)).toBeTruthy();
   });
 
-  it('slide 3 (upload) shows file cards', () => {
+  it('slide 3 (upload & source of truth) shows file cards and source of truth', () => {
     render(<WelcomeSlideshow open={true} onClose={() => {}} />);
     fireEvent.click(screen.getByTestId('slideshow-dot-2'));
-    expect(screen.getByText('Upload Your Documents')).toBeTruthy();
+    expect(screen.getByText('Upload & Source of Truth')).toBeTruthy();
     expect(screen.getByText('Pitch Deck.pdf')).toBeTruthy();
     expect(screen.getByText('Business Plan.docx')).toBeTruthy();
     expect(screen.getByText('Market Research.xlsx')).toBeTruthy();
@@ -149,26 +149,33 @@ describe('WelcomeSlideshow slides content', () => {
     expect(screen.getByText("Porter's Five Forces")).toBeTruthy();
   });
 
-  it('slide 5 (execution) shows action items and feedback loop', () => {
+  it('slide 5 (execution) shows execution pipeline', () => {
     render(<WelcomeSlideshow open={true} onClose={() => {}} />);
     fireEvent.click(screen.getByTestId('slideshow-dot-4'));
-    expect(screen.getByText('Execution & Feedback')).toBeTruthy();
-    expect(screen.getByText(/How far can I take this/)).toBeTruthy();
+    expect(screen.getByText('Execution & Implementation')).toBeTruthy();
     expect(screen.getByText('Customized Plan')).toBeTruthy();
+    expect(screen.getByText('Implementation Room')).toBeTruthy();
   });
 
-  it('slide 6 (source of truth) shows data flow', () => {
+  it('slide 6 (manifest room) shows implementation threads', () => {
     render(<WelcomeSlideshow open={true} onClose={() => {}} />);
     fireEvent.click(screen.getByTestId('slideshow-dot-5'));
-    expect(screen.getByText('Source of Truth')).toBeTruthy();
-    expect(screen.getByText('AI Extraction')).toBeTruthy();
-    expect(screen.getByText('AI Advisor')).toBeTruthy();
+    expect(screen.getByText('Manifest Room')).toBeTruthy();
   });
 
-  it('slide 7 (closing) shows Get Started button', () => {
+  it('slide 7 (alerts & knowledge) shows monitoring and learning', () => {
     render(<WelcomeSlideshow open={true} onClose={() => {}} />);
     fireEvent.click(screen.getByTestId('slideshow-dot-6'));
+    expect(screen.getByText('Alerts & Knowledge')).toBeTruthy();
+    expect(screen.getByText('Strategy Alerts')).toBeTruthy();
+    expect(screen.getByText('Knowledge Library')).toBeTruthy();
+  });
+
+  it('slide 8 (closing) shows Get Started button', () => {
+    render(<WelcomeSlideshow open={true} onClose={() => {}} />);
+    fireEvent.click(screen.getByTestId('slideshow-dot-7'));
     expect(screen.getByText(/Human IS the Loop/)).toBeTruthy();
+    expect(screen.getByText(/BY DEVONEERS/)).toBeTruthy();
     expect(screen.getByTestId('slideshow-get-started')).toBeTruthy();
     expect(screen.getByText(/Create Your First Strategy/)).toBeTruthy();
   });
@@ -180,7 +187,7 @@ describe('WelcomeSlideshow Get Started', () => {
     const onClose = vi.fn();
     const onGetStarted = vi.fn();
     render(<WelcomeSlideshow open={true} onClose={onClose} onGetStarted={onGetStarted} />);
-    fireEvent.click(screen.getByTestId('slideshow-dot-6'));
+    fireEvent.click(screen.getByTestId('slideshow-dot-7'));
     fireEvent.click(screen.getByTestId('slideshow-get-started'));
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onGetStarted).toHaveBeenCalledTimes(1);
@@ -191,7 +198,7 @@ describe('WelcomeSlideshow Get Started', () => {
     const onGetStarted = vi.fn();
     render(<WelcomeSlideshow open={true} onClose={onClose} onGetStarted={onGetStarted} />);
     // Navigate to last slide
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 7; i++) {
       fireEvent.click(screen.getByTestId('slideshow-next'));
     }
     // Click "Get Started" which replaces Next on last slide
