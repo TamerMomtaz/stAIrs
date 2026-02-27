@@ -1,10 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { GOLD, GOLD_L, DEEP, BORDER, glass } from "../constants";
 import { StrategyWizard } from "./StrategyWizard";
+import { WelcomeSlideshow, hasSeenWelcome, markWelcomeSeen } from "./WelcomeSlideshow";
 
-export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, userName, onLogout, onLangToggle, lang, loading }) => {
+export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, userName, onLogout, onLangToggle, lang, loading, userId }) => {
   const [showWizard, setShowWizard] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
   const isAr = lang === "ar";
+
+  // Auto-show welcome slideshow for first-time users (no strategies, never seen)
+  useEffect(() => {
+    if (!loading && strategies.length === 0 && userId && !hasSeenWelcome(userId)) {
+      setShowWelcome(true);
+    }
+  }, [loading, strategies.length, userId]);
   return (
     <div className="min-h-screen text-white" dir={isAr ? "rtl" : "ltr"} style={{ background: `linear-gradient(180deg, ${DEEP} 0%, #0f1f3a 50%, ${DEEP} 100%)`, fontFamily: isAr ? "'Noto Kufi Arabic', sans-serif" : "'DM Sans', system-ui, sans-serif" }}>
       <header className="flex items-center justify-between px-6 py-4">
@@ -56,6 +65,11 @@ export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, user
         )}
       </div>
       <StrategyWizard open={showWizard} onClose={() => setShowWizard(false)} onCreate={onCreate} lang={lang} />
+      <WelcomeSlideshow
+        open={showWelcome}
+        onClose={() => { setShowWelcome(false); if (userId) markWelcomeSeen(userId); }}
+        onGetStarted={() => { setShowWelcome(false); if (userId) markWelcomeSeen(userId); setShowWizard(true); }}
+      />
       <footer className="text-center py-8 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • ST.AIRS v3.7.0 • {new Date().getFullYear()}</footer>
     </div>
   );
