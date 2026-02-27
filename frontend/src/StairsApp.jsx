@@ -19,6 +19,7 @@ import { WelcomeSlideshow } from "./components/WelcomeSlideshow";
 import { StrategyMatrixToolkit } from "./components/StrategyMatrixToolkit";
 import { StrategyToolsPanel } from "./components/StrategyToolsPanel";
 import { SourceOfTruthView } from "./components/SourceOfTruthView";
+import { ManifestRoom } from "./components/ManifestRoom";
 import { shouldShowTutorial, hasNewTutorialSteps, getNewSteps, markFeatureUsed, getTutorialState, saveTutorialState, getDefaultTutorialState } from "./tutorialConfig";
 
 // ═══ MAIN APP ═══
@@ -234,8 +235,9 @@ export default function App() {
     { key: "ai", icon: "🤖", label: isAr ? "المستشار" : "AI Advisor", tutorial: "nav-ai" },
     { key: "alerts", icon: "🔔", label: isAr ? "تنبيهات" : "Alerts", tutorial: "nav-alerts" },
     { key: "actionplans", icon: "📋", label: isAr ? "خطط العمل" : "Action Plans", tutorial: "nav-actionplans" },
-    { key: "knowledge", icon: "📖", label: isAr ? "المعرفة" : "Knowledge", tutorial: "nav-knowledge" },
+    { key: "manifest", icon: "📦", label: isAr ? "سجل التنفيذ" : "Manifest Room", tutorial: "nav-manifest" },
     { key: "sources", icon: "🔍", label: isAr ? "مصدر الحقيقة" : "Source of Truth", badge: sourceCount || null, tutorial: "nav-sources" },
+    { key: "knowledge", icon: "📖", label: isAr ? "المعرفة" : "Knowledge", tutorial: "nav-knowledge" },
     { key: "tools", icon: "🔧", label: isAr ? "أدوات استراتيجية" : "Strategy Tools", tutorial: "nav-tools" },
     { key: "notes", icon: "📝", label: isAr ? "ملاحظات" : "Notes", tutorial: "nav-notes" },
   ];
@@ -281,6 +283,7 @@ export default function App() {
         {view === "staircase" && <StaircaseView tree={stairTree} lang={lang} onEdit={s => { setEditStair(s); setShowEditor(true); }} onAdd={() => { setEditStair(null); setShowEditor(true); }} onExport={exportPDF} onMove={moveStair} strategyContext={activeStrat} onSaveNote={saveToNotes} onExecutionRoom={s => setExecRoomStair(s)} onMatrixClick={openMatrix} />}
         {view === "ai" && <AIChatView lang={lang} userId={user.id || user.email} strategyContext={activeStrat} onSaveNote={saveToNotes} onMatrixClick={openMatrix} />}
         {view === "actionplans" && <ActionPlansView strategyContext={activeStrat} lang={lang} onMatrixClick={openMatrix} />}
+        {view === "manifest" && <ManifestRoom strategyContext={activeStrat} lang={lang} />}
         {view === "alerts" && <AlertsView alerts={alerts} lang={lang} strategyContext={activeStrat} />}
         {view === "knowledge" && <KnowledgeLibrary lang={lang} strategyContext={activeStrat} />}
         {view === "tools" && <StrategyToolsPanel lang={lang} onMatrixClick={openMatrix} matrixResults={matrixResults} strategyContext={activeStrat} />}
