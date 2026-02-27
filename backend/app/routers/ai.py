@@ -99,23 +99,8 @@ async def ai_chat(req: AIChatRequest, auth: AuthContext = Depends(get_auth)):
     pool = await get_pool()
     context_parts = []
     sources_used = []
-    async with pool.acquire() as conn:
-        org = await conn.fetchrow("SELECT * FROM organizations WHERE id = $1", auth.org_id)
-        if org:
-            context_parts.append(f"Organization: {org['name']}" +
-                                 (f" (Industry: {org['industry']})" if org.get('industry') else ""))
-        stairs = await conn.fetch("""SELECT code, title, element_type, health, progress_percent, status
-            FROM stairs WHERE organization_id = $1 AND deleted_at IS NULL ORDER BY level, sort_order LIMIT 30""", auth.org_id)
-        if stairs:
-            context_parts.append("Current strategy elements:")
-            for s in stairs: context_parts.append(f"  [{s['code']}] {s['title']} ({s['element_type']}) — {s['health']} {s['progress_percent']}%")
-        if req.context_stair_id:
-            detail = await conn.fetchrow("SELECT * FROM stairs WHERE id = $1", str(req.context_stair_id))
-            if detail:
-                context_parts.append(f"\nFocused: {detail['title']} — {detail['description'] or 'No description'}")
-                context_parts.append(f"Progress: {detail['progress_percent']}%, Health: {detail['health']}, Confidence: {detail['confidence_percent']}%")
 
-    # Resolve strategy_id from request or from context_stair_id
+    # Resolve strategy_id FIRST so we can filter all queries by it
     strategy_id = str(req.strategy_id) if req.strategy_id else None
     if not strategy_id and req.context_stair_id:
         async with pool.acquire() as conn:
@@ -124,6 +109,26 @@ async def ai_chat(req: AIChatRequest, auth: AuthContext = Depends(get_auth)):
             )
             if stair_row and stair_row.get("strategy_id"):
                 strategy_id = str(stair_row["strategy_id"])
+
+    async with pool.acquire() as conn:
+        org = await conn.fetchrow("SELECT * FROM organizations WHERE id = $1", auth.org_id)
+        if org:
+            context_parts.append(f"Organization: {org['name']}" +
+                                 (f" (Industry: {org['industry']})" if org.get('industry') else ""))
+        if strategy_id:
+            stairs = await conn.fetch("""SELECT code, title, element_type, health, progress_percent, status
+                FROM stairs WHERE organization_id = $1 AND strategy_id = $2 AND deleted_at IS NULL ORDER BY level, sort_order LIMIT 30""", auth.org_id, strategy_id)
+        else:
+            stairs = await conn.fetch("""SELECT code, title, element_type, health, progress_percent, status
+                FROM stairs WHERE organization_id = $1 AND deleted_at IS NULL ORDER BY level, sort_order LIMIT 30""", auth.org_id)
+        if stairs:
+            context_parts.append("Current strategy elements:")
+            for s in stairs: context_parts.append(f"  [{s['code']}] {s['title']} ({s['element_type']}) — {s['health']} {s['progress_percent']}%")
+        if req.context_stair_id:
+            detail = await conn.fetchrow("SELECT * FROM stairs WHERE id = $1", str(req.context_stair_id))
+            if detail:
+                context_parts.append(f"\nFocused: {detail['title']} — {detail['description'] or 'No description'}")
+                context_parts.append(f"Progress: {detail['progress_percent']}%, Health: {detail['health']}, Confidence: {detail['confidence_percent']}%")
 
     # Include approved AI extractions grouped by category (Source of Truth)
     if strategy_id:
