@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { api, ActionPlansAPI, SourcesAPI } from "../api";
+import { api, ActionPlansAPI, SourcesAPI, ManifestStore } from "../api";
 import { GOLD, GOLD_L, TEAL, DEEP, BORDER, glass, typeColors, typeIcons } from "../constants";
 import { HealthBadge } from "./SharedUI";
 import { Markdown } from "./Markdown";
@@ -46,6 +46,12 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   const implRoomEndRef = useRef(null);
   const isAr = lang === "ar";
   const color = typeColors[stair.element_type] || "#94a3b8";
+  const manifestStoreRef = useRef(strategyContext?.id ? new ManifestStore(strategyContext.id) : null);
+  const saveManifest = (taskId, updates) => {
+    if (manifestStoreRef.current && stair?.id && taskId) {
+      manifestStoreRef.current.set(stair.id, taskId, { ...updates, task_id: taskId });
+    }
+  };
 
   const stairCtx = `${stair.element_type} "${stair.title}" (code: ${stair.code || "N/A"}), health: ${stair.health || "unknown"}, progress: ${stair.progress_percent || 0}%. Description: ${stair.description || "None"}.`;
   const stratCtx = strategyContext ? `Strategy: "${strategyContext.name}" for "${strategyContext.company || strategyContext.name}". Industry: ${strategyContext.industry || "unspecified"}.` : "";
@@ -55,6 +61,28 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   useEffect(() => { actionChatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [actionChats, actionChatTaskId]);
   useEffect(() => { explainChatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [explainChats, explainTaskId]);
   useEffect(() => { implRoomEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [implRoomData, implRoomTaskId]);
+
+  // Sync impl step progress from ManifestRoom via storage events
+  useEffect(() => {
+    const handleStorage = (e) => {
+      if (e.key === `stairs_manifest_${strategyContext?.id}` && manifestStoreRef.current) {
+        try {
+          const allManifests = JSON.parse(e.newValue || "{}");
+          setImplRoomData(prev => {
+            const updated = { ...prev };
+            for (const [key, manifest] of Object.entries(allManifests)) {
+              if (manifest.stair_id === stair.id && manifest.impl_steps && updated[manifest.task_id]) {
+                updated[manifest.task_id] = { ...updated[manifest.task_id], steps: manifest.impl_steps };
+              }
+            }
+            return updated;
+          });
+        } catch {}
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [strategyContext?.id, stair.id]);
 
   useEffect(() => {
     const loadOrGenerate = async () => {
@@ -264,6 +292,7 @@ Keep the explanation concise but thorough. The user should feel confident they u
               ts: new Date().toISOString(),
             }],
           }));
+          saveManifest(task.id, { task_name: task.name, explanation: res.response, sources_used: res.sources_used || [] });
         })
         .catch(e => {
           setRetryMsg(null);
@@ -402,6 +431,8 @@ IMPORTANT: Ground ALL guidance in the user's actual data from Source of Truth. R
             ts: new Date().toISOString(),
           },
         }));
+        // Save implementation guide and steps to manifest
+        saveManifest(task.id, { task_name: task.name, impl_guide: res.response, impl_steps: steps, impl_sources_used: res.sources_used || [] });
       } catch (e) {
         setRetryMsg(null);
         setImplRoomData(prev => ({
@@ -423,11 +454,14 @@ IMPORTANT: Ground ALL guidance in the user's actual data from Source of Truth. R
     setImplRoomData(prev => {
       const data = prev[taskId];
       if (!data) return prev;
+      const updatedSteps = data.steps.map(s => s.id === stepId ? { ...s, done: !s.done } : s);
+      // Sync step progress to manifest store
+      saveManifest(taskId, { impl_steps: updatedSteps });
       return {
         ...prev,
         [taskId]: {
           ...data,
-          steps: data.steps.map(s => s.id === stepId ? { ...s, done: !s.done } : s),
+          steps: updatedSteps,
         },
       };
     });
@@ -493,6 +527,10 @@ User question: ${msg}`;
       setRetryMsg(null);
       const aiMsg = { role: "ai", text: res.response, tokens: res.tokens_used, ts: new Date().toISOString() };
       setActionChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), aiMsg] }));
+      // Save ability assessment to manifest
+      const allMsgs = [...(actionChats[taskId] || []), userMsg, aiMsg];
+      const assessmentText = allMsgs.filter(m => m.role === "user").map(m => `User: ${m.text}`).join("\n") + "\n" + allMsgs.filter(m => m.role === "ai" && !m.error).slice(-1).map(m => `AI Assessment: ${m.text}`).join("\n");
+      saveManifest(taskId, { task_name: task.name, ability_assessment: assessmentText });
     } catch (e) {
       setRetryMsg(null);
       setActionChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), { role: "ai", text: `Error: ${e.message}`, error: true, ts: new Date().toISOString() }] }));
@@ -543,6 +581,11 @@ User question: ${msg}`;
       const parsedCustom = parseTasks(res.response);
       setCustomTasks(parsedCustom);
       setPlanView("customized");
+      // Save customized plan to manifest for each task with feedback
+      for (const f of feedback) {
+        const task = tasks.find(t => t.name === f.taskName);
+        if (task) saveManifest(task.id, { task_name: task.name, customized_plan: res.response });
+      }
       try {
         const taskData = parsedCustom.map(t => ({ name: t.name, owner: t.owner, timeline: t.timeline, priority: t.priority, details: t.details, done: false }));
         const saved = await ActionPlansAPI.save(stair.id, "customized", res.response, taskData, feedback);

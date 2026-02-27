@@ -218,6 +218,33 @@ export const SourcesAPI = {
 };
 
 
+// ═══ MANIFEST STORE (Manifest Room persistence) ═══
+export class ManifestStore {
+  constructor(strategyId) { this.key = `stairs_manifest_${strategyId}`; }
+  _load() { try { return JSON.parse(localStorage.getItem(this.key) || "{}"); } catch { return {}; } }
+  _save(data) { localStorage.setItem(this.key, JSON.stringify(data)); }
+  getAll() { return this._load(); }
+  get(stairId, taskId) { return this._load()[`${stairId}_${taskId}`] || null; }
+  set(stairId, taskId, updates) {
+    const all = this._load();
+    const k = `${stairId}_${taskId}`;
+    all[k] = { ...(all[k] || {}), stair_id: stairId, task_id: taskId, ...updates, updated_at: new Date().toISOString() };
+    this._save(all);
+    return all[k];
+  }
+  setImplSteps(stairId, taskId, steps) {
+    const all = this._load();
+    const k = `${stairId}_${taskId}`;
+    if (all[k]) { all[k].impl_steps = steps; all[k].updated_at = new Date().toISOString(); this._save(all); }
+  }
+  getImplSteps(stairId, taskId) { return this._load()[`${stairId}_${taskId}`]?.impl_steps || null; }
+  getAllForStair(stairId) {
+    const all = this._load();
+    return Object.values(all).filter(m => m.stair_id === stairId);
+  }
+}
+
+
 // ═══ MATRIX RESULTS STORE ═══
 export class MatrixResultsStore {
   constructor(strategyId) { this.key = `stairs_matrix_${strategyId}`; }
