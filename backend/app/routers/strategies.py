@@ -27,12 +27,12 @@ async def list_strategies(
                    (SELECT AVG(st.progress_percent) FROM stairs st WHERE st.strategy_id = s.id AND st.deleted_at IS NULL) as avg_progress
             FROM strategies s
             LEFT JOIN users u ON u.id = s.owner_id
-            WHERE s.organization_id = $1
+            WHERE s.organization_id = $1 AND s.owner_id = $2
         """
         if not include_archived:
             q += " AND (s.status != 'archived' OR s.status IS NULL)"
         q += " ORDER BY s.updated_at DESC"
-        rows = await conn.fetch(q, auth.org_id)
+        rows = await conn.fetch(q, auth.org_id, auth.user_id)
         results = rows_to_dicts(rows)
         for r in results:
             r["avg_progress"] = round(float(r.get("avg_progress") or 0), 1)
@@ -70,8 +70,8 @@ async def get_strategy(strategy_id: str, auth: AuthContext = Depends(get_auth)):
                    (SELECT COUNT(*) FROM stairs st WHERE st.strategy_id = s.id AND st.deleted_at IS NULL) as element_count,
                    (SELECT AVG(st.progress_percent) FROM stairs st WHERE st.strategy_id = s.id AND st.deleted_at IS NULL) as avg_progress
             FROM strategies s LEFT JOIN users u ON u.id = s.owner_id
-            WHERE s.id = $1 AND s.organization_id = $2
-        """, strategy_id, auth.org_id)
+            WHERE s.id = $1 AND s.organization_id = $2 AND s.owner_id = $3
+        """, strategy_id, auth.org_id, auth.user_id)
         if not row:
             raise HTTPException(404, "Strategy not found")
         result = row_to_dict(row)
@@ -84,7 +84,8 @@ async def update_strategy(strategy_id: str, updates: StrategyUpdate, auth: AuthC
     pool = await get_pool()
     async with pool.acquire() as conn:
         existing = await conn.fetchrow(
-            "SELECT id FROM strategies WHERE id = $1 AND organization_id = $2", strategy_id, auth.org_id
+            "SELECT id FROM strategies WHERE id = $1 AND organization_id = $2 AND owner_id = $3",
+            strategy_id, auth.org_id, auth.user_id
         )
         if not existing:
             raise HTTPException(404, "Strategy not found")
@@ -115,8 +116,8 @@ async def delete_strategy(strategy_id: str, auth: AuthContext = Depends(get_auth
     pool = await get_pool()
     async with pool.acquire() as conn:
         existing = await conn.fetchrow(
-            "SELECT id, status FROM strategies WHERE id = $1 AND organization_id = $2",
-            strategy_id, auth.org_id
+            "SELECT id, status FROM strategies WHERE id = $1 AND organization_id = $2 AND owner_id = $3",
+            strategy_id, auth.org_id, auth.user_id
         )
         if not existing:
             raise HTTPException(404, "Strategy not found")
@@ -135,8 +136,8 @@ async def restore_strategy(strategy_id: str, auth: AuthContext = Depends(get_aut
     pool = await get_pool()
     async with pool.acquire() as conn:
         existing = await conn.fetchrow(
-            "SELECT id, status FROM strategies WHERE id = $1 AND organization_id = $2",
-            strategy_id, auth.org_id
+            "SELECT id, status FROM strategies WHERE id = $1 AND organization_id = $2 AND owner_id = $3",
+            strategy_id, auth.org_id, auth.user_id
         )
         if not existing:
             raise HTTPException(404, "Strategy not found")
@@ -157,8 +158,8 @@ async def permanent_delete_strategy(strategy_id: str, auth: AuthContext = Depend
     pool = await get_pool()
     async with pool.acquire() as conn:
         existing = await conn.fetchrow(
-            "SELECT id, status FROM strategies WHERE id = $1 AND organization_id = $2",
-            strategy_id, auth.org_id
+            "SELECT id, status FROM strategies WHERE id = $1 AND organization_id = $2 AND owner_id = $3",
+            strategy_id, auth.org_id, auth.user_id
         )
         if not existing:
             raise HTTPException(404, "Strategy not found")
@@ -179,6 +180,12 @@ async def permanent_delete_strategy(strategy_id: str, auth: AuthContext = Depend
 async def get_strategy_tree(strategy_id: str, auth: AuthContext = Depends(get_auth)):
     pool = await get_pool()
     async with pool.acquire() as conn:
+        owner_check = await conn.fetchval(
+            "SELECT id FROM strategies WHERE id = $1 AND organization_id = $2 AND owner_id = $3",
+            strategy_id, auth.org_id, auth.user_id
+        )
+        if not owner_check:
+            raise HTTPException(404, "Strategy not found")
         rows = await conn.fetch("""
             SELECT s.*, (SELECT COUNT(*) FROM stairs c WHERE c.parent_id = s.id AND c.deleted_at IS NULL) as children_count,
                 u.full_name as owner_name

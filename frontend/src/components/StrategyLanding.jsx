@@ -3,9 +3,10 @@ import { GOLD, GOLD_L, DEEP, BORDER, glass } from "../constants";
 import { StrategyWizard } from "./StrategyWizard";
 import { WelcomeSlideshow } from "./WelcomeSlideshow";
 
-export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, userName, onLogout, onLangToggle, lang, loading, userId }) => {
+export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, userName, onLogout, onLangToggle, lang, loading, userId, userEmail, userRole }) => {
   const [showWizard, setShowWizard] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const isAr = lang === "ar";
   const hasStrategies = strategies.length > 0;
 
@@ -27,7 +28,28 @@ export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, user
             <span className="text-sm">🎬</span> <span className="hidden sm:inline">{isAr ? "مقدمة" : "Watch Intro"}</span>
           </button>
           <button onClick={onLangToggle} className="text-xs text-gray-500 hover:text-amber-400 transition">{isAr ? "EN" : "عربي"}</button>
-          <button onClick={onLogout} className="text-xs text-gray-600 hover:text-gray-300 transition">{userName} ↗</button>
+          <div className="relative">
+            <button onClick={() => setShowProfile(v => !v)} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition">
+              <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ background: `${GOLD}25`, color: GOLD, border: `1px solid ${GOLD}40` }}>{(userName || "?")[0].toUpperCase()}</span>
+              <span>{userName}</span>
+              <span className="text-[10px]">{showProfile ? "▲" : "▼"}</span>
+            </button>
+            {showProfile && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowProfile(false)} />
+                <div className="absolute right-0 top-full mt-2 w-64 rounded-xl z-50 py-2" style={{ background: "rgba(22, 37, 68, 0.97)", border: `1px solid ${GOLD}30`, backdropFilter: "blur(20px)", boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }}>
+                  <div className="px-4 py-3 border-b" style={{ borderColor: `${GOLD}15` }}>
+                    <div className="text-sm font-medium text-white">{userName || "User"}</div>
+                    <div className="text-xs text-gray-500 mt-0.5">{userEmail || ""}</div>
+                    <div className="text-[10px] text-gray-600 mt-1 uppercase tracking-wider">{userRole || "Member"}</div>
+                  </div>
+                  <button onClick={() => { setShowProfile(false); onLogout(); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition flex items-center gap-2">
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </header>
       <div className="max-w-5xl mx-auto px-6 pt-16 pb-8 text-center" data-tutorial="strategy-landing">
