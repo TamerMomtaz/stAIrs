@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { api, ActionPlansAPI, SourcesAPI, ManifestStore } from "../api";
 import { GOLD, GOLD_L, TEAL, DEEP, BORDER, glass, typeColors, typeIcons } from "../constants";
-import { HealthBadge } from "./SharedUI";
+import { HealthBadge, ConfidenceBadge, ValidationWarnings, AgentActivityIndicator } from "./SharedUI";
 import { Markdown } from "./Markdown";
 import { DEVONEERS_LOGO_URI } from "../exportUtils";
 import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
@@ -32,6 +32,10 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   const [savedPlanId, setSavedPlanId] = useState(null);
   const [retryMsg, setRetryMsg] = useState(null);
   const [savedCustomPlanId, setSavedCustomPlanId] = useState(null);
+  const [planValidation, setPlanValidation] = useState(null);
+  const [planAgentsUsed, setPlanAgentsUsed] = useState(null);
+  const [agentStep, setAgentStep] = useState(0);
+  const agentStepRef = useRef(null);
   // ── Explain chat state ──
   const [explainTaskId, setExplainTaskId] = useState(null);
   const [explainChats, setExplainChats] = useState({});
@@ -139,11 +143,14 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
 
   const generateActionPlan = async () => {
     setPlanLoading(true);
+    setAgentStep(0); agentStepRef.current = setInterval(() => setAgentStep(s => s + 1), 2500);
     try {
       const prompt = `[${stratCtx}]\n\n${sourceRef}\n\nGenerate a detailed, actionable execution plan for: ${stairCtx}\n\nFormat your response EXACTLY as follows:\n\n## Action Plan\n\nFor each task, use this format:\n- **Task:** [task name]\n- **Owner:** [suggested role/team]\n- **Timeline:** [estimated duration]\n- **Priority:** [High/Medium/Low]\n- **Details:** [brief description of what needs to be done]\n\n---\n\n(Repeat for each task. Generate 5-8 concrete tasks. Make them specific, measurable, and directly related to executing this strategic element.)`;
       const res = await api.aiPost("/api/v1/ai/chat", { message: prompt }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
       setRetryMsg(null);
       setActionPlan(res.response);
+      setPlanValidation(res.validation || null);
+      setPlanAgentsUsed(res.agents_used || null);
       const parsed = parseTasks(res.response);
       setTasks(parsed);
       try {
@@ -153,7 +160,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
         setHasSavedPlan(true);
       } catch (saveErr) { console.warn("Auto-save action plan failed:", saveErr.message); }
     } catch (e) { setRetryMsg(null); setActionPlan(`Error generating plan: ${e.message}`); }
-    setPlanLoading(false);
+    clearInterval(agentStepRef.current); setPlanLoading(false);
   };
 
   const generateSolutions = async () => {
@@ -847,8 +854,14 @@ User question: ${msg}`;
             {/* ─── Recommended Plan View ─── */}
             {(planView === "recommended" || !customPlan) && planView !== "customized" && planView !== "comparison" && (
               <>
+                {planValidation && (
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <ConfidenceBadge validation={planValidation} agentsUsed={planAgentsUsed} />
+                  </div>
+                )}
+                {planValidation && <ValidationWarnings validation={planValidation} />}
                 {planLoading && !actionPlan ? (
-                  <LoadingDots label={isAr ? "جاري إنشاء خطة العمل..." : "Generating action plan..."} />
+                  <AgentActivityIndicator agentStep={agentStep} />
                 ) : tasks.length > 0 ? (
                   <div className="space-y-2">
                     {tasks.map(t => (

@@ -77,3 +77,94 @@ async def ai_status(auth: AuthContext = Depends(get_auth)):
             ]
 
     return status
+
+
+@router.get("/agents")
+async def agent_stats(auth: AuthContext = Depends(get_auth)):
+    """Agent transparency stats: calls per agent, avg confidence, fallback frequency,
+    avg response time, and validation rejection rate."""
+    result = {
+        "agents": {},
+        "total_calls": 0,
+        "recent_activity": [],
+    }
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Check if agent_logs table exists
+        agent_table = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'agent_logs')"
+        )
+        if not agent_table:
+            return result
+
+        # Total calls per agent + avg confidence
+        agent_rows = await conn.fetch(
+            "SELECT agent_name, COUNT(*) as total_calls, "
+            "AVG(confidence_score) as avg_confidence, "
+            "COUNT(CASE WHEN confidence_score < 60 THEN 1 END) as low_confidence_count "
+            "FROM agent_logs GROUP BY agent_name ORDER BY total_calls DESC"
+        )
+        total = 0
+        for row in agent_rows:
+            name = row["agent_name"]
+            calls = row["total_calls"]
+            total += calls
+            result["agents"][name] = {
+                "total_calls": calls,
+                "avg_confidence": round(float(row["avg_confidence"]), 1) if row["avg_confidence"] else None,
+                "low_confidence_count": row["low_confidence_count"],
+                "validation_rejection_rate": round(
+                    (row["low_confidence_count"] / calls) * 100, 1
+                ) if calls > 0 else 0,
+            }
+        result["total_calls"] = total
+
+        # Avg response time from ai_usage_logs
+        usage_table = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'ai_usage_logs')"
+        )
+        if usage_table:
+            avg_rt = await conn.fetchval(
+                "SELECT AVG(response_time_ms) FROM ai_usage_logs WHERE success = TRUE"
+            )
+            result["avg_response_time_ms"] = round(float(avg_rt), 1) if avg_rt else None
+
+            # Fallback frequency
+            total_usage = await conn.fetchval("SELECT COUNT(*) FROM ai_usage_logs")
+            fallback_count = await conn.fetchval(
+                "SELECT COUNT(*) FROM ai_usage_logs WHERE fallback_used = TRUE"
+            )
+            result["fallback_frequency"] = round(
+                (fallback_count / total_usage) * 100, 1
+            ) if total_usage > 0 else 0
+            result["fallback_count"] = fallback_count
+
+            # Per-provider avg response time
+            provider_rows = await conn.fetch(
+                "SELECT provider, AVG(response_time_ms) as avg_rt, COUNT(*) as cnt "
+                "FROM ai_usage_logs WHERE success = TRUE GROUP BY provider"
+            )
+            for pr in provider_rows:
+                result.setdefault("providers", {})[pr["provider"]] = {
+                    "avg_response_time_ms": round(float(pr["avg_rt"]), 1) if pr["avg_rt"] else None,
+                    "call_count": pr["cnt"],
+                }
+
+        # Recent activity (last 20 agent calls)
+        recent = await conn.fetch(
+            "SELECT agent_name, task_type, confidence_score, model_used, created_at "
+            "FROM agent_logs ORDER BY created_at DESC LIMIT 20"
+        )
+        result["recent_activity"] = [
+            {
+                "agent_name": r["agent_name"],
+                "task_type": r["task_type"],
+                "confidence_score": r["confidence_score"],
+                "model_used": r["model_used"],
+                "timestamp": r["created_at"].isoformat() if r["created_at"] else None,
+            }
+            for r in recent
+        ]
+
+    return result

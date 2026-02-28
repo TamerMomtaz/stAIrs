@@ -22,6 +22,7 @@ from app.models.schemas import (
     PrefillQuestionnaireRequest,
     ActionPlanGenerateRequest, CustomizedPlanRequest,
     ExplainActionRequest, ImplementationGuideRequest, AgentResponse,
+    AgentInfo, ValidationInfo,
 )
 from app.routers.websocket import ws_manager
 from app.routers.sources import log_source
@@ -39,6 +40,37 @@ AI_RETRY_DELAY = 5  # seconds
 
 # Module-level orchestrator instance
 _orchestrator = Orchestrator()
+
+# Agent display names and roles for transparency
+AGENT_DISPLAY = {
+    "strategy_advisor": {"name": "Strategy Advisor", "role": "Analyzes strategy and provides recommendations"},
+    "strategy_analyst": {"name": "Strategy Analyst", "role": "Performs framework analysis and strategic evaluations"},
+    "document_analyst": {"name": "Document Analyst", "role": "Analyzes uploaded documents and extracts insights"},
+    "execution_planner": {"name": "Execution Planner", "role": "Creates action plans and implementation guides"},
+    "validation": {"name": "Validation Agent", "role": "Reviews outputs for accuracy and consistency"},
+}
+
+
+def _build_agents_used(agent_chain: list) -> list:
+    """Build a list of AgentInfo from an agent_chain."""
+    agents = []
+    for agent_key in (agent_chain or []):
+        info = AGENT_DISPLAY.get(agent_key, {"name": agent_key, "role": None})
+        agents.append(AgentInfo(name=info["name"], role=info.get("role")))
+    return agents
+
+
+def _build_validation_info(validation: dict) -> ValidationInfo | None:
+    """Build ValidationInfo from orchestrator validation result."""
+    if not validation:
+        return None
+    return ValidationInfo(
+        confidence_score=validation.get("confidence_score"),
+        validated=validation.get("validated"),
+        warnings=validation.get("warnings", []),
+        contradictions=validation.get("contradictions", []),
+        suggestions=validation.get("suggestions", []),
+    )
 
 
 async def _log_ai_usage(
@@ -273,9 +305,14 @@ async def ai_chat(req: AIChatRequest, auth: AuthContext = Depends(get_auth)):
     except Exception:
         pass
 
+    agent_chain = agent_result.get("agent_chain", [])
+    validation_data = agent_result.get("validation")
+
     return {"response": text, "conversation_id": conv_id, "actions": [], "tokens_used": total_tokens,
             "provider": provider, "provider_display": provider_display,
-            "sources_used": sources_used if sources_used else None}
+            "sources_used": sources_used if sources_used else None,
+            "agents_used": [ai.model_dump() for ai in _build_agents_used(agent_chain)],
+            "validation": _build_validation_info(validation_data).model_dump() if validation_data else None}
 
 
 @router.post("/analyze/{stair_id}")
@@ -622,13 +659,16 @@ async def ai_action_plan(req: ActionPlanGenerateRequest, auth: AuthContext = Dep
     )
 
     validation = agent_result.get("validation", {})
+    agent_chain = agent_result.get("agent_chain", [])
     return {
         "response": agent_result.get("text", ""),
         "tokens_used": agent_result.get("tokens", 0),
         "provider": agent_result.get("provider"),
         "provider_display": agent_result.get("provider_display"),
-        "agent_chain": agent_result.get("agent_chain"),
+        "agent_chain": agent_chain,
         "confidence_score": validation.get("confidence_score"),
+        "agents_used": [ai.model_dump() for ai in _build_agents_used(agent_chain)],
+        "validation": _build_validation_info(validation).model_dump() if validation else None,
     }
 
 
@@ -644,13 +684,16 @@ async def ai_customized_plan(req: CustomizedPlanRequest, auth: AuthContext = Dep
     )
 
     validation = agent_result.get("validation", {})
+    agent_chain = agent_result.get("agent_chain", [])
     return {
         "response": agent_result.get("text", ""),
         "tokens_used": agent_result.get("tokens", 0),
         "provider": agent_result.get("provider"),
         "provider_display": agent_result.get("provider_display"),
-        "agent_chain": agent_result.get("agent_chain"),
+        "agent_chain": agent_chain,
         "confidence_score": validation.get("confidence_score"),
+        "agents_used": [ai.model_dump() for ai in _build_agents_used(agent_chain)],
+        "validation": _build_validation_info(validation).model_dump() if validation else None,
     }
 
 
@@ -682,13 +725,16 @@ async def ai_explain_action(req: ExplainActionRequest, auth: AuthContext = Depen
         payload={"action": req.action, "stair_context": stair_context},
     )
 
+    agent_chain = agent_result.get("agent_chain", [])
     return {
         "response": agent_result.get("text", ""),
         "tokens_used": agent_result.get("tokens", 0),
         "provider": agent_result.get("provider"),
         "provider_display": agent_result.get("provider_display"),
-        "agent_chain": agent_result.get("agent_chain"),
+        "agent_chain": agent_chain,
         "confidence_score": None,
+        "agents_used": [ai.model_dump() for ai in _build_agents_used(agent_chain)],
+        "validation": None,
     }
 
 
@@ -722,11 +768,14 @@ async def ai_implementation_guide(req: ImplementationGuideRequest, auth: AuthCon
     )
 
     validation = agent_result.get("validation", {})
+    agent_chain = agent_result.get("agent_chain", [])
     return {
         "response": agent_result.get("text", ""),
         "tokens_used": agent_result.get("tokens", 0),
         "provider": agent_result.get("provider"),
         "provider_display": agent_result.get("provider_display"),
-        "agent_chain": agent_result.get("agent_chain"),
+        "agent_chain": agent_chain,
         "confidence_score": validation.get("confidence_score"),
+        "agents_used": [ai.model_dump() for ai in _build_agents_used(agent_chain)],
+        "validation": _build_validation_info(validation).model_dump() if validation else None,
     }
