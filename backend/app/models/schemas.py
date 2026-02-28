@@ -412,6 +412,12 @@ class RegisterRequest(BaseModel):
     full_name: str
     language: str = "en"
 
+class SignupRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    email: str
+    password: str = Field(..., min_length=8)
+    confirm_password: str = Field(..., min_length=8)
+
 class FrameworkOut(BaseModel):
     id: UUID
     code: str

@@ -43,6 +43,7 @@ export default function App() {
   const [showFeaturesBadge, setShowFeaturesBadge] = useState(false);
   const [aiProvider, setAiProvider] = useState(null);
   const [showWelcomeSlideshow, setShowWelcomeSlideshow] = useState(false);
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [matrixToolkit, setMatrixToolkit] = useState({ open: false, key: null, initialData: null });
   const openMatrix = (key, initialData = null) => setMatrixToolkit({ open: true, key, initialData });
   const closeMatrix = () => setMatrixToolkit({ open: false, key: null, initialData: null });
@@ -228,7 +229,7 @@ export default function App() {
 
   // ═══ RENDER ═══
   if (!user) return <LoginScreen onLogin={setUser} />;
-  if (!activeStrat) return <StrategyLanding strategies={strategies} onSelect={selectStrategy} onCreate={createStrategy} onDelete={deleteStrategy} userName={user.name||user.email} onLogout={logout} onLangToggle={toggleLang} lang={lang} loading={stratLoading} userId={user.id || user.email} />;
+  if (!activeStrat) return <StrategyLanding strategies={strategies} onSelect={selectStrategy} onCreate={createStrategy} onDelete={deleteStrategy} userName={user.full_name||user.name||user.email} onLogout={logout} onLangToggle={toggleLang} lang={lang} loading={stratLoading} userId={user.id || user.email} userEmail={user.email} userRole={user.role} />;
 
   const navItems = [
     { key: "dashboard", icon: "📊", label: isAr ? "لوحة القيادة" : "Dashboard", tutorial: "nav-dashboard" },
@@ -266,7 +267,28 @@ export default function App() {
           </button>
           <button onClick={() => setShowFeaturesBadge(v => !v)} className="text-[10px] text-gray-600 hover:text-amber-400 transition" title="Features Explored">📊</button>
           <button onClick={toggleLang} className="text-xs text-gray-500 hover:text-amber-400 transition">{isAr ? "EN" : "عربي"}</button>
-          <button onClick={logout} className="text-xs text-gray-600 hover:text-gray-300 transition">{user.name || user.email} ↗</button>
+          <div className="relative">
+            <button onClick={() => setShowProfileDropdown(v => !v)} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition">
+              <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ background: `${GOLD}25`, color: GOLD, border: `1px solid ${GOLD}40` }}>{(user.full_name || user.name || user.email || "?")[0].toUpperCase()}</span>
+              <span>{user.full_name || user.name || user.email}</span>
+              <span className="text-[10px]">{showProfileDropdown ? "▲" : "▼"}</span>
+            </button>
+            {showProfileDropdown && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowProfileDropdown(false)} />
+                <div className="absolute right-0 top-full mt-2 w-64 rounded-xl z-50 py-2" style={{ background: "rgba(22, 37, 68, 0.97)", border: `1px solid ${GOLD}30`, backdropFilter: "blur(20px)", boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }}>
+                  <div className="px-4 py-3 border-b" style={{ borderColor: `${GOLD}15` }}>
+                    <div className="text-sm font-medium text-white">{user.full_name || user.name || "User"}</div>
+                    <div className="text-xs text-gray-500 mt-0.5">{user.email}</div>
+                    <div className="text-[10px] text-gray-600 mt-1 uppercase tracking-wider">{user.role || "Member"}</div>
+                  </div>
+                  <button onClick={() => { setShowProfileDropdown(false); logout(); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition flex items-center gap-2">
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </header>
 

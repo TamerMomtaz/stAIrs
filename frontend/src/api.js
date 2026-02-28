@@ -21,6 +21,14 @@ class StairsAPI {
     localStorage.setItem("stairs_user", JSON.stringify(d.user));
     return d;
   }
+  async signup(name, email, password, confirmPassword) {
+    const r = await fetch(`${API}/api/v1/auth/signup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, password, confirm_password: confirmPassword }) });
+    if (!r.ok) { const err = await r.json().catch(() => ({})); throw new Error(err.detail || "Signup failed"); }
+    const d = await r.json(); this.token = d.access_token; this.user = d.user;
+    localStorage.setItem("stairs_token", d.access_token);
+    localStorage.setItem("stairs_user", JSON.stringify(d.user));
+    return d;
+  }
   logout() { this.token = null; this.user = null; localStorage.removeItem("stairs_token"); localStorage.removeItem("stairs_user"); }
   _handleUnauthorized() {
     this.logout();
