@@ -199,11 +199,15 @@ async def ai_chat(req: AIChatRequest, auth: AuthContext = Depends(get_auth)):
                 context_parts.append(f"Progress: {detail['progress_percent']}%, Health: {detail['health']}, Confidence: {detail['confidence_percent']}%")
 
     # Include approved AI extractions grouped by category (Source of Truth)
+    # Filter out quarantined and disputed sources; note low confidence caveats
+    has_low_confidence = False
+    has_disputed = False
     if strategy_id:
         async with pool.acquire() as conn:
             extraction_rows = await conn.fetch(
                 "SELECT content, metadata FROM strategy_sources "
                 "WHERE strategy_id = $1 AND source_type = 'ai_extraction' "
+                "AND (metadata::text NOT LIKE '%\"quarantined\": true%' OR metadata IS NULL) "
                 "ORDER BY created_at DESC LIMIT 100",
                 strategy_id,
             )
@@ -214,6 +218,11 @@ async def ai_chat(req: AIChatRequest, auth: AuthContext = Depends(get_auth)):
                     er_meta = er["metadata"] if isinstance(er["metadata"], dict) else json.loads(er["metadata"] or "{}")
                     cat = er_meta.get("category", "General")
                     fname = er_meta.get("parent_filename", "")
+                    # Track confidence issues
+                    if er_meta.get("verification_status") == "disputed":
+                        has_disputed = True
+                    if er_meta.get("dispute_count", 0) > 0:
+                        has_low_confidence = True
                     if cat not in by_category:
                         by_category[cat] = []
                     by_category[cat].append({"text": er["content"][:500], "filename": fname})
@@ -240,6 +249,15 @@ async def ai_chat(req: AIChatRequest, auth: AuthContext = Depends(get_auth)):
                             src = f" [from: {item['filename']}]" if item["filename"] else ""
                             context_parts.append(f"  - {item['text']}{src}")
                 context_parts.append("\n=== End of Verified Strategy Data ===")
+
+                # Add confidence caveats for agent behavior
+                if has_disputed or has_low_confidence:
+                    context_parts.append(
+                        "\n⚠️ DATA QUALITY NOTE: Some data sources have unresolved conflicts or low confidence scores. "
+                        "When using this data, add appropriate caveats such as "
+                        "'Based on your data (note: some sources have unresolved conflicts)...' "
+                        "rather than stating the data as undisputed fact."
+                    )
 
                 sources_used = [
                     {"filename": fn, "categories": sorted(cats)}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { SourcesAPI } from "../api";
+import { SourcesAPI, DataQaAPI } from "../api";
 import { GOLD, GOLD_L, DEEP, BORDER, glass, inputCls } from "../constants";
 
 const sourceTypeConfig = {
@@ -43,6 +43,14 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
   const [rejectedItems, setRejectedItems] = useState({});
   const [expandedCategories, setExpandedCategories] = useState({});
   const [approving, setApproving] = useState(false);
+  // Data QA state
+  const [confidenceMap, setConfidenceMap] = useState({});
+  const [showQuarantine, setShowQuarantine] = useState(false);
+  const [quarantinedSources, setQuarantinedSources] = useState([]);
+  const [impactData, setImpactData] = useState(null);
+  const [impactSourceId, setImpactSourceId] = useState(null);
+  const [quarantineConfirm, setQuarantineConfirm] = useState(null);
+  const [dataHealth, setDataHealth] = useState(null);
   const isAr = lang === "ar";
   const searchTimer = useRef(null);
   const fileInputRef = useRef(null);
@@ -56,6 +64,91 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
     searchTimer.current = setTimeout(() => setSearchDebounced(search), 300);
     return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
   }, [search]);
+
+  // Load confidence scores and data health
+  useEffect(() => {
+    if (!strategyContext?.id) return;
+    DataQaAPI.getConfidenceScores(strategyContext.id)
+      .then(data => {
+        const map = {};
+        (data || []).forEach(c => { map[c.source_id] = c; });
+        setConfidenceMap(map);
+      })
+      .catch(() => {});
+    DataQaAPI.getDataHealth(strategyContext.id)
+      .then(d => setDataHealth(d))
+      .catch(() => {});
+  }, [strategyContext?.id, sources.length]);
+
+  const loadQuarantined = async () => {
+    if (!strategyContext?.id) return;
+    try {
+      const data = await DataQaAPI.getQuarantinedSources(strategyContext.id);
+      setQuarantinedSources(data || []);
+    } catch { setQuarantinedSources([]); }
+  };
+
+  const handleQuarantine = async (sourceId, reason) => {
+    if (!strategyContext?.id) return;
+    try {
+      await DataQaAPI.quarantineSource(strategyContext.id, sourceId, reason);
+      setQuarantineConfirm(null);
+      loadSources();
+      loadQuarantined();
+    } catch (e) { console.error("Quarantine failed:", e); }
+  };
+
+  const handleRestore = async (sourceId) => {
+    if (!strategyContext?.id) return;
+    try {
+      await DataQaAPI.restoreSource(strategyContext.id, sourceId);
+      loadSources();
+      loadQuarantined();
+    } catch (e) { console.error("Restore failed:", e); }
+  };
+
+  const handleVerify = async (sourceId) => {
+    if (!strategyContext?.id) return;
+    try {
+      await DataQaAPI.verifySource(strategyContext.id, sourceId);
+      loadSources();
+    } catch (e) { console.error("Verify failed:", e); }
+  };
+
+  const handleTraceImpact = async (sourceId) => {
+    if (!strategyContext?.id) return;
+    try {
+      const data = await DataQaAPI.traceImpact(strategyContext.id, sourceId);
+      setImpactData(data);
+      setImpactSourceId(sourceId);
+    } catch (e) { console.error("Impact trace failed:", e); }
+  };
+
+  const getConfidenceBadge = (sourceId) => {
+    const conf = confidenceMap[sourceId];
+    if (!conf) return null;
+    const colors = {
+      high: "text-emerald-400 bg-emerald-900/30 border-emerald-700/40",
+      medium: "text-amber-400 bg-amber-900/30 border-amber-700/40",
+      low: "text-red-400 bg-red-900/30 border-red-700/40",
+      quarantined: "text-gray-400 bg-gray-900/30 border-gray-700/40",
+    };
+    const levelLabel = { high: isAr ? "عالي" : "High", medium: isAr ? "متوسط" : "Med", low: isAr ? "منخفض" : "Low", quarantined: isAr ? "محجور" : "Q" };
+    const cls = colors[conf.confidence_level] || colors.medium;
+    return (
+      <span className={`text-[9px] px-1.5 py-0.5 rounded-full border ${cls}`} title={`Confidence: ${conf.confidence_score}%`}>
+        {conf.confidence_score}% {levelLabel[conf.confidence_level] || ""}
+      </span>
+    );
+  };
+
+  const getVerificationBadge = (source) => {
+    const meta = source.metadata || {};
+    if (meta.quarantined) return <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-900/30 text-gray-400 border border-gray-700/40">🚫 {isAr ? "محجور" : "Quarantined"}</span>;
+    if (meta.verification_status === "disputed") return <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-900/30 text-red-400 border border-red-700/40">⚠️ {isAr ? "متنازع" : "Disputed"}</span>;
+    if (meta.user_verified) return <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-900/30 text-emerald-400 border border-emerald-700/40">✓ {isAr ? "موثق" : "Verified"}</span>;
+    return null;
+  };
 
   const loadSources = async () => {
     if (!strategyContext?.id) return;
@@ -365,6 +458,8 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
               <span className="text-gray-700">·</span>
               <span className="text-xs text-gray-300 truncate font-medium">{meta.filename || "Document"}</span>
               {getExtractionQualityBadge(meta)}
+              {getConfidenceBadge(source.id)}
+              {getVerificationBadge(source)}
             </div>
 
             <div className="flex items-center gap-3 text-[10px] text-gray-500 mb-1.5">
@@ -441,6 +536,26 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                 className="text-[10px] px-2 py-0.5 rounded-full border border-gray-600 text-gray-400 transition hover:text-white hover:border-gray-400"
               >
                 {isAr ? "تحميل" : "Download"}
+              </button>
+              {!(source.metadata || {}).user_verified && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleVerify(source.id); }}
+                  className="text-[10px] px-2 py-0.5 rounded-full border border-emerald-700/50 text-emerald-400 transition hover:bg-emerald-900/20"
+                >
+                  {isAr ? "توثيق" : "Verify"}
+                </button>
+              )}
+              <button
+                onClick={(e) => { e.stopPropagation(); handleTraceImpact(source.id); }}
+                className="text-[10px] px-2 py-0.5 rounded-full border border-blue-700/50 text-blue-400 transition hover:bg-blue-900/20"
+              >
+                {isAr ? "تتبع الأثر" : "Impact"}
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setQuarantineConfirm(source.id); }}
+                className="text-[10px] px-2 py-0.5 rounded-full border border-amber-700/50 text-amber-400 transition hover:bg-amber-900/20"
+              >
+                {isAr ? "حجر" : "Quarantine"}
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); deleteSource(source.id, true); }}
@@ -805,22 +920,156 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                   </div>
 
                   {/* Timestamp + actions */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[10px] text-gray-600">{formatDate(source.created_at)}</span>
-                    {source.source_type === "manual_entry" && (
-                      <button
-                        onClick={e => { e.stopPropagation(); deleteSource(source.id, false); }}
-                        className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 text-xs transition p-1"
-                        title={isAr ? "حذف" : "Delete"}
-                      >
-                        ✕
-                      </button>
-                    )}
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-gray-600">{formatDate(source.created_at)}</span>
+                      {getConfidenceBadge(source.id)}
+                      {getVerificationBadge(source)}
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                      {!(source.metadata || {}).user_verified && (
+                        <button onClick={e => { e.stopPropagation(); handleVerify(source.id); }}
+                          className="text-[9px] px-1.5 py-0.5 rounded text-emerald-400 hover:bg-emerald-900/20 transition" title={isAr ? "توثيق" : "Verify"}>✓</button>
+                      )}
+                      <button onClick={e => { e.stopPropagation(); handleTraceImpact(source.id); }}
+                        className="text-[9px] px-1.5 py-0.5 rounded text-blue-400 hover:bg-blue-900/20 transition" title={isAr ? "تتبع الأثر" : "Trace Impact"}>🔗</button>
+                      <button onClick={e => { e.stopPropagation(); setQuarantineConfirm(source.id); }}
+                        className="text-[9px] px-1.5 py-0.5 rounded text-amber-400 hover:bg-amber-900/20 transition" title={isAr ? "حجر" : "Quarantine"}>🚫</button>
+                      {source.source_type === "manual_entry" && (
+                        <button onClick={e => { e.stopPropagation(); deleteSource(source.id, false); }}
+                          className="text-gray-600 hover:text-red-400 text-xs transition p-0.5" title={isAr ? "حذف" : "Delete"}>✕</button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Data Health Banner */}
+      {dataHealth && dataHealth.health_score < 70 && (
+        <div className="flex items-center gap-2 p-3 rounded-xl border" style={{ borderColor: "rgba(234, 179, 8, 0.3)", background: "rgba(234, 179, 8, 0.06)" }}>
+          <span className="text-base">⚠️</span>
+          <span className="text-xs text-amber-400 flex-1">{isAr ? "بيانات استراتيجيتك بها تعارضات غير محلولة قد تؤثر على دقة AI." : "Your strategy data has unresolved conflicts that may affect AI accuracy."}</span>
+          <span className="text-[10px] text-amber-500 font-bold">{dataHealth.health_score}%</span>
+        </div>
+      )}
+
+      {/* Data Health Summary */}
+      {dataHealth && (
+        <div className="grid grid-cols-5 gap-2">
+          {[
+            { label: isAr ? "إجمالي المصادر" : "Total Sources", value: dataHealth.total_sources, color: "#60a5fa" },
+            { label: isAr ? "موثقة" : "Verified", value: dataHealth.verified_sources, color: "#34d399" },
+            { label: isAr ? "متنازع عليها" : "Disputed", value: dataHealth.disputed_sources, color: "#f87171" },
+            { label: isAr ? "محجورة" : "Quarantined", value: dataHealth.quarantined_sources, color: "#9ca3af" },
+            { label: isAr ? "صحة البيانات" : "Data Health", value: `${dataHealth.health_score}%`, color: dataHealth.health_score >= 80 ? "#34d399" : dataHealth.health_score >= 60 ? "#fbbf24" : "#f87171" },
+          ].map((stat, i) => (
+            <div key={i} className="p-2.5 rounded-xl text-center" style={glass(0.4)}>
+              <div className="text-lg font-bold" style={{ color: stat.color }}>{stat.value}</div>
+              <div className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">{stat.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Quarantine Filter Toggle */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => { setShowQuarantine(!showQuarantine); if (!showQuarantine) loadQuarantined(); }}
+          className={`text-[10px] px-3 py-1.5 rounded-lg border transition ${showQuarantine ? "border-gray-500 text-white bg-gray-800/50" : "border-gray-700 text-gray-500 hover:text-gray-300"}`}
+        >
+          🚫 {isAr ? "المحجورة" : "Quarantined"} {quarantinedSources.length > 0 ? `(${quarantinedSources.length})` : ""}
+        </button>
+      </div>
+
+      {/* Quarantined Sources List */}
+      {showQuarantine && (
+        <div className="space-y-2">
+          <div className="text-xs text-gray-400 font-medium">{isAr ? "المصادر المحجورة" : "Quarantined Sources"}</div>
+          {quarantinedSources.length === 0 ? (
+            <div className="text-center py-6 text-gray-600 text-xs rounded-xl" style={glass(0.3)}>
+              {isAr ? "لا توجد مصادر محجورة" : "No quarantined sources"}
+            </div>
+          ) : quarantinedSources.map(src => {
+            const cfg = sourceTypeConfig[src.source_type] || sourceTypeConfig.manual_entry;
+            const meta = src.metadata || {};
+            return (
+              <div key={src.id} className="flex items-center gap-3 p-3 rounded-xl" style={glass(0.3)}>
+                <span className="text-base">{cfg.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-gray-300 truncate">{src.content?.slice(0, 100)}</div>
+                  <div className="text-[10px] text-gray-600 mt-0.5">
+                    {meta.quarantine_reason && <span>{isAr ? "السبب:" : "Reason:"} {meta.quarantine_reason} · </span>}
+                    {meta.quarantined_at && formatDate(meta.quarantined_at)}
+                  </div>
+                </div>
+                <button onClick={() => handleRestore(src.id)}
+                  className="text-[10px] px-2.5 py-1 rounded-lg border border-emerald-700/50 text-emerald-400 hover:bg-emerald-900/20 transition">
+                  {isAr ? "استعادة" : "Restore"}
+                </button>
+                <button onClick={() => deleteSource(src.id, src.source_type === "document")}
+                  className="text-[10px] px-2.5 py-1 rounded-lg border border-red-900/50 text-red-400/70 hover:text-red-400 transition">
+                  {isAr ? "حذف نهائي" : "Delete"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Impact Trace Modal */}
+      {impactData && impactSourceId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => { setImpactData(null); setImpactSourceId(null); }}>
+          <div className="w-full max-w-md mx-4 rounded-2xl p-6" style={{ ...glass(0.9), background: "rgba(10, 22, 40, 0.95)" }} onClick={e => e.stopPropagation()}>
+            <h3 className="text-white font-semibold text-base mb-1">🔗 {isAr ? "تتبع الأثر" : "Impact Trace"}</h3>
+            <p className="text-gray-500 text-xs mb-4">{isAr ? "أين تم استخدام هذا المصدر" : "Where this source was referenced"}: <span className="text-gray-300">{impactData.source_label}</span></p>
+            {impactData.impacts.length === 0 ? (
+              <div className="text-center py-6 text-gray-500 text-sm">{isAr ? "لم يُستخدم هذا المصدر في أي مخرجات بعد." : "This source has not been referenced in any outputs yet."}</div>
+            ) : (
+              <div className="space-y-2 mb-4">
+                {impactData.impacts.map((imp, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 rounded-lg" style={glass(0.4)}>
+                    <span className="text-base">{imp.entity_type === "ai_chat" ? "🤖" : imp.entity_type === "action_plan" ? "📋" : imp.entity_type === "ai_extraction" ? "🔬" : "📊"}</span>
+                    <div className="flex-1">
+                      <div className="text-xs text-white font-medium">{imp.entity_label}</div>
+                      <div className="text-[10px] text-gray-500">{imp.details}</div>
+                    </div>
+                    <span className="text-xs text-amber-400 font-bold">{imp.usage_count}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex justify-between items-center pt-3 border-t" style={{ borderColor: BORDER }}>
+              <span className="text-[10px] text-gray-600">{isAr ? "إجمالي المراجع" : "Total references"}: {impactData.total_references}</span>
+              <button onClick={() => { setImpactData(null); setImpactSourceId(null); }} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition">
+                {isAr ? "إغلاق" : "Close"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quarantine Confirm Modal */}
+      {quarantineConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setQuarantineConfirm(null)}>
+          <div className="w-full max-w-sm mx-4 rounded-2xl p-6" style={{ ...glass(0.9), background: "rgba(10, 22, 40, 0.95)" }} onClick={e => e.stopPropagation()}>
+            <h3 className="text-white font-semibold text-base mb-2">🚫 {isAr ? "حجر المصدر" : "Quarantine Source"}</h3>
+            <p className="text-gray-400 text-xs mb-4">{isAr ? "سيتم استبعاد هذا المصدر من سياق جميع الوكلاء فورًا. سيظهر تحذير بجوار أي مخرجات AI استخدمت هذا المصدر." : "This source will be excluded from all agent context immediately. A warning will appear next to any AI output that referenced this source."}</p>
+            <input id="quarantine-reason" placeholder={isAr ? "السبب (اختياري)..." : "Reason (optional)..."} className={`${inputCls} mb-4`} />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setQuarantineConfirm(null)} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition">{isAr ? "إلغاء" : "Cancel"}</button>
+              <button
+                onClick={() => { const reason = document.getElementById("quarantine-reason")?.value || ""; handleQuarantine(quarantineConfirm, reason); }}
+                className="px-5 py-2 rounded-lg text-sm font-semibold transition-all hover:scale-[1.02]"
+                style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)", color: "#0a1628" }}
+              >
+                {isAr ? "حجر" : "Quarantine"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

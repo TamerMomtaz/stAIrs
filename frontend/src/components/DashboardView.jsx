@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { glass, GOLD, GOLD_L } from "../constants";
+import { glass, GOLD, GOLD_L, BORDER } from "../constants";
 import { HealthBadge, ProgressRing } from "./SharedUI";
 import { MATRIX_FRAMEWORKS } from "./StrategyMatrixToolkit";
 import { buildHeader, openExportWindow } from "../exportUtils";
-import { AdminAPI } from "../api";
+import { AdminAPI, DataQaAPI } from "../api";
 
 const AGENT_ICONS = {
   strategy_advisor: "\uD83D\uDCCA",
@@ -57,6 +57,52 @@ const AgentActivityLog = ({ isAr }) => {
   );
 };
 
+const DataHealthSummary = ({ strategyContext, isAr }) => {
+  const [health, setHealth] = useState(null);
+  useEffect(() => {
+    if (!strategyContext?.id) return;
+    DataQaAPI.getDataHealth(strategyContext.id).then(d => setHealth(d)).catch(() => {});
+  }, [strategyContext?.id]);
+  if (!health) return null;
+  const healthColor = health.health_score >= 80 ? "#34d399" : health.health_score >= 60 ? "#fbbf24" : "#f87171";
+  const items = [
+    { label: isAr ? "إجمالي المصادر" : "Total", value: health.total_sources, color: "#60a5fa" },
+    { label: isAr ? "موثقة" : "Verified", value: health.verified_sources, color: "#34d399" },
+    { label: isAr ? "متنازع" : "Disputed", value: health.disputed_sources, color: "#f87171" },
+    { label: isAr ? "محجورة" : "Quarantined", value: health.quarantined_sources, color: "#9ca3af" },
+  ];
+  return (
+    <div data-testid="data-health-summary">
+      <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-3">{isAr ? "صحة البيانات" : "Data Health"}</h3>
+      <div className="rounded-xl p-4" style={glass(0.4)}>
+        {health.health_score < 70 && (
+          <div className="flex items-center gap-2 mb-3 p-2.5 rounded-lg" style={{ background: "rgba(234, 179, 8, 0.08)", border: "1px solid rgba(234, 179, 8, 0.25)" }}>
+            <span className="text-sm">⚠️</span>
+            <span className="text-[11px] text-amber-400">{isAr ? "بيانات استراتيجيتك بها تعارضات غير محلولة قد تؤثر على دقة AI." : "Your strategy data has unresolved conflicts that may affect AI accuracy."}</span>
+          </div>
+        )}
+        <div className="flex items-center gap-4">
+          <div className="text-center">
+            <div className="text-2xl font-bold" style={{ color: healthColor }}>{health.health_score}%</div>
+            <div className="text-[10px] text-gray-500 mt-0.5">{isAr ? "صحة البيانات" : "Data Health"}</div>
+          </div>
+          <div className="flex-1 h-2 rounded-full bg-gray-800 overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${health.health_score}%`, background: healthColor }} />
+          </div>
+        </div>
+        <div className="grid grid-cols-4 gap-2 mt-3">
+          {items.map((it, i) => (
+            <div key={i} className="text-center p-2 rounded-lg" style={glass(0.3)}>
+              <div className="text-lg font-bold" style={{ color: it.color }}>{it.value}</div>
+              <div className="text-[9px] text-gray-500 uppercase tracking-wider">{it.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const DashboardView = ({ data, lang, matrixResults, onMatrixClick, strategyContext }) => {
   const s = data?.stats || {}; const isAr = lang === "ar";
   const stats = [{ label: isAr?"إجمالي":"Total Elements", value: s.total_elements||0, color: "#60a5fa" },{ label: isAr?"على المسار":"On Track", value: s.on_track||0, color: "#34d399" },{ label: isAr?"في خطر":"At Risk", value: s.at_risk||0, color: "#fbbf24" },{ label: isAr?"خارج المسار":"Off Track", value: s.off_track||0, color: "#f87171" }];
@@ -98,6 +144,7 @@ export const DashboardView = ({ data, lang, matrixResults, onMatrixClick, strate
           })}
         </div>
       </div>}
+      <DataHealthSummary strategyContext={strategyContext} isAr={isAr} />
       <AgentActivityLog isAr={isAr} />
     </div>
   );
