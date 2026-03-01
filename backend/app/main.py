@@ -55,6 +55,7 @@ from app.routers.notes import router as notes_router
 from app.routers.websocket import router as ws_router
 from app.routers.admin import router as admin_router
 from app.routers.sources import router as sources_router
+from app.routers.data_qa import router as data_qa_router
 
 
 # ─── LOGGING ───
@@ -586,6 +587,7 @@ app.include_router(notes_router)
 app.include_router(ws_router)
 app.include_router(admin_router)
 app.include_router(sources_router)
+app.include_router(data_qa_router)
 
 
 # ─── CORS TEST ───
@@ -608,7 +610,7 @@ async def root():
                 "measurement_tools": len(_knowledge_cache.get("measurement_tools", [])),
                 "loaded_at": str(_knowledge_cache.get("loaded_at", "not loaded")),
             },
-            "features": ["jwt_auth", "websocket", "multi_tenant", "knowledge_engine", "ai_strategy", "strategy_containers", "rate_limiting", "ai_fallback"]}
+            "features": ["jwt_auth", "websocket", "multi_tenant", "knowledge_engine", "ai_strategy", "strategy_containers", "rate_limiting", "ai_fallback", "data_qa"]}
 
 
 @app.get("/health")

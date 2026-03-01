@@ -226,6 +226,47 @@ export const SourcesAPI = {
 };
 
 
+// ═══ DATA QA API (Data Integrity & Quality Assurance) ═══
+export const DataQaAPI = {
+  async checkRelevance(strategyId, documentText) {
+    return api.post("/api/v1/data-qa/relevance-check", {
+      document_text: documentText,
+      strategy_id: strategyId,
+    });
+  },
+  async checkContradictions(strategyId, sourceId) {
+    return api.post(`/api/v1/data-qa/${strategyId}/check-contradictions?source_id=${encodeURIComponent(sourceId)}`);
+  },
+  async resolveConflicts(strategyId, resolutions) {
+    return api.post(`/api/v1/data-qa/${strategyId}/resolve-conflicts`, { resolutions });
+  },
+  async getConfidenceScores(strategyId) {
+    return api.get(`/api/v1/data-qa/${strategyId}/confidence`);
+  },
+  async verifySource(strategyId, sourceId) {
+    return api.post(`/api/v1/data-qa/${strategyId}/sources/${sourceId}/verify`);
+  },
+  async quarantineSource(strategyId, sourceId, reason) {
+    return api.post(`/api/v1/data-qa/${strategyId}/sources/${sourceId}/quarantine`, { reason: reason || "" });
+  },
+  async restoreSource(strategyId, sourceId) {
+    return api.post(`/api/v1/data-qa/${strategyId}/sources/${sourceId}/restore`);
+  },
+  async traceImpact(strategyId, sourceId) {
+    return api.get(`/api/v1/data-qa/${strategyId}/sources/${sourceId}/impact`);
+  },
+  async validateAnswers(strategyId, answers) {
+    return api.post(`/api/v1/data-qa/${strategyId}/validate-answers`, answers);
+  },
+  async getDataHealth(strategyId) {
+    return api.get(`/api/v1/data-qa/${strategyId}/health`);
+  },
+  async getQuarantinedSources(strategyId) {
+    return api.get(`/api/v1/data-qa/${strategyId}/quarantined`);
+  },
+};
+
+
 // ═══ MANIFEST STORE (Manifest Room persistence) ═══
 export class ManifestStore {
   constructor(strategyId) { this.key = `stairs_manifest_${strategyId}`; }

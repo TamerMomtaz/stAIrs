@@ -28,6 +28,8 @@ async def list_sources(
     strategy_id: str,
     source_type: Optional[str] = Query(None, description="Filter by source type"),
     search: Optional[str] = Query(None, description="Search across source content"),
+    include_quarantined: Optional[bool] = Query(False, description="Include quarantined sources"),
+    quarantined_only: Optional[bool] = Query(False, description="Show only quarantined sources"),
     auth: AuthContext = Depends(get_auth),
 ):
     pool = await get_pool()
@@ -52,6 +54,11 @@ async def list_sources(
             q += f" AND content ILIKE ${idx}"
             params.append(f"%{search}%")
             idx += 1
+
+        if quarantined_only:
+            q += " AND metadata::text LIKE '%\"quarantined\": true%'"
+        elif not include_quarantined:
+            q += " AND (metadata::text NOT LIKE '%\"quarantined\": true%' OR metadata IS NULL)"
 
         q += " ORDER BY created_at DESC"
         rows = await conn.fetch(q, *params)
