@@ -3,7 +3,7 @@
 // To add a new step: append an entry with { id, title, description, selector, icon }.
 // Bump TUTORIAL_VERSION when adding steps so returning users get notified.
 
-export const TUTORIAL_VERSION = 2;
+export const TUTORIAL_VERSION = 3;
 
 export const TUTORIAL_STORAGE_KEY = "stairs_tutorial";
 
@@ -79,6 +79,14 @@ export const tutorialSteps = [
     selector: "[data-tutorial='nav-sources']",
     icon: "🔍",
     featureKey: "source_of_truth",
+  },
+  {
+    id: "data_health",
+    title: "Data Health",
+    description: "Your strategy's data integrity dashboard. Monitor source quality, resolve conflicts, and quarantine questionable data. The AI agents weight their recommendations based on your data's confidence scores.",
+    selector: "[data-tutorial='nav-data-health']",
+    icon: "🛡️",
+    featureKey: "data_health",
   },
   {
     id: "knowledge",
