@@ -54,9 +54,9 @@ describe('WelcomeSlideshow rendering', () => {
     expect(screen.getByTestId('slideshow-next')).toBeTruthy();
   });
 
-  it('shows 8 dot navigation buttons', () => {
+  it('shows 9 dot navigation buttons', () => {
     render(<WelcomeSlideshow open={true} onClose={() => {}} />);
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 9; i++) {
       expect(screen.getByTestId(`slideshow-dot-${i}`)).toBeTruthy();
     }
   });
@@ -163,17 +163,28 @@ describe('WelcomeSlideshow slides content', () => {
     expect(screen.getByText('Manifest Room')).toBeTruthy();
   });
 
-  it('slide 7 (alerts & knowledge) shows monitoring and learning', () => {
+  it('slide 7 (data integrity) shows data protections', () => {
     render(<WelcomeSlideshow open={true} onClose={() => {}} />);
     fireEvent.click(screen.getByTestId('slideshow-dot-6'));
+    expect(screen.getByText('Your data. Verified. Validated. Trusted.')).toBeTruthy();
+    expect(screen.getByText('Quality Gate')).toBeTruthy();
+    expect(screen.getByText('Contradiction Detection')).toBeTruthy();
+    expect(screen.getByText('Confidence Scoring')).toBeTruthy();
+    expect(screen.getByText('Quarantine & Impact Tracing')).toBeTruthy();
+    expect(screen.getByText(/Six layers of protection/)).toBeTruthy();
+  });
+
+  it('slide 8 (alerts & knowledge) shows monitoring and learning', () => {
+    render(<WelcomeSlideshow open={true} onClose={() => {}} />);
+    fireEvent.click(screen.getByTestId('slideshow-dot-7'));
     expect(screen.getByText('Alerts & Knowledge')).toBeTruthy();
     expect(screen.getByText('Strategy Alerts')).toBeTruthy();
     expect(screen.getByText('Knowledge Library')).toBeTruthy();
   });
 
-  it('slide 8 (closing) shows Get Started button', () => {
+  it('slide 9 (closing) shows Get Started button', () => {
     render(<WelcomeSlideshow open={true} onClose={() => {}} />);
-    fireEvent.click(screen.getByTestId('slideshow-dot-7'));
+    fireEvent.click(screen.getByTestId('slideshow-dot-8'));
     expect(screen.getByText(/Human IS the Loop/)).toBeTruthy();
     expect(screen.getByText(/BY DEVONEERS/)).toBeTruthy();
     expect(screen.getByTestId('slideshow-get-started')).toBeTruthy();
@@ -187,7 +198,7 @@ describe('WelcomeSlideshow Get Started', () => {
     const onClose = vi.fn();
     const onGetStarted = vi.fn();
     render(<WelcomeSlideshow open={true} onClose={onClose} onGetStarted={onGetStarted} />);
-    fireEvent.click(screen.getByTestId('slideshow-dot-7'));
+    fireEvent.click(screen.getByTestId('slideshow-dot-8'));
     fireEvent.click(screen.getByTestId('slideshow-get-started'));
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onGetStarted).toHaveBeenCalledTimes(1);
@@ -198,7 +209,7 @@ describe('WelcomeSlideshow Get Started', () => {
     const onGetStarted = vi.fn();
     render(<WelcomeSlideshow open={true} onClose={onClose} onGetStarted={onGetStarted} />);
     // Navigate to last slide
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 8; i++) {
       fireEvent.click(screen.getByTestId('slideshow-next'));
     }
     // Click "Get Started" which replaces Next on last slide

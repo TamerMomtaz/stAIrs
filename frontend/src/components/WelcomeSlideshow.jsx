@@ -312,7 +312,56 @@ const ManifestPreview = ({ animate }) => {
   );
 };
 
-// ═══ ALERTS & KNOWLEDGE (Slide 7) ═══
+// ═══ DATA INTEGRITY FLOW (Slide 7) ═══
+const DataIntegrityFlow = ({ animate }) => {
+  const protections = [
+    { icon: "🛡️", label: "Quality Gate", desc: "Every upload is checked for relevance before it enters your strategy", color: "#34d399" },
+    { icon: "⚖️", label: "Contradiction Detection", desc: "Conflicts between sources are flagged for your review", color: "#60a5fa" },
+    { icon: "🔍", label: "Confidence Scoring", desc: "Every data point is scored for reliability — agents weight their advice accordingly", color: "#a78bfa" },
+    { icon: "🔒", label: "Quarantine & Impact Tracing", desc: "Remove bad data instantly and see exactly what it affected", color: "#f472b6" },
+  ];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px", maxWidth: "540px", margin: "0 auto" }}>
+      {protections.map((p, i) => (
+        <div
+          key={i}
+          className={animate ? "slideshow-fadeUp" : ""}
+          style={{
+            display: "flex", alignItems: "center", gap: "16px", padding: "14px 20px", borderRadius: "14px",
+            background: "rgba(22, 37, 68, 0.7)", border: `1px solid ${BORDER}`, width: "100%",
+            borderLeft: `3px solid ${p.color}`,
+            opacity: animate ? 0 : 1,
+            animationDelay: animate ? `${i * 300 + 200}ms` : undefined,
+            animationFillMode: "forwards",
+          }}
+        >
+          <span style={{ fontSize: "28px", flexShrink: 0 }}>{p.icon}</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ color: p.color, fontSize: "13px", fontWeight: "700", marginBottom: "2px" }}>{p.label}</div>
+            <div style={{ color: "#94a3b8", fontSize: "11px", lineHeight: "1.5" }}>{p.desc}</div>
+          </div>
+        </div>
+      ))}
+      <div
+        className={animate ? "slideshow-fadeUp" : ""}
+        style={{
+          display: "flex", alignItems: "center", gap: "10px", padding: "10px 16px", borderRadius: "10px",
+          background: `${ACCENT}08`, border: `1px dashed ${ACCENT}30`, marginTop: "4px",
+          opacity: animate ? 0 : 1,
+          animationDelay: animate ? "1500ms" : undefined,
+          animationFillMode: "forwards",
+        }}
+      >
+        <span style={{ fontSize: "16px" }}>✅</span>
+        <div style={{ color: ACCENT, fontSize: "11px", fontWeight: "700", lineHeight: "1.5" }}>
+          Six layers of protection. Because your strategy is only as good as your data.
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ═══ ALERTS & KNOWLEDGE (Slide 8) ═══
 const AlertsKnowledge = ({ animate }) => (
   <div style={{ display: "flex", gap: "20px", maxWidth: "600px", margin: "0 auto", flexWrap: "wrap", justifyContent: "center" }}>
     <div
@@ -460,6 +509,21 @@ const slideConfigs = [
           <p style={{ color: "#64748b", fontSize: "13px" }}>Organized, exportable view of all your implementation threads</p>
         </div>
         <ManifestPreview animate={animate} />
+      </div>
+    ),
+  },
+  {
+    id: "data-integrity",
+    render: (animate) => (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "28px", padding: "20px" }}>
+        <div
+          className={animate ? "slideshow-fadeUp" : ""}
+          style={{ textAlign: "center", opacity: animate ? 0 : 1, animationDelay: "100ms", animationFillMode: "forwards" }}
+        >
+          <h2 style={{ color: "#fff", fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Your data. Verified. Validated. Trusted.</h2>
+          <p style={{ color: "#64748b", fontSize: "13px" }}>Four key protections that keep your strategy built on reliable data</p>
+        </div>
+        <DataIntegrityFlow animate={animate} />
       </div>
     ),
   },

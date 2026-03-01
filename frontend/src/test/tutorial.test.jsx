@@ -23,7 +23,7 @@ beforeEach(() => {
 describe('tutorialConfig', () => {
   it('exports tutorial steps array with required fields', () => {
     expect(Array.isArray(tutorialSteps)).toBe(true);
-    expect(tutorialSteps.length).toBe(13);
+    expect(tutorialSteps.length).toBe(14);
     tutorialSteps.forEach(step => {
       expect(step).toHaveProperty('id');
       expect(step).toHaveProperty('title');
