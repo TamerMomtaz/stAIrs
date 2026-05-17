@@ -29,6 +29,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   const [customPlanLoading, setCustomPlanLoading] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [planView, setPlanView] = useState("recommended"); // "recommended" | "customized" | "comparison"
+  const [expandedDesc, setExpandedDesc] = useState({}); // task id -> show full description
   const [hasSavedPlan, setHasSavedPlan] = useState(false);
   const [savedPlanId, setSavedPlanId] = useState(null);
   const [retryMsg, setRetryMsg] = useState(null);
@@ -800,7 +801,7 @@ User question: ${msg}`;
       <main className="flex-1 overflow-hidden">
         {/* Action Plan Tab */}
         {activeTab === "plan" && (
-          <div className="h-full overflow-y-auto px-6 py-5 max-w-5xl mx-auto">
+          <div className="h-full overflow-y-auto p-6 mx-auto w-full" style={{ maxWidth: 900 }}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">{isAr ? "خطة العمل" : "Action Plan"}</h2>
               <div className="flex items-center gap-3">
@@ -863,35 +864,49 @@ User question: ${msg}`;
                   </div>
                 )}
                 {planValidation && <ValidationWarnings validation={planValidation} />}
+                {tasks.length > 0 && (
+                  <div className="mb-5">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-medium text-gray-400">{isAr ? "تقدم المهام" : "Task Progress"}</span>
+                      <span className="text-sm font-semibold text-emerald-400">{Math.round(tasks.length ? (tasks.filter(t => t.done).length / tasks.length) * 100 : 0)}%</span>
+                    </div>
+                    <div className="h-2.5 rounded-full bg-[#1e3a5f] overflow-hidden">
+                      <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${tasks.length ? (tasks.filter(t => t.done).length / tasks.length) * 100 : 0}%` }} />
+                    </div>
+                  </div>
+                )}
                 {planLoading && !actionPlan ? (
                   <AgentActivityIndicator agentStep={agentStep} />
                 ) : tasks.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="space-y-4">
                     {tasks.map(t => (
-                      <div key={t.id} className={`rounded-xl transition-all ${t.done ? "opacity-60" : ""}`} style={glass(0.4)}>
-                        <div className="flex items-start gap-3 p-4">
-                          <button onClick={() => toggleTask(t.id)} className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-gray-600 hover:border-amber-500/50"}`}>
+                      <div key={t.id} className={`rounded-xl relative transition-all ${t.done ? "opacity-60" : ""}`} style={glass(0.5)}>
+                        <div className="absolute top-5 right-5 z-10"><PriorityBadge priority={t.priority} /></div>
+                        <div className="flex items-center gap-4 p-5">
+                          <button onClick={() => toggleTask(t.id)} className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-gray-600 hover:border-amber-500/50"}`}>
                             {t.done && <span className="text-xs">✓</span>}
                           </button>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className={`text-sm font-medium ${t.done ? "line-through text-gray-500" : "text-white"}`}>{t.name}</span>
-                              <PriorityBadge priority={t.priority} />
+                            <h4 className={`text-base font-semibold leading-snug pr-20 ${t.done ? "line-through text-gray-500" : "text-slate-100"}`}>{t.name}</h4>
+                            {t.details && (
+                              <p
+                                onClick={() => setExpandedDesc(p => ({ ...p, [t.id]: !p[t.id] }))}
+                                title={isAr ? "" : "Click to expand"}
+                                className={`text-sm text-[#94a3b8] leading-relaxed mt-2 cursor-pointer ${expandedDesc[t.id] ? "" : "line-clamp-2"}`}
+                              >
+                                {t.details}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-4 flex-wrap mt-3 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
+                              <span className="text-xs text-[#64748b]"><span className="opacity-70">👤</span> {t.owner}</span>
+                              <span className="text-xs text-[#64748b]"><span className="opacity-70">⏱</span> {t.timeline}</span>
                             </div>
-                            {t.details && <div className="text-gray-400 text-xs mt-1">{t.details}</div>}
-                            <div className="flex items-center gap-4 mt-2">
-                              <span className="text-[10px] text-gray-600">
-                                <span className="text-gray-500">👤</span> {t.owner}
-                              </span>
-                              <span className="text-[10px] text-gray-600">
-                                <span className="text-gray-500">⏱</span> {t.timeline}
-                              </span>
-                              {/* Button order: Explain → How far can I do this? → How to Implement */}
-                              <div className="ml-auto flex items-center gap-1.5">
+                            {/* Button order: Explain → How far can I do this? → How to Implement */}
+                            <div className="flex items-center gap-2 flex-wrap mt-3">
                                 <button
                                   onClick={() => toggleExplainChat(t)}
                                   data-tutorial="explain"
-                                  className={`text-[11px] px-2.5 py-1 rounded-lg border transition font-medium ${
+                                  className={`text-xs px-3 py-1.5 rounded-md border transition font-medium ${
                                     explainTaskId === t.id
                                       ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
                                       : "border-blue-500/20 text-blue-400/70 hover:text-blue-400 hover:bg-blue-500/10"
@@ -904,7 +919,7 @@ User question: ${msg}`;
                                 <button
                                   onClick={() => toggleActionChat(t)}
                                   data-tutorial="how-far"
-                                  className={`text-[11px] px-2.5 py-1 rounded-lg border transition font-medium ${
+                                  className={`text-xs px-3 py-1.5 rounded-md border transition font-medium ${
                                     actionChatTaskId === t.id
                                       ? "bg-teal-500/20 text-teal-300 border-teal-500/30"
                                       : "border-amber-500/20 text-amber-400/70 hover:text-amber-400 hover:bg-amber-500/10"
@@ -918,7 +933,7 @@ User question: ${msg}`;
                                   <button
                                     onClick={() => openImplRoom(t)}
                                     data-tutorial="impl-room"
-                                    className={`text-[11px] px-2.5 py-1 rounded-lg border transition font-medium ${
+                                    className={`text-xs px-3 py-1.5 rounded-md border transition font-medium ${
                                       implRoomTaskId === t.id
                                         ? "bg-purple-500/20 text-purple-300 border-purple-500/30"
                                         : "border-purple-500/20 text-purple-400/70 hover:text-purple-400 hover:bg-purple-500/10"
@@ -929,14 +944,13 @@ User question: ${msg}`;
                                       : (isAr ? "كيف أنفذ →" : "How to Implement →")}
                                   </button>
                                 )}
-                              </div>
                             </div>
                           </div>
                         </div>
 
                         {/* ── Explain Panel (shown BEFORE feedback) ── */}
                         {explainTaskId === t.id && (
-                          <div className="border-t border-blue-500/20 px-4 pb-4 pt-3" style={{ background: "rgba(59,130,246,0.03)" }}>
+                          <div className="border-t border-blue-500/20 px-4 pb-4 pt-3" style={{ background: "rgba(59,130,246,0.03)", borderLeft: "3px solid #14b8a6" }}>
                             <div className="flex items-center gap-2 mb-2">
                               <span className="text-blue-400 text-xs font-semibold">{isAr ? "شرح هذا الإجراء" : "Understanding This Action"}</span>
                               {explainChats[t.id]?.[0]?.sources_used?.length > 0 && (
@@ -945,7 +959,7 @@ User question: ${msg}`;
                                 </span>
                               )}
                             </div>
-                            <div className="max-h-72 overflow-y-auto space-y-2 mb-3">
+                            <div className="max-h-[200px] overflow-y-auto space-y-2 mb-3">
                               {explainChatLoading && !explainChats[t.id] && (
                                 <div className="flex items-center gap-2 py-4 justify-center">
                                   <div className="flex gap-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-blue-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
@@ -1160,20 +1174,11 @@ User question: ${msg}`;
                     ))}
                   </div>
                 ) : actionPlan ? (
-                  <div className="rounded-xl p-4" style={glass(0.4)}>
+                  <div className="rounded-xl p-5 max-h-[200px] overflow-y-auto" style={{ ...glass(0.5), borderLeft: "3px solid #14b8a6" }}>
                     <Markdown text={actionPlan} onMatrixClick={onMatrixClick} />
                     <LoadMatrixButtons text={actionPlan} onLoadMatrix={onMatrixClick} />
                   </div>
                 ) : null}
-
-                {tasks.length > 0 && (
-                  <div className="mt-4 flex items-center gap-3">
-                    <div className="flex-1 h-2 rounded-full bg-[#1e3a5f] overflow-hidden">
-                      <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${tasks.length ? (tasks.filter(t => t.done).length / tasks.length) * 100 : 0}%` }} />
-                    </div>
-                    <span className="text-xs text-gray-500">{Math.round(tasks.length ? (tasks.filter(t => t.done).length / tasks.length) * 100 : 0)}%</span>
-                  </div>
-                )}
 
                 {actionPlan && onSaveNote && (
                   <div className="mt-4">
@@ -1233,30 +1238,49 @@ User question: ${msg}`;
                     : "This plan is tailored based on your feedback about your capabilities and constraints."}
                 </p>
 
+                {customTasks.length > 0 && (
+                  <div className="mb-5">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-medium text-gray-400">{isAr ? "تقدم المهام" : "Task Progress"}</span>
+                      <span className="text-sm font-semibold text-amber-400">{Math.round(customTasks.length ? (customTasks.filter(t => t.done).length / customTasks.length) * 100 : 0)}%</span>
+                    </div>
+                    <div className="h-2.5 rounded-full bg-[#1e3a5f] overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${customTasks.length ? (customTasks.filter(t => t.done).length / customTasks.length) * 100 : 0}%`, background: `linear-gradient(90deg, ${GOLD}, ${GOLD_L})` }} />
+                    </div>
+                  </div>
+                )}
+
                 {customPlanLoading && !customPlan ? (
                   <LoadingDots label={isAr ? "جاري إنشاء خطتك المخصصة..." : "Generating your customized plan..."} />
                 ) : customTasks.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="space-y-4">
                     {customTasks.map(t => (
-                      <div key={t.id} className={`rounded-xl transition-all ${t.done ? "opacity-60" : ""}`} style={{ ...glass(0.4), borderLeft: `3px solid ${GOLD}60` }}>
-                        <div className="flex items-start gap-3 p-4">
-                          <button onClick={() => toggleCustomTask(t.id)} className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-amber-500/40 hover:border-amber-500/70"}`}>
+                      <div key={t.id} className={`rounded-xl relative transition-all ${t.done ? "opacity-60" : ""}`} style={{ ...glass(0.5), borderLeft: `3px solid ${GOLD}60` }}>
+                        <div className="absolute top-5 right-5 z-10"><PriorityBadge priority={t.priority} /></div>
+                        <div className="flex items-center gap-4 p-5">
+                          <button onClick={() => toggleCustomTask(t.id)} className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-amber-500/40 hover:border-amber-500/70"}`}>
                             {t.done && <span className="text-xs">✓</span>}
                           </button>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className={`text-sm font-medium ${t.done ? "line-through text-gray-500" : "text-white"}`}>{t.name}</span>
-                              <PriorityBadge priority={t.priority} />
+                            <h4 className={`text-base font-semibold leading-snug pr-20 ${t.done ? "line-through text-gray-500" : "text-slate-100"}`}>{t.name}</h4>
+                            {t.details && (
+                              <p
+                                onClick={() => setExpandedDesc(p => ({ ...p, [t.id]: !p[t.id] }))}
+                                title={isAr ? "" : "Click to expand"}
+                                className={`text-sm text-[#94a3b8] leading-relaxed mt-2 cursor-pointer ${expandedDesc[t.id] ? "" : "line-clamp-2"}`}
+                              >
+                                {t.details}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-4 flex-wrap mt-3 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
+                              <span className="text-xs text-[#64748b]"><span className="opacity-70">👤</span> {t.owner}</span>
+                              <span className="text-xs text-[#64748b]"><span className="opacity-70">⏱</span> {t.timeline}</span>
                             </div>
-                            {t.details && <div className="text-gray-400 text-xs mt-1">{t.details}</div>}
-                            <div className="flex items-center gap-4 mt-2">
-                              <span className="text-[10px] text-gray-600"><span className="text-gray-500">👤</span> {t.owner}</span>
-                              <span className="text-[10px] text-gray-600"><span className="text-gray-500">⏱</span> {t.timeline}</span>
-                              {/* Button order: Explain → How to Implement */}
-                              <div className="ml-auto flex items-center gap-1.5">
+                            {/* Button order: Explain → How to Implement */}
+                            <div className="flex items-center gap-2 flex-wrap mt-3">
                                 <button
                                   onClick={() => toggleExplainChat(t)}
-                                  className={`text-[11px] px-2.5 py-1 rounded-lg border transition font-medium ${
+                                  className={`text-xs px-3 py-1.5 rounded-md border transition font-medium ${
                                     explainTaskId === t.id
                                       ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
                                       : "border-blue-500/20 text-blue-400/70 hover:text-blue-400 hover:bg-blue-500/10"
@@ -1268,7 +1292,7 @@ User question: ${msg}`;
                                 </button>
                                 <button
                                   onClick={() => openImplRoom(t, true)}
-                                  className={`text-[11px] px-2.5 py-1 rounded-lg border transition font-medium ${
+                                  className={`text-xs px-3 py-1.5 rounded-md border transition font-medium ${
                                     implRoomTaskId === t.id
                                       ? "bg-purple-500/20 text-purple-300 border-purple-500/30"
                                       : "border-purple-500/20 text-purple-400/70 hover:text-purple-400 hover:bg-purple-500/10"
@@ -1278,14 +1302,13 @@ User question: ${msg}`;
                                     ? (isAr ? "✕ إغلاق" : "✕ Close")
                                     : (isAr ? "كيف أنفذ →" : "How to Implement →")}
                                 </button>
-                              </div>
                             </div>
                           </div>
                         </div>
 
                         {/* ── Explain Panel ── */}
                         {explainTaskId === t.id && (
-                          <div className="border-t border-blue-500/20 px-4 pb-4 pt-3" style={{ background: "rgba(59,130,246,0.03)" }}>
+                          <div className="border-t border-blue-500/20 px-4 pb-4 pt-3" style={{ background: "rgba(59,130,246,0.03)", borderLeft: "3px solid #14b8a6" }}>
                             <div className="flex items-center gap-2 mb-2">
                               <span className="text-blue-400 text-xs font-semibold">{isAr ? "شرح هذا الإجراء" : "Understanding This Action"}</span>
                               {explainChats[t.id]?.[0]?.sources_used?.length > 0 && (
@@ -1294,7 +1317,7 @@ User question: ${msg}`;
                                 </span>
                               )}
                             </div>
-                            <div className="max-h-72 overflow-y-auto space-y-2 mb-3">
+                            <div className="max-h-[200px] overflow-y-auto space-y-2 mb-3">
                               {explainChatLoading && !explainChats[t.id] && (
                                 <div className="flex items-center gap-2 py-4 justify-center">
                                   <div className="flex gap-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-blue-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
@@ -1455,20 +1478,11 @@ User question: ${msg}`;
                     ))}
                   </div>
                 ) : customPlan ? (
-                  <div className="rounded-xl p-4" style={{ ...glass(0.4), borderLeft: `3px solid ${GOLD}60` }}>
+                  <div className="rounded-xl p-5 max-h-[200px] overflow-y-auto" style={{ ...glass(0.5), borderLeft: `3px solid ${GOLD}60` }}>
                     <Markdown text={customPlan} onMatrixClick={onMatrixClick} />
                     <LoadMatrixButtons text={customPlan} onLoadMatrix={onMatrixClick} />
                   </div>
                 ) : null}
-
-                {customTasks.length > 0 && (
-                  <div className="mt-4 flex items-center gap-3">
-                    <div className="flex-1 h-2 rounded-full bg-[#1e3a5f] overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${customTasks.length ? (customTasks.filter(t => t.done).length / customTasks.length) * 100 : 0}%`, background: `linear-gradient(90deg, ${GOLD}, ${GOLD_L})` }} />
-                    </div>
-                    <span className="text-xs text-gray-500">{Math.round(customTasks.length ? (customTasks.filter(t => t.done).length / customTasks.length) * 100 : 0)}%</span>
-                  </div>
-                )}
 
                 {customPlan && onSaveNote && (
                   <div className="mt-4">
