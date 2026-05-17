@@ -5,6 +5,7 @@ import { Markdown } from "./Markdown";
 import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
 import { buildHeader, openExportWindow } from "../exportUtils";
 import { ConfidenceBadge, ValidationWarnings, AgentActivityIndicator } from "./SharedUI";
+import { fireGuidance } from "../guidanceConfig";
 
 const SourcesUsed = ({ sources }) => {
   const [open, setOpen] = useState(false);
@@ -78,6 +79,7 @@ export const AIChatView = ({ lang, userId, strategyContext, onSaveNote, onMatrix
       const res = await api.aiPost("/api/v1/ai/chat", body, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
       setRetryMsg(null);
       const aiMsg = { role: "ai", text: res.response, tokens: res.tokens_used, provider_display: res.provider_display || null, sources_used: res.sources_used || null, agents_used: res.agents_used || null, validation: res.validation || null, ts: new Date().toISOString() }; const final = [...newMsgs, aiMsg]; setMessages(final);
+      fireGuidance("ai_chat_active");
       if (store&&cid) { store.saveMsgs(cid,final); const conv = store.list().find(c => c.id===cid); if (conv) { if (conv.title==="New") conv.title=msg.slice(0,60); conv.updated_at=new Date().toISOString(); conv.count=final.length; store.save(conv); setConvs(store.list()); } }
     } catch (e) { setRetryMsg(null); const err = { role: "ai", text: `\u26A0\uFE0F ${e.message}`, error: true, ts: new Date().toISOString() }; const final = [...newMsgs, err]; setMessages(final); if (store&&cid) store.saveMsgs(cid,final); }
     clearInterval(agentStepRef.current); setLoading(false);

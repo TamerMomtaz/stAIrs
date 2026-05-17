@@ -21,7 +21,13 @@ import { StrategyMatrixToolkit } from "./components/StrategyMatrixToolkit";
 import { StrategyToolsPanel } from "./components/StrategyToolsPanel";
 import { SourceOfTruthView } from "./components/SourceOfTruthView";
 import { ManifestRoom } from "./components/ManifestRoom";
+import { Sidebar } from "./components/Sidebar";
+import { GuidanceManager } from "./components/GuidanceToast";
+import { fireGuidance } from "./guidanceConfig";
+import { MATRIX_FRAMEWORKS } from "./components/StrategyMatrixToolkit";
 import { shouldShowTutorial, hasNewTutorialSteps, getNewSteps, markFeatureUsed, getTutorialState, saveTutorialState, getDefaultTutorialState } from "./tutorialConfig";
+
+const MATRIX_ORDER = ["ife", "efe", "space", "bcg", "porter"];
 
 // ═══ MAIN APP ═══
 export default function App() {
@@ -44,7 +50,9 @@ export default function App() {
   const [aiProvider, setAiProvider] = useState(null);
   const [showWelcomeSlideshow, setShowWelcomeSlideshow] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("stairs_sidebar_collapsed") === "1");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const toggleSidebar = () => setSidebarCollapsed(v => { const n = !v; localStorage.setItem("stairs_sidebar_collapsed", n ? "1" : "0"); return n; });
   const [matrixToolkit, setMatrixToolkit] = useState({ open: false, key: null, initialData: null });
   const openMatrix = (key, initialData = null) => setMatrixToolkit({ open: true, key, initialData });
   const closeMatrix = () => setMatrixToolkit({ open: false, key: null, initialData: null });
@@ -55,10 +63,20 @@ export default function App() {
   const notesStoreRef = useRef(null);
   const saveToNotes = (title, content, source) => {
     if (!notesStoreRef.current && user) notesStoreRef.current = new NotesStore(user.id || user.email);
-    if (notesStoreRef.current) { notesStoreRef.current.create(title, content, source); alert("📌 Saved to Notes!"); }
+    if (notesStoreRef.current) { notesStoreRef.current.create(title, content, source); fireGuidance("note_saved"); }
   };
   const saveMatrixResult = (matrixKey, data) => {
-    if (matrixStoreRef.current) { matrixStoreRef.current.save(matrixKey, data); setMatrixResults(matrixStoreRef.current.getAll()); }
+    if (matrixStoreRef.current) {
+      matrixStoreRef.current.save(matrixKey, data);
+      setMatrixResults(matrixStoreRef.current.getAll());
+      const idx = MATRIX_ORDER.indexOf(matrixKey);
+      const nextKey = idx >= 0 && idx < MATRIX_ORDER.length - 1 ? MATRIX_ORDER[idx + 1] : null;
+      fireGuidance("matrix_complete", {
+        matrixName: MATRIX_FRAMEWORKS[matrixKey]?.name || "Matrix",
+        nextKey,
+        nextName: nextKey ? MATRIX_FRAMEWORKS[nextKey]?.name : null,
+      });
+    }
   };
   const isAr = lang === "ar";
 
@@ -96,6 +114,11 @@ export default function App() {
       }
     }
   }, [user]);
+
+  // First-login guidance: prompt brand-new users to create their first strategy
+  useEffect(() => {
+    if (user && !stratLoading && !activeStrat && strategies.length === 0) fireGuidance("first_login");
+  }, [user, stratLoading, activeStrat, strategies.length]);
 
   const loadStrategies = async () => {
     if (!stratApiRef.current) return;
@@ -156,7 +179,11 @@ export default function App() {
     }
     await loadStrategies();
     selectStrategy(created);
+    // Defer until the post-selection tree (with its GuidanceManager) is mounted.
+    setTimeout(() => fireGuidance("strategy_created", { name: created.name, count: stratData._localElements?.length || 0 }), 0);
   };
+
+  const openExecutionRoom = (s) => { setExecRoomStair(s); fireGuidance("execution_room"); };
 
   const deleteStrategy = async (id) => {
     if (!stratApiRef.current) return;
@@ -224,13 +251,19 @@ export default function App() {
     <div class="footer" style="text-align:center;margin-top:40px;padding-top:20px;border-top:2px solid #B8904A"><div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:3px;margin-bottom:4px">BY DEVONEERS &bull; Stairs &bull; HUMAN IS THE LOOP &bull; ${new Date().getFullYear()}</div></div></body></html>`);
     w.document.close();
     w.print();
+    fireGuidance("export_ready");
   };
 
   const logout = () => { api.logout(); setUser(null); setActiveStrat(null); setStrategies([]); };
 
   // ═══ RENDER ═══
   if (!user) return <LoginScreen onLogin={setUser} />;
-  if (!activeStrat) return <StrategyLanding strategies={strategies} onSelect={selectStrategy} onCreate={createStrategy} onDelete={deleteStrategy} userName={user.full_name||user.name||user.email} onLogout={logout} onLangToggle={toggleLang} lang={lang} loading={stratLoading} userId={user.id || user.email} userEmail={user.email} userRole={user.role} />;
+  if (!activeStrat) return (
+    <>
+      <StrategyLanding strategies={strategies} onSelect={selectStrategy} onCreate={createStrategy} onDelete={deleteStrategy} userName={user.full_name||user.name||user.email} onLogout={logout} onLangToggle={toggleLang} lang={lang} loading={stratLoading} userId={user.id || user.email} userEmail={user.email} userRole={user.role} />
+      <GuidanceManager suppressed={tutorialActive || showWelcomeSlideshow} onView={() => {}} onExec={() => {}} onMatrix={() => {}} />
+    </>
+  );
 
   const navItems = {
     dashboard: { icon: "📊", label: isAr ? "لوحة القيادة" : "Dashboard", tutorial: "nav-dashboard" },
@@ -244,18 +277,13 @@ export default function App() {
     actionplans: { icon: "📋", label: isAr ? "خطط العمل" : "Action Plans", tutorial: "nav-actionplans" },
     manifest: { icon: "📦", label: isAr ? "سجل التنفيذ" : "Manifest Room", tutorial: "nav-manifest" },
   };
-  const primaryKeys = ["dashboard", "staircase", "ai", "alerts", "sources"];
-  const moreGroups = [
-    { label: isAr ? "المكتبة" : "Library", icon: "📚", keys: ["notes", "knowledge", "tools"] },
-    { label: isAr ? "التنفيذ" : "Execution", icon: "📋", keys: ["actionplans", "manifest"] },
-  ];
-  const isMoreActive = moreGroups.some(g => g.keys.includes(view));
-  const goToView = (key) => { setView(key); trackFeature(key); setShowMoreMenu(false); };
+  const goToView = (key) => { setView(key); trackFeature(key); setMobileNavOpen(false); };
 
   return (
-    <div className="min-h-screen text-white" dir={isAr ? "rtl" : "ltr"} style={{ background: `linear-gradient(180deg, ${DEEP} 0%, #0f1f3a 50%, ${DEEP} 100%)`, fontFamily: isAr ? "'Noto Kufi Arabic', sans-serif" : "'DM Sans', system-ui, sans-serif" }}>
-      <header className="flex items-center justify-between px-6 py-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
+    <div className="h-screen flex flex-col overflow-hidden text-white" dir={isAr ? "rtl" : "ltr"} style={{ background: `linear-gradient(180deg, ${DEEP} 0%, #0f1f3a 50%, ${DEEP} 100%)`, fontFamily: isAr ? "'Noto Kufi Arabic', sans-serif" : "'DM Sans', system-ui, sans-serif" }}>
+      <header className="flex items-center justify-between px-6 py-3 shrink-0" style={{ borderBottom: `1px solid ${BORDER}` }}>
         <div className="flex items-center gap-3">
+          <button onClick={() => setMobileNavOpen(v => !v)} className="md:hidden p-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition text-lg" title="Menu" aria-label="Toggle navigation">☰</button>
           <button onClick={() => { setActiveStrat(null); if (stratApiRef.current) stratApiRef.current.setActive(null); }} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition group" title="Back to Strategies">
             <span className="text-lg group-hover:-translate-x-0.5 transition-transform">←</span>
             <img src="/devoneers-logo.png" alt="DEVONEERS" style={{ height: "40px" }} />
@@ -300,52 +328,12 @@ export default function App() {
         </div>
       </header>
 
-      <nav className="flex items-center gap-1 px-6 py-2 relative z-50" style={{ borderBottom: `1px solid ${BORDER}` }}>
-        {primaryKeys.map(key => {
-          const n = navItems[key];
-          return (
-            <button key={key} onClick={() => goToView(key)} data-tutorial={n.tutorial}
-              className={`px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition flex items-center gap-1 ${view === key ? "bg-amber-500/15 text-amber-300 border border-amber-500/20" : "text-gray-500 hover:text-gray-300 border border-transparent"}`}>
-              {n.icon} {n.label}
-              {n.badge > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">{n.badge}</span>}
-            </button>
-          );
-        })}
-        <div className="relative">
-          <button onClick={() => setShowMoreMenu(v => !v)} data-tutorial="nav-more"
-            className={`px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition flex items-center gap-1.5 ${isMoreActive || showMoreMenu ? "bg-amber-500/15 text-amber-300 border border-amber-500/20" : "text-gray-500 hover:text-gray-300 border border-transparent"}`}>
-            <span className="tracking-widest leading-none">⋯</span> {isAr ? "المزيد" : "More"}
-            <span className="text-[9px]">{showMoreMenu ? "▲" : "▼"}</span>
-          </button>
-          {showMoreMenu && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
-              <div className={`absolute ${isAr ? "left-0" : "right-0"} top-full mt-2 w-60 rounded-xl z-50 py-2`} style={{ background: "rgba(22, 37, 68, 0.97)", border: `1px solid ${GOLD}30`, backdropFilter: "blur(20px)", boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }}>
-                {moreGroups.map((g, gi) => (
-                  <div key={g.label} className={gi > 0 ? "mt-1 pt-1" : ""} style={gi > 0 ? { borderTop: `1px solid ${GOLD}15` } : undefined}>
-                    <div className="px-4 py-1.5 text-[10px] uppercase tracking-wider text-teal-400/80">{g.icon} {g.label}</div>
-                    {g.keys.map(key => {
-                      const n = navItems[key];
-                      return (
-                        <button key={key} onClick={() => goToView(key)} data-tutorial={n.tutorial}
-                          className={`w-full px-4 py-2 text-sm transition flex items-center gap-2 ${isAr ? "text-right flex-row-reverse" : "text-left"} ${view === key ? "text-amber-300 bg-amber-500/10" : "text-gray-400 hover:text-amber-300 hover:bg-amber-500/10"}`}>
-                          <span>{n.icon}</span>
-                          <span className="flex-1">{n.label}</span>
-                          {n.badge > 0 && <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">{n.badge}</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </nav>
-
-      <main className="max-w-6xl mx-auto px-6 py-6">
+      <div className="flex flex-1 min-h-0 relative">
+        <Sidebar navItems={navItems} view={view} onSelect={goToView} collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebar} isAr={isAr} mobileOpen={mobileNavOpen} onMobileClose={() => setMobileNavOpen(false)} />
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="max-w-6xl mx-auto px-6 py-6">
         {view === "dashboard" && <DashboardView data={dashData} lang={lang} matrixResults={matrixResults} onMatrixClick={openMatrix} strategyContext={activeStrat} />}
-        {view === "staircase" && <StaircaseView tree={stairTree} lang={lang} onEdit={s => { setEditStair(s); setShowEditor(true); }} onAdd={() => { setEditStair(null); setShowEditor(true); }} onExport={exportPDF} onMove={moveStair} strategyContext={activeStrat} onSaveNote={saveToNotes} onExecutionRoom={s => setExecRoomStair(s)} onMatrixClick={openMatrix} />}
+        {view === "staircase" && <StaircaseView tree={stairTree} lang={lang} onEdit={s => { setEditStair(s); setShowEditor(true); }} onAdd={() => { setEditStair(null); setShowEditor(true); }} onExport={exportPDF} onMove={moveStair} strategyContext={activeStrat} onSaveNote={saveToNotes} onExecutionRoom={openExecutionRoom} onMatrixClick={openMatrix} />}
         {view === "ai" && <AIChatView lang={lang} userId={user.id || user.email} strategyContext={activeStrat} onSaveNote={saveToNotes} onMatrixClick={openMatrix} />}
         {view === "actionplans" && <ActionPlansView strategyContext={activeStrat} lang={lang} onMatrixClick={openMatrix} />}
         {view === "manifest" && <ManifestRoom strategyContext={activeStrat} lang={lang} />}
@@ -354,7 +342,10 @@ export default function App() {
         {view === "tools" && <StrategyToolsPanel lang={lang} onMatrixClick={openMatrix} matrixResults={matrixResults} strategyContext={activeStrat} />}
         {view === "sources" && <SourceOfTruthView lang={lang} strategyContext={activeStrat} />}
         {view === "notes" && <NotesView lang={lang} userId={user.id || user.email} strategyName={activeStrat?.name} />}
-      </main>
+          </div>
+          <footer className="text-center py-6 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • Stairs v3.7.0 • "Human IS the Loop" • {new Date().getFullYear()}</footer>
+        </main>
+      </div>
 
       <StairEditor open={showEditor} onClose={() => { setShowEditor(false); setEditStair(null); }} stair={editStair} allStairs={stairTree} onSave={saveStair} onDelete={deleteStair} lang={lang} />
 
@@ -364,11 +355,11 @@ export default function App() {
 
       <WelcomeSlideshow open={showWelcomeSlideshow} onClose={() => setShowWelcomeSlideshow(false)} hasStrategies={true} />
 
-      <footer className="text-center py-6 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • Stairs v3.7.0 • "Human IS the Loop" • {new Date().getFullYear()}</footer>
-
       <TutorialOverlay active={tutorialActive} onClose={() => setTutorialActive(false)} steps={tutorialCustomSteps} />
       {tutorialNewSteps && <TutorialUpdatePrompt onStart={startNewStepsTutorial} onDismiss={dismissNewSteps} />}
       <FeaturesExploredBadge show={showFeaturesBadge} onClose={() => setShowFeaturesBadge(false)} />
+
+      <GuidanceManager suppressed={tutorialActive || showWelcomeSlideshow} onView={goToView} onExec={openExecutionRoom} onMatrix={openMatrix} />
     </div>
   );
 }
