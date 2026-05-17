@@ -44,6 +44,7 @@ export default function App() {
   const [aiProvider, setAiProvider] = useState(null);
   const [showWelcomeSlideshow, setShowWelcomeSlideshow] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [matrixToolkit, setMatrixToolkit] = useState({ open: false, key: null, initialData: null });
   const openMatrix = (key, initialData = null) => setMatrixToolkit({ open: true, key, initialData });
   const closeMatrix = () => setMatrixToolkit({ open: false, key: null, initialData: null });
@@ -231,18 +232,25 @@ export default function App() {
   if (!user) return <LoginScreen onLogin={setUser} />;
   if (!activeStrat) return <StrategyLanding strategies={strategies} onSelect={selectStrategy} onCreate={createStrategy} onDelete={deleteStrategy} userName={user.full_name||user.name||user.email} onLogout={logout} onLangToggle={toggleLang} lang={lang} loading={stratLoading} userId={user.id || user.email} userEmail={user.email} userRole={user.role} />;
 
-  const navItems = [
-    { key: "dashboard", icon: "📊", label: isAr ? "لوحة القيادة" : "Dashboard", tutorial: "nav-dashboard" },
-    { key: "staircase", icon: "🪜", label: isAr ? "السلم" : "Staircase", tutorial: "nav-staircase" },
-    { key: "ai", icon: "🤖", label: isAr ? "المستشار" : "AI Advisor", tutorial: "nav-ai" },
-    { key: "alerts", icon: "🔔", label: isAr ? "تنبيهات" : "Alerts", tutorial: "nav-alerts" },
-    { key: "actionplans", icon: "📋", label: isAr ? "خطط العمل" : "Action Plans", tutorial: "nav-actionplans" },
-    { key: "manifest", icon: "📦", label: isAr ? "سجل التنفيذ" : "Manifest Room", tutorial: "nav-manifest" },
-    { key: "sources", icon: "🔍", label: isAr ? "مصدر الحقيقة" : "Source of Truth", badge: sourceCount || null, tutorial: "nav-sources" },
-    { key: "knowledge", icon: "📖", label: isAr ? "المعرفة" : "Knowledge", tutorial: "nav-knowledge" },
-    { key: "tools", icon: "🔧", label: isAr ? "أدوات استراتيجية" : "Strategy Tools", tutorial: "nav-tools" },
-    { key: "notes", icon: "📝", label: isAr ? "ملاحظات" : "Notes", tutorial: "nav-notes" },
+  const navItems = {
+    dashboard: { icon: "📊", label: isAr ? "لوحة القيادة" : "Dashboard", tutorial: "nav-dashboard" },
+    staircase: { icon: "🪜", label: isAr ? "السلم" : "Staircase", tutorial: "nav-staircase" },
+    ai: { icon: "🤖", label: isAr ? "المستشار" : "AI Advisor", tutorial: "nav-ai" },
+    alerts: { icon: "🔔", label: isAr ? "تنبيهات" : "Alerts", tutorial: "nav-alerts" },
+    sources: { icon: "🔍", label: isAr ? "مصدر الحقيقة" : "Source of Truth", badge: sourceCount || null, tutorial: "nav-sources" },
+    notes: { icon: "📝", label: isAr ? "ملاحظات" : "Notes", tutorial: "nav-notes" },
+    knowledge: { icon: "📖", label: isAr ? "المعرفة" : "Knowledge", tutorial: "nav-knowledge" },
+    tools: { icon: "🔧", label: isAr ? "أدوات استراتيجية" : "Strategy Tools", tutorial: "nav-tools" },
+    actionplans: { icon: "📋", label: isAr ? "خطط العمل" : "Action Plans", tutorial: "nav-actionplans" },
+    manifest: { icon: "📦", label: isAr ? "سجل التنفيذ" : "Manifest Room", tutorial: "nav-manifest" },
+  };
+  const primaryKeys = ["dashboard", "staircase", "ai", "alerts", "sources"];
+  const moreGroups = [
+    { label: isAr ? "المكتبة" : "Library", icon: "📚", keys: ["notes", "knowledge", "tools"] },
+    { label: isAr ? "التنفيذ" : "Execution", icon: "📋", keys: ["actionplans", "manifest"] },
   ];
+  const isMoreActive = moreGroups.some(g => g.keys.includes(view));
+  const goToView = (key) => { setView(key); trackFeature(key); setShowMoreMenu(false); };
 
   return (
     <div className="min-h-screen text-white" dir={isAr ? "rtl" : "ltr"} style={{ background: `linear-gradient(180deg, ${DEEP} 0%, #0f1f3a 50%, ${DEEP} 100%)`, fontFamily: isAr ? "'Noto Kufi Arabic', sans-serif" : "'DM Sans', system-ui, sans-serif" }}>
@@ -292,14 +300,47 @@ export default function App() {
         </div>
       </header>
 
-      <nav className="flex items-center gap-1 px-6 py-2 overflow-x-auto" style={{ borderBottom: `1px solid ${BORDER}` }}>
-        {navItems.map(n => (
-          <button key={n.key} onClick={() => { setView(n.key); trackFeature(n.key); }} data-tutorial={n.tutorial}
-            className={`px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition flex items-center gap-1 ${view === n.key ? "bg-amber-500/15 text-amber-300 border border-amber-500/20" : "text-gray-500 hover:text-gray-300 border border-transparent"}`}>
-            {n.icon} {n.label}
-            {n.badge > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">{n.badge}</span>}
+      <nav className="flex items-center gap-1 px-6 py-2 relative z-50" style={{ borderBottom: `1px solid ${BORDER}` }}>
+        {primaryKeys.map(key => {
+          const n = navItems[key];
+          return (
+            <button key={key} onClick={() => goToView(key)} data-tutorial={n.tutorial}
+              className={`px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition flex items-center gap-1 ${view === key ? "bg-amber-500/15 text-amber-300 border border-amber-500/20" : "text-gray-500 hover:text-gray-300 border border-transparent"}`}>
+              {n.icon} {n.label}
+              {n.badge > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">{n.badge}</span>}
+            </button>
+          );
+        })}
+        <div className="relative">
+          <button onClick={() => setShowMoreMenu(v => !v)} data-tutorial="nav-more"
+            className={`px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition flex items-center gap-1.5 ${isMoreActive || showMoreMenu ? "bg-amber-500/15 text-amber-300 border border-amber-500/20" : "text-gray-500 hover:text-gray-300 border border-transparent"}`}>
+            <span className="tracking-widest leading-none">⋯</span> {isAr ? "المزيد" : "More"}
+            <span className="text-[9px]">{showMoreMenu ? "▲" : "▼"}</span>
           </button>
-        ))}
+          {showMoreMenu && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
+              <div className={`absolute ${isAr ? "left-0" : "right-0"} top-full mt-2 w-60 rounded-xl z-50 py-2`} style={{ background: "rgba(22, 37, 68, 0.97)", border: `1px solid ${GOLD}30`, backdropFilter: "blur(20px)", boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }}>
+                {moreGroups.map((g, gi) => (
+                  <div key={g.label} className={gi > 0 ? "mt-1 pt-1" : ""} style={gi > 0 ? { borderTop: `1px solid ${GOLD}15` } : undefined}>
+                    <div className="px-4 py-1.5 text-[10px] uppercase tracking-wider text-teal-400/80">{g.icon} {g.label}</div>
+                    {g.keys.map(key => {
+                      const n = navItems[key];
+                      return (
+                        <button key={key} onClick={() => goToView(key)} data-tutorial={n.tutorial}
+                          className={`w-full px-4 py-2 text-sm transition flex items-center gap-2 ${isAr ? "text-right flex-row-reverse" : "text-left"} ${view === key ? "text-amber-300 bg-amber-500/10" : "text-gray-400 hover:text-amber-300 hover:bg-amber-500/10"}`}>
+                          <span>{n.icon}</span>
+                          <span className="flex-1">{n.label}</span>
+                          {n.badge > 0 && <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">{n.badge}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </nav>
 
       <main className="max-w-6xl mx-auto px-6 py-6">
