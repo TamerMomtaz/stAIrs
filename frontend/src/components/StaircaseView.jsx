@@ -4,6 +4,7 @@ import { GOLD, GOLD_L, TEAL, typeColors, typeIcons } from "../constants";
 import { HealthBadge } from "./SharedUI";
 import { Markdown } from "./Markdown";
 import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
+import { fireGuidance } from "../guidanceConfig";
 
 export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, strategyContext, onSaveNote, onExecutionRoom, onMatrixClick }) => {
   const [expanded, setExpanded] = useState(null); const [aiAction, setAiAction] = useState(null);
@@ -20,6 +21,7 @@ export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, str
       const res = await api.aiPost("/api/v1/ai/chat", { message: prompt }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
       setRetryMsg(null);
       setAiResult(prev => ({...prev, [stair.id]: {...prev[stair.id], [action]: res.response}}));
+      fireGuidance("ai_insight", { name: stair.title, stair });
     } catch (e) { setRetryMsg(null); setAiResult(prev => ({...prev, [stair.id]: {...prev[stair.id], [action]: `⚠️ ${e.message}`}})); }
     setAiLoading(false); setAiAction(null);
   };
@@ -28,7 +30,7 @@ export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, str
     return (
       <div key={s.id} style={{ marginLeft: depth*24 }}>
         <div className={`group rounded-xl my-1.5 transition-all ${isExp?"ring-1":""}`} style={{ borderLeft:`3px solid ${color}`, ...(isExp?{ringColor:`${color}40`,background:"rgba(22,37,68,0.4)"}:{}) }}>
-          <div className="flex items-center gap-2 p-3 cursor-pointer hover:bg-white/[0.03] rounded-xl transition" onClick={() => setExpanded(prev => prev===s.id?null:s.id)}>
+          <div className="flex items-center gap-2 p-3 cursor-pointer hover:bg-white/[0.03] rounded-xl transition" onClick={() => setExpanded(prev => { const next = prev===s.id?null:s.id; if (next===s.id) fireGuidance("stair_expanded", { name: isAr&&s.title_ar?s.title_ar:s.title }); return next; })}>
             <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition shrink-0"><button onClick={e => {e.stopPropagation();onMove(s.id,"up");}} disabled={si===0} className="text-gray-600 hover:text-white text-[10px] disabled:opacity-20 p-0.5">▲</button><button onClick={e => {e.stopPropagation();onMove(s.id,"down");}} disabled={si>=sc-1} className="text-gray-600 hover:text-white text-[10px] disabled:opacity-20 p-0.5">▼</button></div>
             <span className={`text-gray-600 text-[10px] transition-transform ${isExp?"rotate-90":""}`}>▶</span>
             <span style={{color,fontSize:16}}>{typeIcons[s.element_type]||"•"}</span>

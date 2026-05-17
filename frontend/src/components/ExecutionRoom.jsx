@@ -5,6 +5,7 @@ import { HealthBadge, ConfidenceBadge, ValidationWarnings, AgentActivityIndicato
 import { Markdown } from "./Markdown";
 import { DEVONEERS_LOGO_URI } from "../exportUtils";
 import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
+import { fireGuidance } from "../guidanceConfig";
 
 // ═══ EXECUTION ROOM ═══
 export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote, onMatrixClick }) => {
@@ -149,6 +150,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
       const res = await api.aiPost("/api/v1/ai/chat", { message: prompt }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
       setRetryMsg(null);
       setActionPlan(res.response);
+      fireGuidance("action_plan_created", { name: stair?.title });
       setPlanValidation(res.validation || null);
       setPlanAgentsUsed(res.agents_used || null);
       const parsed = parseTasks(res.response);
@@ -443,6 +445,7 @@ IMPORTANT: Ground ALL guidance in the user's actual data from Source of Truth. R
         }));
         // Save implementation guide and steps to manifest
         saveManifest(task.id, { task_name: task.name, impl_guide: res.response, impl_steps: steps, impl_sources_used: res.sources_used || [] });
+        fireGuidance("manifest_saved");
       } catch (e) {
         setRetryMsg(null);
         setImplRoomData(prev => ({

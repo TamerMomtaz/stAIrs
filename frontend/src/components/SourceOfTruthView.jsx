@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { SourcesAPI, DataQaAPI } from "../api";
 import { GOLD, GOLD_L, DEEP, BORDER, glass, inputCls } from "../constants";
+import { fireGuidance } from "../guidanceConfig";
 
 const sourceTypeConfig = {
   questionnaire: { icon: "📋", label: "Questionnaire", labelAr: "استبيان", color: "#60a5fa" },
@@ -222,6 +223,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
       await SourcesAPI.uploadDocument(strategyContext.id, file, (pct) => setUploadProgress(pct));
       setUploadProgress(100);
       loadSources();
+      fireGuidance("source_uploaded");
     } catch (e) {
       setUploadError(e.message || (isAr ? "فشل الرفع" : "Upload failed"));
     }
