@@ -63,15 +63,23 @@ async def create_stair(stair: StairCreate, auth: AuthContext = Depends(get_auth)
             parent = await conn.fetchrow("SELECT level FROM stairs WHERE id = $1", str(stair.parent_id))
             if parent: level = parent["level"] + 1
         health_val = compute_health(0, stair.start_date, stair.end_date)
+        # Inherit strategy_id from parent when the caller didn't pass one —
+        # keeps wizard-created child elements attached to the right strategy
+        # even if the client only sets it on the root.
+        strategy_id = str(stair.strategy_id) if stair.strategy_id else None
+        if strategy_id is None and stair.parent_id:
+            parent_strat = await conn.fetchrow("SELECT strategy_id FROM stairs WHERE id = $1", str(stair.parent_id))
+            if parent_strat and parent_strat["strategy_id"]:
+                strategy_id = str(parent_strat["strategy_id"])
         await conn.execute("""
             INSERT INTO stairs (id, organization_id, code, title, title_ar, description, description_ar,
-                element_type, framework_id, parent_id, level, owner_id, team_id,
+                element_type, framework_id, parent_id, strategy_id, level, owner_id, team_id,
                 start_date, end_date, target_value, current_value, unit,
                 priority, tags, metadata, status, health, progress_percent, confidence_percent, created_by)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,'active',$22,0,50,$23)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,'active',$23,0,50,$24)
         """, stair_id, auth.org_id, code, stair.title, stair.title_ar, stair.description, stair.description_ar,
             stair.element_type, str(stair.framework_id) if stair.framework_id else None,
-            str(stair.parent_id) if stair.parent_id else None, level, auth.user_id,
+            str(stair.parent_id) if stair.parent_id else None, strategy_id, level, auth.user_id,
             str(stair.team_id) if stair.team_id else None,
             stair.start_date, stair.end_date, stair.target_value, stair.current_value, stair.unit,
             stair.priority or "medium", stair.tags, json.dumps(stair.metadata) if stair.metadata else "{}",

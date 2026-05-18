@@ -371,3 +371,86 @@ class TestSourceCountIsolation:
         assert count_b == 2
         assert count_a != global_count
         assert count_b != global_count
+
+
+class TestCreateStairPersistsStrategyId:
+    """Regression: POST /api/v1/stairs must save strategy_id (root cause of
+    orphan elements + AI cross-strategy context leakage)."""
+
+    def _setup_conn(self, parent_strategy_id=None, parent_level=None):
+        mock_conn = AsyncMock()
+        executed = []
+
+        async def mock_fetchrow(query, *args):
+            if "SELECT level FROM stairs" in query:
+                return {"level": parent_level} if parent_level is not None else None
+            if "SELECT strategy_id FROM stairs" in query:
+                return {"strategy_id": parent_strategy_id}
+            if "children_count" in query:
+                return _make_stair_row(parent_strategy_id, "New Element", "OBJ-X1")
+            return None
+
+        async def mock_execute(query, *args):
+            executed.append((query, args))
+
+        mock_conn.fetchrow = AsyncMock(side_effect=mock_fetchrow)
+        mock_conn.execute = AsyncMock(side_effect=mock_execute)
+        return mock_conn, executed
+
+    def _insert_call(self, executed):
+        for query, args in executed:
+            if "INSERT INTO stairs" in query:
+                return query, args
+        raise AssertionError("No INSERT INTO stairs executed")
+
+    @pytest.mark.asyncio
+    async def test_explicit_strategy_id_is_persisted(self):
+        from app.routers.stairs import create_stair
+        from app.models.schemas import StairCreate
+        from app.helpers import AuthContext
+
+        mock_conn, executed = self._setup_conn()
+        mock_pool = _make_mock_pool(mock_conn)
+        auth = AuthContext(user_id=USER_ID, org_id=ORG_ID, role="admin")
+        payload = StairCreate(
+            title="Grow Revenue", element_type="objective",
+            strategy_id=STRATEGY_A_ID,
+        )
+
+        with patch("app.routers.stairs.get_pool", new_callable=AsyncMock, return_value=mock_pool), \
+             patch("app.routers.stairs.ws_manager.broadcast_to_org", new_callable=AsyncMock):
+            await create_stair(payload, auth)
+
+        query, args = self._insert_call(executed)
+        assert "strategy_id" in query, "INSERT must include the strategy_id column"
+        assert STRATEGY_A_ID in [str(a) for a in args], (
+            "The strategy_id value must be passed to the INSERT"
+        )
+
+    @pytest.mark.asyncio
+    async def test_strategy_id_inherited_from_parent(self):
+        """A child created without strategy_id inherits its parent's —
+        prevents wizard-created descendants from becoming orphans."""
+        from app.routers.stairs import create_stair
+        from app.models.schemas import StairCreate
+        from app.helpers import AuthContext
+
+        parent_id = str(uuid.uuid4())
+        mock_conn, executed = self._setup_conn(
+            parent_strategy_id=STRATEGY_B_ID, parent_level=0
+        )
+        mock_pool = _make_mock_pool(mock_conn)
+        auth = AuthContext(user_id=USER_ID, org_id=ORG_ID, role="admin")
+        payload = StairCreate(
+            title="Reduce Costs KR", element_type="key_result",
+            parent_id=parent_id,  # no strategy_id supplied
+        )
+
+        with patch("app.routers.stairs.get_pool", new_callable=AsyncMock, return_value=mock_pool), \
+             patch("app.routers.stairs.ws_manager.broadcast_to_org", new_callable=AsyncMock):
+            await create_stair(payload, auth)
+
+        query, args = self._insert_call(executed)
+        assert STRATEGY_B_ID in [str(a) for a in args], (
+            "Child must inherit parent's strategy_id when none is supplied"
+        )
