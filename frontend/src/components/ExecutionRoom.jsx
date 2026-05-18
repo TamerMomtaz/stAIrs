@@ -51,6 +51,10 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   const [implRoomChatInput, setImplRoomChatInput] = useState("");
   const [implRoomChatLoading, setImplRoomChatLoading] = useState(false);
   const implRoomEndRef = useRef(null);
+  // ── Split-view wizard state ──
+  const [selectedTaskId, setSelectedTaskId] = useState(null);
+  const [wizardStep, setWizardStep] = useState(1);
+  const [isNarrow, setIsNarrow] = useState(typeof window !== "undefined" && window.innerWidth < 900);
   const isAr = lang === "ar";
   const color = typeColors[stair.element_type] || "#94a3b8";
   const manifestStoreRef = useRef(strategyContext?.id ? new ManifestStore(strategyContext.id) : null);
@@ -70,6 +74,13 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   useEffect(() => { actionChatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [actionChats, actionChatTaskId]);
   useEffect(() => { explainChatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [explainChats, explainTaskId]);
   useEffect(() => { implRoomEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [implRoomData, implRoomTaskId]);
+
+  // Track narrow screens (<900px) to collapse the split view into a single column
+  useEffect(() => {
+    const onResize = () => setIsNarrow(window.innerWidth < 900);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   // Sync impl step progress from ManifestRoom via storage events
   useEffect(() => {
@@ -481,6 +492,46 @@ IMPORTANT: Ground ALL guidance in the user's actual data from Source of Truth. R
     });
   };
 
+  // ── Split-view wizard helpers (layout only — all AI logic stays in the toggle/open fns) ──
+  const wizardSteps = [
+    { n: 1, key: "understand", label: isAr ? "افهم" : "Understand", icon: "📖", color: "#3b82f6", tutorial: "explain" },
+    { n: 2, key: "assess", label: isAr ? "قيّم" : "Assess", icon: "🎯", color: TEAL, tutorial: "how-far" },
+    { n: 3, key: "customize", label: isAr ? "خصّص" : "Customize", icon: "✨", color: GOLD, tutorial: "custom-plan" },
+    { n: 4, key: "implement", label: isAr ? "نفّذ" : "Implement", icon: "🚀", color: "#8b5cf6", tutorial: "impl-room" },
+  ];
+
+  const selectedTask = tasks.find(t => t.id === selectedTaskId) || null;
+
+  const getActionStatus = (t) => {
+    const impl = implRoomData[t.id];
+    const allStepsDone = impl?.steps?.length > 0 && impl.steps.every(s => s.done);
+    if (t.done || allStepsDone) return { key: "complete", icon: "✅", label: isAr ? "مكتمل" : "Complete", cls: "text-emerald-400" };
+    const started = !!explainChats[t.id] || (actionChats[t.id] || []).some(m => m.role === "user") || !!impl;
+    if (started) return { key: "progress", icon: "🟡", label: isAr ? "قيد التنفيذ" : "In progress", cls: "text-amber-400" };
+    return { key: "notstarted", icon: "🔘", label: isAr ? "لم يبدأ" : "Not started", cls: "text-gray-500" };
+  };
+
+  // These guards re-use the existing toggle/open functions without ever toggling a panel closed.
+  const ensureExplainOpen = (task) => { if (explainTaskId !== task.id) toggleExplainChat(task); };
+  const ensureAssessOpen = (task) => { if (actionChatTaskId !== task.id) toggleActionChat(task); };
+  const ensureImplOpen = (task) => { if (implRoomTaskId !== task.id) openImplRoom(task); };
+
+  const selectAction = (task) => {
+    setSelectedTaskId(task.id);
+    setWizardStep(1);
+    ensureExplainOpen(task);
+  };
+
+  const goToStep = (n) => {
+    const task = tasks.find(t => t.id === selectedTaskId);
+    if (!task) return;
+    const clamped = Math.max(1, Math.min(4, n));
+    setWizardStep(clamped);
+    if (clamped === 1) ensureExplainOpen(task);
+    if (clamped === 2) ensureAssessOpen(task);
+    if (clamped === 4) ensureImplOpen(task);
+  };
+
   const sendImplRoomChat = async (taskId) => {
     const task = tasks.find(t => t.id === taskId) || customTasks.find(t => t.id === taskId);
     const data = implRoomData[taskId];
@@ -800,796 +851,469 @@ User question: ${msg}`;
 
       {/* Content */}
       <main className="flex-1 overflow-hidden">
-        {/* Action Plan Tab */}
+        {/* Action Plan Tab — Split View + 4-Step Wizard */}
         {activeTab === "plan" && (
-          <div className="h-full overflow-y-auto p-6 mx-auto w-full" style={{ maxWidth: 900 }}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">{isAr ? "خطة العمل" : "Action Plan"}</h2>
-              <div className="flex items-center gap-3">
-                {planView === "recommended" && tasks.length > 0 && (
-                  <span className="text-xs text-gray-500">
+          <div className="h-full flex flex-col">
+            {/* Top bar */}
+            <div className="flex items-center justify-between px-6 py-3 shrink-0" style={{ borderBottom: `1px solid ${BORDER}` }}>
+              <div className="flex items-center gap-3 min-w-0">
+                <h2 className="text-lg font-semibold text-white shrink-0">{isAr ? "خطة العمل" : "Action Plan"}</h2>
+                {tasks.length > 0 && (
+                  <span className="text-xs text-gray-500 shrink-0">
                     {tasks.filter(t => t.done).length}/{tasks.length} {isAr ? "مكتمل" : "completed"}
                   </span>
                 )}
-                {planView === "customized" && customTasks.length > 0 && (
-                  <span className="text-xs text-gray-500">
-                    {customTasks.filter(t => t.done).length}/{customTasks.length} {isAr ? "مكتمل" : "completed"}
-                  </span>
-                )}
-                {planView === "recommended" && (
-                  <button onClick={generateActionPlan} disabled={planLoading} className="text-xs text-amber-400/70 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10">
-                    {planLoading ? "..." : `↻ ${isAr ? "تجديد" : "Regenerate"}`}
-                  </button>
-                )}
-                {planView === "customized" && (
-                  <button onClick={generateCustomPlan} disabled={customPlanLoading || !hasFeedback()} className="text-xs text-amber-400/70 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10 disabled:opacity-30">
-                    {customPlanLoading ? "..." : `↻ ${isAr ? "تجديد" : "Regenerate"}`}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Plan View Toggle — visible once a customized plan exists */}
-            {(customPlan || customPlanLoading) && (
-              <div className="flex items-center gap-1 mb-5 p-1 rounded-xl" style={glass(0.3)}>
-                {[
-                  { key: "recommended", icon: "📋", label: isAr ? "الخطة الموصى بها" : "Recommended Plan" },
-                  { key: "customized", icon: "✨", label: isAr ? "الخطة المخصصة" : "Customized Plan" },
-                  { key: "comparison", icon: "⚖️", label: isAr ? "مقارنة جنباً إلى جنب" : "Side by Side" },
-                ].map(v => (
-                  <button
-                    key={v.key}
-                    onClick={() => setPlanView(v.key)}
-                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
-                      planView === v.key
-                        ? v.key === "customized"
-                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-sm"
-                          : v.key === "comparison"
-                            ? "bg-teal-500/20 text-teal-300 border border-teal-500/30 shadow-sm"
-                            : "bg-white/10 text-white border border-white/15 shadow-sm"
-                        : "text-gray-500 hover:text-gray-300 border border-transparent"
-                    }`}
-                  >
-                    <span>{v.icon}</span> {v.label}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* ─── Recommended Plan View ─── */}
-            {(planView === "recommended" || !customPlan) && planView !== "customized" && planView !== "comparison" && (
-              <>
                 {planValidation && (
-                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <div className="hidden sm:flex items-center gap-2 min-w-0">
                     <ConfidenceBadge validation={planValidation} agentsUsed={planAgentsUsed} />
                   </div>
                 )}
-                {planValidation && <ValidationWarnings validation={planValidation} />}
-                {tasks.length > 0 && (
-                  <div className="mb-5">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs font-medium text-gray-400">{isAr ? "تقدم المهام" : "Task Progress"}</span>
-                      <span className="text-sm font-semibold text-emerald-400">{Math.round(tasks.length ? (tasks.filter(t => t.done).length / tasks.length) * 100 : 0)}%</span>
-                    </div>
-                    <div className="h-2.5 rounded-full bg-[#1e3a5f] overflow-hidden">
-                      <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${tasks.length ? (tasks.filter(t => t.done).length / tasks.length) * 100 : 0}%` }} />
-                    </div>
-                  </div>
-                )}
-                {planLoading && !actionPlan ? (
-                  <AgentActivityIndicator agentStep={agentStep} />
-                ) : tasks.length > 0 ? (
-                  <div className="space-y-4">
-                    {tasks.map(t => (
-                      <div key={t.id} className={`rounded-xl relative transition-all ${t.done ? "opacity-60" : ""}`} style={glass(0.5)}>
-                        <div className="absolute top-5 right-5 z-10"><PriorityBadge priority={t.priority} /></div>
-                        <div className="flex items-center gap-4 p-5">
-                          <button onClick={() => toggleTask(t.id)} className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-gray-600 hover:border-amber-500/50"}`}>
-                            {t.done && <span className="text-xs">✓</span>}
-                          </button>
-                          <div className="flex-1 min-w-0">
-                            <h4 className={`text-base font-semibold leading-snug pr-20 ${t.done ? "line-through text-gray-500" : "text-slate-100"}`}>{t.name}</h4>
-                            {t.details && (
-                              <p
-                                onClick={() => setExpandedDesc(p => ({ ...p, [t.id]: !p[t.id] }))}
-                                title={isAr ? "" : "Click to expand"}
-                                className={`text-sm text-[#94a3b8] leading-relaxed mt-2 cursor-pointer ${expandedDesc[t.id] ? "" : "line-clamp-2"}`}
-                              >
-                                {t.details}
-                              </p>
-                            )}
-                            <div className="flex items-center gap-4 flex-wrap mt-3 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
-                              <span className="text-xs text-[#64748b]"><span className="opacity-70">👤</span> {t.owner}</span>
-                              <span className="text-xs text-[#64748b]"><span className="opacity-70">⏱</span> {t.timeline}</span>
-                            </div>
-                            {/* Button order: Explain → How far can I do this? → How to Implement */}
-                            <div className="flex items-center gap-2 flex-wrap mt-3">
-                                <button
-                                  onClick={() => toggleExplainChat(t)}
-                                  data-tutorial="explain"
-                                  className={`text-xs px-3 py-1.5 rounded-md border transition font-medium ${
-                                    explainTaskId === t.id
-                                      ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
-                                      : "border-blue-500/20 text-blue-400/70 hover:text-blue-400 hover:bg-blue-500/10"
-                                  }`}
-                                >
-                                  {explainTaskId === t.id
-                                    ? (isAr ? "✕ إغلاق" : "✕ Close")
-                                    : (isAr ? "اشرح لي" : "Explain")}
-                                </button>
-                                <button
-                                  onClick={() => toggleActionChat(t)}
-                                  data-tutorial="how-far"
-                                  className={`text-xs px-3 py-1.5 rounded-md border transition font-medium ${
-                                    actionChatTaskId === t.id
-                                      ? "bg-teal-500/20 text-teal-300 border-teal-500/30"
-                                      : "border-amber-500/20 text-amber-400/70 hover:text-amber-400 hover:bg-amber-500/10"
-                                  }`}
-                                >
-                                  {actionChatTaskId === t.id
-                                    ? (isAr ? "✕ إغلاق" : "✕ Close")
-                                    : (isAr ? "إلى أي مدى أستطيع؟" : "How far can I do this?")}
-                                </button>
-                                {customPlan && (
-                                  <button
-                                    onClick={() => openImplRoom(t)}
-                                    data-tutorial="impl-room"
-                                    className={`text-xs px-3 py-1.5 rounded-md border transition font-medium ${
-                                      implRoomTaskId === t.id
-                                        ? "bg-purple-500/20 text-purple-300 border-purple-500/30"
-                                        : "border-purple-500/20 text-purple-400/70 hover:text-purple-400 hover:bg-purple-500/10"
-                                    }`}
-                                  >
-                                    {implRoomTaskId === t.id
-                                      ? (isAr ? "✕ إغلاق" : "✕ Close")
-                                      : (isAr ? "كيف أنفذ →" : "How to Implement →")}
-                                  </button>
-                                )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* ── Explain Panel (shown BEFORE feedback) ── */}
-                        {explainTaskId === t.id && (
-                          <div className="border-t border-blue-500/20 px-4 pb-4 pt-3" style={{ background: "rgba(59,130,246,0.03)", borderLeft: "3px solid #14b8a6" }}>
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="text-blue-400 text-xs font-semibold">{isAr ? "شرح هذا الإجراء" : "Understanding This Action"}</span>
-                              {explainChats[t.id]?.[0]?.sources_used?.length > 0 && (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400/70 border border-blue-500/15">
-                                  {isAr ? "مدعوم بمصدر الحقيقة" : "Grounded in Source of Truth"}
-                                </span>
-                              )}
-                            </div>
-                            <div className="max-h-[200px] overflow-y-auto space-y-2 mb-3">
-                              {explainChatLoading && !explainChats[t.id] && (
-                                <div className="flex items-center gap-2 py-4 justify-center">
-                                  <div className="flex gap-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-blue-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
-                                  <span className="text-gray-500 text-xs">{retryMsg || (isAr ? "جاري إعداد الشرح..." : "Preparing explanation...")}</span>
-                                </div>
-                              )}
-                              {(explainChats[t.id] || []).map((m, i) => (
-                                <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                                  <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed ${
-                                    m.role === "user"
-                                      ? "bg-blue-500/20 text-blue-100 rounded-br-sm"
-                                      : m.error
-                                        ? "bg-red-500/10 text-red-300 rounded-bl-sm border border-red-500/20"
-                                        : "bg-[#0a1628]/60 text-gray-300 rounded-bl-sm border border-blue-500/15"
-                                  }`}>
-                                    {m.role === "ai" ? <><Markdown text={m.text} onMatrixClick={onMatrixClick} /><LoadMatrixButtons text={m.text} onLoadMatrix={onMatrixClick} /></> : <span className="whitespace-pre-wrap">{m.text}</span>}
-                                  </div>
-                                </div>
-                              ))}
-                              {explainChatLoading && explainChats[t.id] && (
-                                <div className="flex gap-1 px-2 py-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-blue-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
-                              )}
-                              <div ref={explainChatEndRef} />
-                            </div>
-                            {explainChats[t.id] && explainChats[t.id].length === 1 && !explainChats[t.id][0].error && (
-                              <div className="flex flex-wrap gap-1.5 mb-2">
-                                {(isAr
-                                  ? ["هل يمكنك تبسيط أكثر؟", "ما الذي قد يفشل؟", "أعطني مثالاً عملياً"]
-                                  : ["Can you simplify further?", "What could go wrong?", "Give me a real example"]
-                                ).map((q, i) => (
-                                  <button key={i} onClick={() => setExplainChatInput(q)} className="text-[10px] px-2.5 py-1 rounded-full border border-blue-500/20 text-blue-400/70 hover:bg-blue-500/10 transition">{q}</button>
-                                ))}
-                              </div>
-                            )}
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                value={explainTaskId === t.id ? explainChatInput : ""}
-                                onChange={e => setExplainChatInput(e.target.value)}
-                                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendExplainChat(t.id); } }}
-                                placeholder={isAr ? "اسأل لفهم أعمق..." : "Ask to understand more..."}
-                                disabled={explainChatLoading}
-                                className="flex-1 px-3 py-2 rounded-lg bg-[#0a1628]/60 border border-blue-500/20 text-white placeholder-gray-600 focus:border-blue-500/40 focus:outline-none transition text-xs"
-                              />
-                              <button
-                                onClick={() => sendExplainChat(t.id)}
-                                disabled={explainChatLoading || !explainChatInput.trim()}
-                                className="px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-30 transition-all hover:scale-105"
-                                style={{ background: "linear-gradient(135deg, #3b82f6, #60a5fa)", color: DEEP }}
-                              >
-                                {isAr ? "إرسال" : "Send"}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* ── How far can I do this? Panel (existing) ── */}
-                        {actionChatTaskId === t.id && (
-                          <div className="border-t border-[#1e3a5f] px-4 pb-4 pt-3">
-                            <div className="max-h-64 overflow-y-auto space-y-2 mb-3">
-                              {(actionChats[t.id] || []).map((m, i) => (
-                                <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                                  <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed ${
-                                    m.role === "user"
-                                      ? "bg-amber-500/20 text-amber-100 rounded-br-sm"
-                                      : m.error
-                                        ? "bg-red-500/10 text-red-300 rounded-bl-sm border border-red-500/20"
-                                        : "bg-[#0a1628]/60 text-gray-300 rounded-bl-sm border border-[#1e3a5f]"
-                                  }`}>
-                                    {m.role === "ai" ? <><Markdown text={m.text} onMatrixClick={onMatrixClick} /><LoadMatrixButtons text={m.text} onLoadMatrix={onMatrixClick} /></> : <span className="whitespace-pre-wrap">{m.text}</span>}
-                                  </div>
-                                </div>
-                              ))}
-                              {actionChatLoading && actionChatTaskId === t.id && (
-                                <div className="flex gap-1 px-2 py-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-teal-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
-                              )}
-                              <div ref={actionChatEndRef} />
-                            </div>
-                            {(actionChats[t.id] || []).length <= 1 && (
-                              <div className="flex flex-wrap gap-1.5 mb-2">
-                                {(isAr
-                                  ? ["أستطيع بالكامل", "جزئياً فقط", "لا أستطيع حالياً"]
-                                  : ["I can do this fully", "Only partially", "I can't right now"]
-                                ).map((q, i) => (
-                                  <button key={i} onClick={() => setActionChatInput(q)} className="text-[10px] px-2.5 py-1 rounded-full border border-teal-500/20 text-teal-400/70 hover:bg-teal-500/10 transition">{q}</button>
-                                ))}
-                              </div>
-                            )}
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                value={actionChatTaskId === t.id ? actionChatInput : ""}
-                                onChange={e => setActionChatInput(e.target.value)}
-                                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendActionChat(t.id); } }}
-                                placeholder={isAr ? "أخبرني عن قدرتك وقيودك..." : "Tell me about your ability and constraints..."}
-                                disabled={actionChatLoading}
-                                className="flex-1 px-3 py-2 rounded-lg bg-[#0a1628]/60 border border-[#1e3a5f] text-white placeholder-gray-600 focus:border-teal-500/40 focus:outline-none transition text-xs"
-                              />
-                              <button
-                                onClick={() => sendActionChat(t.id)}
-                                disabled={actionChatLoading || !actionChatInput.trim()}
-                                className="px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-30 transition-all hover:scale-105"
-                                style={{ background: `linear-gradient(135deg, ${TEAL}, #2dd4bf)`, color: DEEP }}
-                              >
-                                {isAr ? "إرسال" : "Send"}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* ── Implementation Room Panel ── */}
-                        {implRoomTaskId === t.id && (
-                          <div className="border-t border-purple-500/20 px-4 pb-4 pt-3" style={{ background: "rgba(139,92,246,0.03)" }}>
-                            <div className="flex items-center gap-2 mb-3">
-                              <span className="text-purple-400 text-sm font-semibold">{isAr ? "غرفة التنفيذ" : "Implementation Room"}</span>
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400/70 border border-purple-500/15">
-                                {isAr ? "مرشدك الشخصي" : "Your Personal Coach"}
-                              </span>
-                              {implRoomData[t.id]?.sources_used?.length > 0 && (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400/70 border border-blue-500/15">
-                                  {isAr ? "مدعوم بمصدر الحقيقة" : "Source of Truth"}
-                                </span>
-                              )}
-                            </div>
-                            {implRoomLoading && !implRoomData[t.id] && (
-                              <div className="flex items-center gap-2 py-6 justify-center">
-                                <div className="flex gap-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-purple-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
-                                <span className="text-gray-500 text-xs">{retryMsg || (isAr ? "جاري إعداد دليل التنفيذ..." : "Preparing your implementation guide...")}</span>
-                              </div>
-                            )}
-                            {implRoomData[t.id] && (
-                              <>
-                                {/* Step Checklist */}
-                                {implRoomData[t.id].steps.length > 0 && (
-                                  <div className="mb-3 p-3 rounded-lg border border-purple-500/15" style={{ background: "rgba(139,92,246,0.05)" }}>
-                                    <div className="text-[11px] text-purple-300 font-medium mb-2">{isAr ? "تقدم الخطوات" : "Step Progress"} — {implRoomData[t.id].steps.filter(s => s.done).length}/{implRoomData[t.id].steps.length}</div>
-                                    <div className="space-y-1.5">
-                                      {implRoomData[t.id].steps.map((step, si) => (
-                                        <label key={step.id} className="flex items-start gap-2 cursor-pointer group">
-                                          <button
-                                            onClick={() => toggleImplStep(t.id, step.id)}
-                                            className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition text-[9px] ${
-                                              step.done ? "bg-purple-500/30 border-purple-500/50 text-purple-300" : "border-purple-500/30 hover:border-purple-500/60 group-hover:border-purple-400/50"
-                                            }`}
-                                          >
-                                            {step.done && "✓"}
-                                          </button>
-                                          <span className={`text-[11px] leading-relaxed ${step.done ? "line-through text-gray-600" : "text-gray-300"}`}>
-                                            <span className="text-purple-400/70 font-medium">{si + 1}.</span> {step.label}
-                                          </span>
-                                        </label>
-                                      ))}
-                                    </div>
-                                    <div className="mt-2 h-1.5 rounded-full bg-[#1e3a5f] overflow-hidden">
-                                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${implRoomData[t.id].steps.length ? (implRoomData[t.id].steps.filter(s => s.done).length / implRoomData[t.id].steps.length) * 100 : 0}%`, background: "linear-gradient(90deg, #8b5cf6, #a78bfa)" }} />
-                                    </div>
-                                  </div>
-                                )}
-                                {/* Full Guide */}
-                                <div className="max-h-80 overflow-y-auto mb-3">
-                                  <div className="rounded-lg px-3 py-2 text-xs leading-relaxed bg-[#0a1628]/60 border border-purple-500/15 text-gray-300">
-                                    <Markdown text={implRoomData[t.id].content} onMatrixClick={onMatrixClick} />
-                                    <LoadMatrixButtons text={implRoomData[t.id].content} onLoadMatrix={onMatrixClick} />
-                                  </div>
-                                </div>
-                                {/* Implementation Room Chat */}
-                                {(implRoomData[t.id].messages || []).length > 0 && (
-                                  <div className="max-h-48 overflow-y-auto space-y-2 mb-3">
-                                    {implRoomData[t.id].messages.map((m, i) => (
-                                      <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                                        <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed ${
-                                          m.role === "user"
-                                            ? "bg-purple-500/20 text-purple-100 rounded-br-sm"
-                                            : m.error
-                                              ? "bg-red-500/10 text-red-300 rounded-bl-sm border border-red-500/20"
-                                              : "bg-[#0a1628]/60 text-gray-300 rounded-bl-sm border border-purple-500/15"
-                                        }`}>
-                                          {m.role === "ai" ? <><Markdown text={m.text} onMatrixClick={onMatrixClick} /><LoadMatrixButtons text={m.text} onLoadMatrix={onMatrixClick} /></> : <span className="whitespace-pre-wrap">{m.text}</span>}
-                                        </div>
-                                      </div>
-                                    ))}
-                                    {implRoomChatLoading && implRoomTaskId === t.id && (
-                                      <div className="flex gap-1 px-2 py-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-purple-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
-                                    )}
-                                    <div ref={implRoomEndRef} />
-                                  </div>
-                                )}
-                                <div className="flex gap-2">
-                                  <input
-                                    type="text"
-                                    value={implRoomTaskId === t.id ? implRoomChatInput : ""}
-                                    onChange={e => setImplRoomChatInput(e.target.value)}
-                                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendImplRoomChat(t.id); } }}
-                                    placeholder={isAr ? "اسأل مرشدك عن أي خطوة..." : "Ask your coach about any step..."}
-                                    disabled={implRoomChatLoading}
-                                    className="flex-1 px-3 py-2 rounded-lg bg-[#0a1628]/60 border border-purple-500/20 text-white placeholder-gray-600 focus:border-purple-500/40 focus:outline-none transition text-xs"
-                                  />
-                                  <button
-                                    onClick={() => sendImplRoomChat(t.id)}
-                                    disabled={implRoomChatLoading || !implRoomChatInput.trim()}
-                                    className="px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-30 transition-all hover:scale-105"
-                                    style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: DEEP }}
-                                  >
-                                    {isAr ? "إرسال" : "Send"}
-                                  </button>
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : actionPlan ? (
-                  <div className="rounded-xl p-5 max-h-[200px] overflow-y-auto" style={{ ...glass(0.5), borderLeft: "3px solid #14b8a6" }}>
-                    <Markdown text={actionPlan} onMatrixClick={onMatrixClick} />
-                    <LoadMatrixButtons text={actionPlan} onLoadMatrix={onMatrixClick} />
-                  </div>
-                ) : null}
-
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
                 {actionPlan && onSaveNote && (
-                  <div className="mt-4">
-                    <button onClick={() => onSaveNote(`📋 Action Plan: ${stair.title}`, actionPlan, "execution_plan")} className="text-xs text-gray-600 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10">
-                      📌 {isAr ? "حفظ في الملاحظات" : "Save to Notes"}
-                    </button>
+                  <button onClick={() => onSaveNote(`📋 Action Plan: ${stair.title}`, actionPlan, "execution_plan")} className="text-xs text-gray-600 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10">
+                    📌 {isAr ? "حفظ" : "Save"}
+                  </button>
+                )}
+                <button onClick={generateActionPlan} disabled={planLoading} className="text-xs text-amber-400/70 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10 disabled:opacity-30">
+                  {planLoading ? "..." : `↻ ${isAr ? "تجديد" : "Regenerate"}`}
+                </button>
+              </div>
+            </div>
+
+            {planLoading && !actionPlan ? (
+              <div className="flex-1 overflow-y-auto p-6">
+                <AgentActivityIndicator agentStep={agentStep} />
+              </div>
+            ) : tasks.length === 0 && actionPlan ? (
+              <div className="flex-1 overflow-y-auto p-6 mx-auto w-full" style={{ maxWidth: 900 }}>
+                <div className="rounded-xl p-5" style={{ ...glass(0.5), borderLeft: "3px solid #14b8a6" }}>
+                  <Markdown text={actionPlan} onMatrixClick={onMatrixClick} />
+                  <LoadMatrixButtons text={actionPlan} onLoadMatrix={onMatrixClick} />
+                </div>
+              </div>
+            ) : tasks.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center text-gray-600 text-sm">
+                {isAr ? "لا توجد مهام بعد" : "No tasks yet"}
+              </div>
+            ) : (
+              <div className="flex-1 flex min-h-0">
+                {/* ───── LEFT PANEL — Compact action cards ───── */}
+                {(!isNarrow || !selectedTaskId) && (
+                  <div
+                    className={`${isNarrow ? "w-full" : "w-[30%] min-w-[260px] max-w-[380px]"} h-full overflow-y-auto p-4 space-y-2 shrink-0`}
+                    style={{ borderRight: isNarrow ? "none" : `1px solid ${BORDER}` }}
+                  >
+                    {planValidation && <div className="mb-2"><ValidationWarnings validation={planValidation} /></div>}
+                    {tasks.map(t => {
+                      const st = getActionStatus(t);
+                      const active = selectedTaskId === t.id;
+                      return (
+                        <div
+                          key={t.id}
+                          onClick={() => selectAction(t)}
+                          className={`rounded-lg p-3 cursor-pointer transition ${active ? "ring-1 ring-amber-500/40" : "hover:bg-white/[0.03]"} ${t.done ? "opacity-60" : ""}`}
+                          style={active ? { ...glass(0.6), borderLeft: `3px solid ${GOLD}` } : glass(0.3)}
+                        >
+                          <div className="flex items-start gap-2.5">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); toggleTask(t.id); }}
+                              className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition text-[10px] ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-gray-600 hover:border-amber-500/50"}`}
+                            >
+                              {t.done && "✓"}
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start gap-1.5 justify-between">
+                                <span className={`text-xs font-semibold leading-snug ${t.done ? "line-through text-gray-500" : "text-white"}`}>{t.name}</span>
+                                <span className="shrink-0"><PriorityBadge priority={t.priority} /></span>
+                              </div>
+                              <div className="flex items-center gap-3 mt-2 flex-wrap">
+                                <span className="text-[10px] text-[#64748b]"><span className="opacity-70">⏱</span> {t.timeline}</span>
+                                <span className={`text-[10px] font-medium ${st.cls}`}>{st.icon} {st.label}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
-                {/* Generate Customized Action Plan Button */}
-                {tasks.length > 0 && !customPlan && (
-                  <div className="mt-6 flex justify-center" data-tutorial="custom-plan">
-                    <button
-                      onClick={generateCustomPlan}
-                      disabled={customPlanLoading || !hasFeedback()}
-                      className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
-                      style={{
-                        background: hasFeedback()
-                          ? `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`
-                          : `${GOLD}30`,
-                        color: hasFeedback() ? DEEP : "#94a3b8",
-                        border: `1px solid ${hasFeedback() ? GOLD : GOLD + "40"}`,
-                        boxShadow: hasFeedback() ? `0 4px 20px ${GOLD}30` : "none",
-                      }}
-                      title={!hasFeedback() ? (isAr ? "أضف ملاحظاتك على المهام أولاً باستخدام زر \"إلى أي مدى أستطيع؟\"" : "Add your feedback on tasks first using the \"How far can I do this?\" button") : ""}
-                    >
-                      {customPlanLoading ? (
-                        <>
-                          <span className="flex gap-1">{[0, 1, 2].map(i => <span key={i} className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</span>
-                          {isAr ? "جاري إنشاء خطتك المخصصة..." : "Generating your customized plan..."}
-                        </>
-                      ) : (
-                        <>
-                          <span className="text-base">✨</span>
-                          {isAr ? "إنشاء خطة عمل مخصصة لي" : "Generate My Customized Action Plan"}
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
-                {tasks.length > 0 && !hasFeedback() && !customPlan && (
-                  <p className="text-center text-[11px] text-gray-600 mt-2">
-                    {isAr
-                      ? "💡 استخدم زر \"إلى أي مدى أستطيع؟\" على المهام أعلاه لإضافة ملاحظاتك أولاً"
-                      : "💡 Use the \"How far can I do this?\" button on tasks above to add your feedback first"}
-                  </p>
-                )}
-              </>
-            )}
-
-            {/* ─── Customized Plan View ─── */}
-            {planView === "customized" && customPlan && (
-              <>
-                <p className="text-xs text-gray-500 mb-4">
-                  {isAr
-                    ? "هذه الخطة مصممة خصيصاً بناءً على ملاحظاتك حول قدراتك وقيودك."
-                    : "This plan is tailored based on your feedback about your capabilities and constraints."}
-                </p>
-
-                {customTasks.length > 0 && (
-                  <div className="mb-5">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs font-medium text-gray-400">{isAr ? "تقدم المهام" : "Task Progress"}</span>
-                      <span className="text-sm font-semibold text-amber-400">{Math.round(customTasks.length ? (customTasks.filter(t => t.done).length / customTasks.length) * 100 : 0)}%</span>
-                    </div>
-                    <div className="h-2.5 rounded-full bg-[#1e3a5f] overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${customTasks.length ? (customTasks.filter(t => t.done).length / customTasks.length) * 100 : 0}%`, background: `linear-gradient(90deg, ${GOLD}, ${GOLD_L})` }} />
-                    </div>
-                  </div>
-                )}
-
-                {customPlanLoading && !customPlan ? (
-                  <LoadingDots label={isAr ? "جاري إنشاء خطتك المخصصة..." : "Generating your customized plan..."} />
-                ) : customTasks.length > 0 ? (
-                  <div className="space-y-4">
-                    {customTasks.map(t => (
-                      <div key={t.id} className={`rounded-xl relative transition-all ${t.done ? "opacity-60" : ""}`} style={{ ...glass(0.5), borderLeft: `3px solid ${GOLD}60` }}>
-                        <div className="absolute top-5 right-5 z-10"><PriorityBadge priority={t.priority} /></div>
-                        <div className="flex items-center gap-4 p-5">
-                          <button onClick={() => toggleCustomTask(t.id)} className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-amber-500/40 hover:border-amber-500/70"}`}>
-                            {t.done && <span className="text-xs">✓</span>}
+                {/* ───── RIGHT PANEL — Detail wizard for selected action ───── */}
+                {(!isNarrow || selectedTaskId) && (
+                  <div className={`${isNarrow ? "w-full" : "flex-1"} h-full overflow-y-auto`}>
+                    {!selectedTask ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center px-6">
+                        <div className="text-4xl mb-3">👈</div>
+                        <h3 className="text-white text-base font-semibold mb-1">{isAr ? "اختر إجراءً للبدء" : "Select an action to begin"}</h3>
+                        <p className="text-gray-500 text-sm max-w-sm">
+                          {isAr
+                            ? "اختر إجراءً من القائمة على اليسار لتمر عبر خطوات الفهم والتقييم والتخصيص والتنفيذ."
+                            : "Pick an action from the list to walk through Understand → Assess → Customize → Implement."}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="p-6 mx-auto w-full" style={{ maxWidth: 760 }}>
+                        {/* Selected action header */}
+                        {isNarrow && (
+                          <button
+                            onClick={() => setSelectedTaskId(null)}
+                            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-amber-400 transition mb-3 px-2 py-1 rounded hover:bg-amber-500/10"
+                          >
+                            <span>←</span> {isAr ? "كل الإجراءات" : "All actions"}
                           </button>
-                          <div className="flex-1 min-w-0">
-                            <h4 className={`text-base font-semibold leading-snug pr-20 ${t.done ? "line-through text-gray-500" : "text-slate-100"}`}>{t.name}</h4>
-                            {t.details && (
-                              <p
-                                onClick={() => setExpandedDesc(p => ({ ...p, [t.id]: !p[t.id] }))}
-                                title={isAr ? "" : "Click to expand"}
-                                className={`text-sm text-[#94a3b8] leading-relaxed mt-2 cursor-pointer ${expandedDesc[t.id] ? "" : "line-clamp-2"}`}
-                              >
-                                {t.details}
-                              </p>
-                            )}
-                            <div className="flex items-center gap-4 flex-wrap mt-3 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
-                              <span className="text-xs text-[#64748b]"><span className="opacity-70">👤</span> {t.owner}</span>
-                              <span className="text-xs text-[#64748b]"><span className="opacity-70">⏱</span> {t.timeline}</span>
-                            </div>
-                            {/* Button order: Explain → How to Implement */}
-                            <div className="flex items-center gap-2 flex-wrap mt-3">
-                                <button
-                                  onClick={() => toggleExplainChat(t)}
-                                  className={`text-xs px-3 py-1.5 rounded-md border transition font-medium ${
-                                    explainTaskId === t.id
-                                      ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
-                                      : "border-blue-500/20 text-blue-400/70 hover:text-blue-400 hover:bg-blue-500/10"
-                                  }`}
-                                >
-                                  {explainTaskId === t.id
-                                    ? (isAr ? "✕ إغلاق" : "✕ Close")
-                                    : (isAr ? "اشرح لي" : "Explain")}
-                                </button>
-                                <button
-                                  onClick={() => openImplRoom(t, true)}
-                                  className={`text-xs px-3 py-1.5 rounded-md border transition font-medium ${
-                                    implRoomTaskId === t.id
-                                      ? "bg-purple-500/20 text-purple-300 border-purple-500/30"
-                                      : "border-purple-500/20 text-purple-400/70 hover:text-purple-400 hover:bg-purple-500/10"
-                                  }`}
-                                >
-                                  {implRoomTaskId === t.id
-                                    ? (isAr ? "✕ إغلاق" : "✕ Close")
-                                    : (isAr ? "كيف أنفذ →" : "How to Implement →")}
-                                </button>
-                            </div>
+                        )}
+                        <div className="mb-5">
+                          <div className="flex items-start gap-2 flex-wrap">
+                            <h3 className="text-base font-semibold text-slate-100 leading-snug">{selectedTask.name}</h3>
+                            <PriorityBadge priority={selectedTask.priority} />
+                          </div>
+                          <div className="flex items-center gap-4 mt-2 text-[11px] text-[#64748b]">
+                            <span><span className="opacity-70">👤</span> {selectedTask.owner}</span>
+                            <span><span className="opacity-70">⏱</span> {selectedTask.timeline}</span>
                           </div>
                         </div>
 
-                        {/* ── Explain Panel ── */}
-                        {explainTaskId === t.id && (
-                          <div className="border-t border-blue-500/20 px-4 pb-4 pt-3" style={{ background: "rgba(59,130,246,0.03)", borderLeft: "3px solid #14b8a6" }}>
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="text-blue-400 text-xs font-semibold">{isAr ? "شرح هذا الإجراء" : "Understanding This Action"}</span>
-                              {explainChats[t.id]?.[0]?.sources_used?.length > 0 && (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400/70 border border-blue-500/15">
-                                  {isAr ? "مدعوم بمصدر الحقيقة" : "Grounded in Source of Truth"}
-                                </span>
-                              )}
-                            </div>
-                            <div className="max-h-[200px] overflow-y-auto space-y-2 mb-3">
-                              {explainChatLoading && !explainChats[t.id] && (
-                                <div className="flex items-center gap-2 py-4 justify-center">
-                                  <div className="flex gap-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-blue-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
-                                  <span className="text-gray-500 text-xs">{retryMsg || (isAr ? "جاري إعداد الشرح..." : "Preparing explanation...")}</span>
-                                </div>
-                              )}
-                              {(explainChats[t.id] || []).map((m, i) => (
-                                <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                                  <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed ${
-                                    m.role === "user"
-                                      ? "bg-blue-500/20 text-blue-100 rounded-br-sm"
-                                      : m.error
-                                        ? "bg-red-500/10 text-red-300 rounded-bl-sm border border-red-500/20"
-                                        : "bg-[#0a1628]/60 text-gray-300 rounded-bl-sm border border-blue-500/15"
-                                  }`}>
-                                    {m.role === "ai" ? <><Markdown text={m.text} onMatrixClick={onMatrixClick} /><LoadMatrixButtons text={m.text} onLoadMatrix={onMatrixClick} /></> : <span className="whitespace-pre-wrap">{m.text}</span>}
-                                  </div>
-                                </div>
-                              ))}
-                              {explainChatLoading && explainChats[t.id] && (
-                                <div className="flex gap-1 px-2 py-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-blue-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
-                              )}
-                              <div ref={explainChatEndRef} />
-                            </div>
-                            {explainChats[t.id] && explainChats[t.id].length === 1 && !explainChats[t.id][0].error && (
-                              <div className="flex flex-wrap gap-1.5 mb-2">
-                                {(isAr
-                                  ? ["هل يمكنك تبسيط أكثر؟", "ما الذي قد يفشل؟", "أعطني مثالاً عملياً"]
-                                  : ["Can you simplify further?", "What could go wrong?", "Give me a real example"]
-                                ).map((q, i) => (
-                                  <button key={i} onClick={() => setExplainChatInput(q)} className="text-[10px] px-2.5 py-1 rounded-full border border-blue-500/20 text-blue-400/70 hover:bg-blue-500/10 transition">{q}</button>
-                                ))}
-                              </div>
-                            )}
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                value={explainTaskId === t.id ? explainChatInput : ""}
-                                onChange={e => setExplainChatInput(e.target.value)}
-                                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendExplainChat(t.id); } }}
-                                placeholder={isAr ? "اسأل لفهم أعمق..." : "Ask to understand more..."}
-                                disabled={explainChatLoading}
-                                className="flex-1 px-3 py-2 rounded-lg bg-[#0a1628]/60 border border-blue-500/20 text-white placeholder-gray-600 focus:border-blue-500/40 focus:outline-none transition text-xs"
-                              />
-                              <button
-                                onClick={() => sendExplainChat(t.id)}
-                                disabled={explainChatLoading || !explainChatInput.trim()}
-                                className="px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-30 transition-all hover:scale-105"
-                                style={{ background: "linear-gradient(135deg, #3b82f6, #60a5fa)", color: DEEP }}
-                              >
-                                {isAr ? "إرسال" : "Send"}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* ── Implementation Room Panel ── */}
-                        {implRoomTaskId === t.id && (
-                          <div className="border-t border-purple-500/20 px-4 pb-4 pt-3" style={{ background: "rgba(139,92,246,0.03)" }}>
-                            <div className="flex items-center gap-2 mb-3">
-                              <span className="text-purple-400 text-sm font-semibold">{isAr ? "غرفة التنفيذ" : "Implementation Room"}</span>
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400/70 border border-purple-500/15">
-                                {isAr ? "مرشدك الشخصي" : "Your Personal Coach"}
-                              </span>
-                              {implRoomData[t.id]?.sources_used?.length > 0 && (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400/70 border border-blue-500/15">
-                                  {isAr ? "مدعوم بمصدر الحقيقة" : "Source of Truth"}
-                                </span>
-                              )}
-                            </div>
-                            {implRoomLoading && !implRoomData[t.id] && (
-                              <div className="flex items-center gap-2 py-6 justify-center">
-                                <div className="flex gap-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-purple-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
-                                <span className="text-gray-500 text-xs">{retryMsg || (isAr ? "جاري إعداد دليل التنفيذ..." : "Preparing your implementation guide...")}</span>
-                              </div>
-                            )}
-                            {implRoomData[t.id] && (
-                              <>
-                                {/* Step Checklist */}
-                                {implRoomData[t.id].steps.length > 0 && (
-                                  <div className="mb-3 p-3 rounded-lg border border-purple-500/15" style={{ background: "rgba(139,92,246,0.05)" }}>
-                                    <div className="text-[11px] text-purple-300 font-medium mb-2">{isAr ? "تقدم الخطوات" : "Step Progress"} — {implRoomData[t.id].steps.filter(s => s.done).length}/{implRoomData[t.id].steps.length}</div>
-                                    <div className="space-y-1.5">
-                                      {implRoomData[t.id].steps.map((step, si) => (
-                                        <label key={step.id} className="flex items-start gap-2 cursor-pointer group">
-                                          <button
-                                            onClick={() => toggleImplStep(t.id, step.id)}
-                                            className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition text-[9px] ${
-                                              step.done ? "bg-purple-500/30 border-purple-500/50 text-purple-300" : "border-purple-500/30 hover:border-purple-500/60 group-hover:border-purple-400/50"
-                                            }`}
-                                          >
-                                            {step.done && "✓"}
-                                          </button>
-                                          <span className={`text-[11px] leading-relaxed ${step.done ? "line-through text-gray-600" : "text-gray-300"}`}>
-                                            <span className="text-purple-400/70 font-medium">{si + 1}.</span> {step.label}
-                                          </span>
-                                        </label>
-                                      ))}
-                                    </div>
-                                    <div className="mt-2 h-1.5 rounded-full bg-[#1e3a5f] overflow-hidden">
-                                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${implRoomData[t.id].steps.length ? (implRoomData[t.id].steps.filter(s => s.done).length / implRoomData[t.id].steps.length) * 100 : 0}%`, background: "linear-gradient(90deg, #8b5cf6, #a78bfa)" }} />
-                                    </div>
-                                  </div>
-                                )}
-                                {/* Full Guide */}
-                                <div className="max-h-80 overflow-y-auto mb-3">
-                                  <div className="rounded-lg px-3 py-2 text-xs leading-relaxed bg-[#0a1628]/60 border border-purple-500/15 text-gray-300">
-                                    <Markdown text={implRoomData[t.id].content} onMatrixClick={onMatrixClick} />
-                                    <LoadMatrixButtons text={implRoomData[t.id].content} onLoadMatrix={onMatrixClick} />
-                                  </div>
-                                </div>
-                                {/* Implementation Room Chat */}
-                                {(implRoomData[t.id].messages || []).length > 0 && (
-                                  <div className="max-h-48 overflow-y-auto space-y-2 mb-3">
-                                    {implRoomData[t.id].messages.map((m, i) => (
-                                      <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                                        <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed ${
-                                          m.role === "user"
-                                            ? "bg-purple-500/20 text-purple-100 rounded-br-sm"
-                                            : m.error
-                                              ? "bg-red-500/10 text-red-300 rounded-bl-sm border border-red-500/20"
-                                              : "bg-[#0a1628]/60 text-gray-300 rounded-bl-sm border border-purple-500/15"
-                                        }`}>
-                                          {m.role === "ai" ? <><Markdown text={m.text} onMatrixClick={onMatrixClick} /><LoadMatrixButtons text={m.text} onLoadMatrix={onMatrixClick} /></> : <span className="whitespace-pre-wrap">{m.text}</span>}
-                                        </div>
-                                      </div>
-                                    ))}
-                                    {implRoomChatLoading && implRoomTaskId === t.id && (
-                                      <div className="flex gap-1 px-2 py-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-purple-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
-                                    )}
-                                    <div ref={implRoomEndRef} />
-                                  </div>
-                                )}
-                                <div className="flex gap-2">
-                                  <input
-                                    type="text"
-                                    value={implRoomTaskId === t.id ? implRoomChatInput : ""}
-                                    onChange={e => setImplRoomChatInput(e.target.value)}
-                                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendImplRoomChat(t.id); } }}
-                                    placeholder={isAr ? "اسأل مرشدك عن أي خطوة..." : "Ask your coach about any step..."}
-                                    disabled={implRoomChatLoading}
-                                    className="flex-1 px-3 py-2 rounded-lg bg-[#0a1628]/60 border border-purple-500/20 text-white placeholder-gray-600 focus:border-purple-500/40 focus:outline-none transition text-xs"
-                                  />
+                        {/* Step indicator + progress bar */}
+                        <div className="mb-5">
+                          <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {wizardSteps.map(s => {
+                                const isActive = wizardStep === s.n;
+                                const isDone = wizardStep > s.n;
+                                return (
                                   <button
-                                    onClick={() => sendImplRoomChat(t.id)}
-                                    disabled={implRoomChatLoading || !implRoomChatInput.trim()}
-                                    className="px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-30 transition-all hover:scale-105"
-                                    style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: DEEP }}
+                                    key={s.n}
+                                    data-tutorial={s.tutorial}
+                                    onClick={() => goToStep(s.n)}
+                                    className={`flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full border font-medium transition ${
+                                      isActive
+                                        ? "text-white"
+                                        : isDone
+                                          ? "text-gray-400 border-transparent hover:bg-white/5"
+                                          : "text-gray-600 border-transparent hover:bg-white/5"
+                                    }`}
+                                    style={isActive ? { background: `${s.color}25`, borderColor: `${s.color}60`, color: s.color } : {}}
                                   >
-                                    {isAr ? "إرسال" : "Send"}
+                                    <span>{isDone ? "✓" : s.icon}</span> {s.label}
                                   </button>
-                                </div>
-                              </>
-                            )}
+                                );
+                              })}
+                            </div>
+                            <span className="text-xs font-medium text-gray-400 shrink-0">
+                              {isAr ? `الخطوة ${wizardStep}/4` : `Step ${wizardStep}/4`}
+                            </span>
                           </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : customPlan ? (
-                  <div className="rounded-xl p-5 max-h-[200px] overflow-y-auto" style={{ ...glass(0.5), borderLeft: `3px solid ${GOLD}60` }}>
-                    <Markdown text={customPlan} onMatrixClick={onMatrixClick} />
-                    <LoadMatrixButtons text={customPlan} onLoadMatrix={onMatrixClick} />
-                  </div>
-                ) : null}
+                          <div className="h-2 rounded-full bg-[#1e3a5f] overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{ width: `${(wizardStep / 4) * 100}%`, background: `linear-gradient(90deg, ${GOLD}, ${GOLD_L})` }}
+                            />
+                          </div>
+                        </div>
 
-                {customPlan && onSaveNote && (
-                  <div className="mt-4">
-                    <button onClick={() => onSaveNote(`✨ Customized Plan: ${stair.title}`, customPlan, "custom_plan")} className="text-xs text-gray-600 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10">
-                      📌 {isAr ? "حفظ في الملاحظات" : "Save to Notes"}
-                    </button>
+                        {/* Step content */}
+                        <div className="rounded-xl p-4 mb-5" style={{ ...glass(0.4), borderLeft: `3px solid ${wizardSteps[wizardStep - 1].color}` }}>
+
+                          {/* ── Step 1: UNDERSTAND ── */}
+                          {wizardStep === 1 && (
+                            <div>
+                              <div className="flex items-center gap-2 mb-3">
+                                <span className="text-blue-400 text-sm font-semibold">📖 {isAr ? "افهم: ماذا يعني هذا ولماذا يهم" : "Understand: what it means & why it matters"}</span>
+                                {explainChats[selectedTaskId]?.[0]?.sources_used?.length > 0 && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400/70 border border-blue-500/15">
+                                    {isAr ? "مدعوم بمصدر الحقيقة" : "Grounded in Source of Truth"}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="max-h-[420px] overflow-y-auto space-y-2 mb-3">
+                                {explainChatLoading && !explainChats[selectedTaskId] && (
+                                  <div className="flex items-center gap-2 py-6 justify-center">
+                                    <div className="flex gap-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-blue-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
+                                    <span className="text-gray-500 text-xs">{retryMsg || (isAr ? "جاري إعداد الشرح..." : "Preparing explanation...")}</span>
+                                  </div>
+                                )}
+                                {(explainChats[selectedTaskId] || []).map((m, i) => (
+                                  <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                                    <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed ${
+                                      m.role === "user"
+                                        ? "bg-blue-500/20 text-blue-100 rounded-br-sm"
+                                        : m.error
+                                          ? "bg-red-500/10 text-red-300 rounded-bl-sm border border-red-500/20"
+                                          : "bg-[#0a1628]/60 text-gray-300 rounded-bl-sm border border-blue-500/15"
+                                    }`}>
+                                      {m.role === "ai" ? <><Markdown text={m.text} onMatrixClick={onMatrixClick} /><LoadMatrixButtons text={m.text} onLoadMatrix={onMatrixClick} /></> : <span className="whitespace-pre-wrap">{m.text}</span>}
+                                    </div>
+                                  </div>
+                                ))}
+                                {explainChatLoading && explainChats[selectedTaskId] && (
+                                  <div className="flex gap-1 px-2 py-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-blue-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
+                                )}
+                                <div ref={explainChatEndRef} />
+                              </div>
+                              {explainChats[selectedTaskId] && explainChats[selectedTaskId].length === 1 && !explainChats[selectedTaskId][0].error && (
+                                <div className="flex flex-wrap gap-1.5 mb-2">
+                                  {(isAr
+                                    ? ["هل يمكنك تبسيط أكثر؟", "ما الذي قد يفشل؟", "أعطني مثالاً عملياً"]
+                                    : ["Can you simplify further?", "What could go wrong?", "Give me a real example"]
+                                  ).map((q, i) => (
+                                    <button key={i} onClick={() => setExplainChatInput(q)} className="text-[10px] px-2.5 py-1 rounded-full border border-blue-500/20 text-blue-400/70 hover:bg-blue-500/10 transition">{q}</button>
+                                  ))}
+                                </div>
+                              )}
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={explainChatInput}
+                                  onChange={e => setExplainChatInput(e.target.value)}
+                                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendExplainChat(selectedTaskId); } }}
+                                  placeholder={isAr ? "اسأل لفهم أعمق..." : "Ask to understand more..."}
+                                  disabled={explainChatLoading}
+                                  className="flex-1 px-3 py-2 rounded-lg bg-[#0a1628]/60 border border-blue-500/20 text-white placeholder-gray-600 focus:border-blue-500/40 focus:outline-none transition text-xs"
+                                />
+                                <button
+                                  onClick={() => sendExplainChat(selectedTaskId)}
+                                  disabled={explainChatLoading || !explainChatInput.trim()}
+                                  className="px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-30 transition-all hover:scale-105"
+                                  style={{ background: "linear-gradient(135deg, #3b82f6, #60a5fa)", color: DEEP }}
+                                >
+                                  {isAr ? "إرسال" : "Send"}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* ── Step 2: ASSESS ── */}
+                          {wizardStep === 2 && (
+                            <div>
+                              <div className="flex items-center gap-2 mb-3">
+                                <span className="text-teal-300 text-sm font-semibold">🎯 {isAr ? "قيّم: إلى أي مدى تستطيع تنفيذ هذا؟" : "Assess: how far can you do this?"}</span>
+                              </div>
+                              <div className="max-h-[420px] overflow-y-auto space-y-2 mb-3">
+                                {(actionChats[selectedTaskId] || []).map((m, i) => (
+                                  <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                                    <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed ${
+                                      m.role === "user"
+                                        ? "bg-amber-500/20 text-amber-100 rounded-br-sm"
+                                        : m.error
+                                          ? "bg-red-500/10 text-red-300 rounded-bl-sm border border-red-500/20"
+                                          : "bg-[#0a1628]/60 text-gray-300 rounded-bl-sm border border-[#1e3a5f]"
+                                    }`}>
+                                      {m.role === "ai" ? <><Markdown text={m.text} onMatrixClick={onMatrixClick} /><LoadMatrixButtons text={m.text} onLoadMatrix={onMatrixClick} /></> : <span className="whitespace-pre-wrap">{m.text}</span>}
+                                    </div>
+                                  </div>
+                                ))}
+                                {actionChatLoading && actionChatTaskId === selectedTaskId && (
+                                  <div className="flex gap-1 px-2 py-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-teal-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
+                                )}
+                                <div ref={actionChatEndRef} />
+                              </div>
+                              {(actionChats[selectedTaskId] || []).length <= 1 && (
+                                <div className="flex flex-wrap gap-1.5 mb-2">
+                                  {(isAr
+                                    ? ["أستطيع بالكامل", "جزئياً فقط", "لا أستطيع حالياً"]
+                                    : ["Fully", "Partially", "Not currently"]
+                                  ).map((q, i) => (
+                                    <button key={i} onClick={() => setActionChatInput(q)} className="text-[10px] px-2.5 py-1 rounded-full border border-teal-500/20 text-teal-400/70 hover:bg-teal-500/10 transition">{q}</button>
+                                  ))}
+                                </div>
+                              )}
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={actionChatInput}
+                                  onChange={e => setActionChatInput(e.target.value)}
+                                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendActionChat(selectedTaskId); } }}
+                                  placeholder={isAr ? "أخبرني عن قدرتك وقيودك..." : "Tell me about your ability and constraints..."}
+                                  disabled={actionChatLoading}
+                                  className="flex-1 px-3 py-2 rounded-lg bg-[#0a1628]/60 border border-[#1e3a5f] text-white placeholder-gray-600 focus:border-teal-500/40 focus:outline-none transition text-xs"
+                                />
+                                <button
+                                  onClick={() => sendActionChat(selectedTaskId)}
+                                  disabled={actionChatLoading || !actionChatInput.trim()}
+                                  className="px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-30 transition-all hover:scale-105"
+                                  style={{ background: `linear-gradient(135deg, ${TEAL}, #2dd4bf)`, color: DEEP }}
+                                >
+                                  {isAr ? "إرسال" : "Send"}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* ── Step 3: CUSTOMIZE ── */}
+                          {wizardStep === 3 && (
+                            <div data-tutorial="custom-plan">
+                              <div className="flex items-center gap-2 mb-3">
+                                <span className="text-amber-300 text-sm font-semibold">✨ {isAr ? "خصّص: خطة مبنية على تقييمك" : "Customize: a plan based on your assessment"}</span>
+                              </div>
+                              {!hasFeedback() && !customPlan && (
+                                <p className="text-[11px] text-gray-500 mb-3">
+                                  {isAr
+                                    ? "💡 أكمل الخطوة 2 (قيّم) لإضافة ملاحظاتك أولاً حتى يتمكن الذكاء الاصطناعي من تخصيص الخطة."
+                                    : "💡 Complete Step 2 (Assess) to add your feedback so the AI can tailor the plan."}
+                                </p>
+                              )}
+                              {customPlanLoading && !customPlan ? (
+                                <LoadingDots label={isAr ? "جاري إنشاء خطتك المخصصة..." : "Generating your customized plan..."} />
+                              ) : customPlan ? (
+                                <div className="rounded-lg p-3 max-h-[420px] overflow-y-auto bg-[#0a1628]/60 border border-amber-500/15 text-gray-300 text-xs leading-relaxed mb-3">
+                                  <Markdown text={customPlan} onMatrixClick={onMatrixClick} />
+                                  <LoadMatrixButtons text={customPlan} onLoadMatrix={onMatrixClick} />
+                                </div>
+                              ) : (
+                                <p className="text-xs text-gray-500 mb-3">
+                                  {isAr
+                                    ? "بناءً على تقييمك في الخطوة السابقة، سيُنشئ الذكاء الاصطناعي خطة عمل مخصصة تتكيف مع قدراتك وقيودك."
+                                    : "Based on your assessment in the previous step, the AI will generate a customized action plan adapted to your capabilities and constraints."}
+                                </p>
+                              )}
+                              <div className="flex items-center gap-3 flex-wrap">
+                                <button
+                                  onClick={generateCustomPlan}
+                                  disabled={customPlanLoading || !hasFeedback()}
+                                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
+                                  style={{
+                                    background: hasFeedback() ? `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` : `${GOLD}30`,
+                                    color: hasFeedback() ? DEEP : "#94a3b8",
+                                    border: `1px solid ${hasFeedback() ? GOLD : GOLD + "40"}`,
+                                  }}
+                                  title={!hasFeedback() ? (isAr ? "أضف ملاحظاتك في الخطوة 2 أولاً" : "Add your feedback in Step 2 first") : ""}
+                                >
+                                  {customPlanLoading
+                                    ? (isAr ? "جاري الإنشاء..." : "Generating...")
+                                    : <><span className="text-sm">✨</span> {customPlan ? (isAr ? "إعادة إنشاء الخطة المخصصة" : "Regenerate Customized Plan") : (isAr ? "إنشاء خطة عمل مخصصة لي" : "Generate My Customized Plan")}</>}
+                                </button>
+                                {customPlan && onSaveNote && (
+                                  <button onClick={() => onSaveNote(`✨ Customized Plan: ${stair.title}`, customPlan, "custom_plan")} className="text-xs text-gray-600 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10">
+                                    📌 {isAr ? "حفظ في الملاحظات" : "Save to Notes"}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* ── Step 4: IMPLEMENT ── */}
+                          {wizardStep === 4 && (
+                            <div data-tutorial="impl-room">
+                              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                                <span className="text-purple-400 text-sm font-semibold">🚀 {isAr ? "نفّذ: دليل خطوة بخطوة" : "Implement: step-by-step guide"}</span>
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400/70 border border-purple-500/15">
+                                  {isAr ? "مرشدك الشخصي" : "Your Personal Coach"}
+                                </span>
+                                {implRoomData[selectedTaskId]?.sources_used?.length > 0 && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400/70 border border-blue-500/15">
+                                    {isAr ? "مدعوم بمصدر الحقيقة" : "Source of Truth"}
+                                  </span>
+                                )}
+                              </div>
+                              {implRoomLoading && !implRoomData[selectedTaskId] && (
+                                <div className="flex items-center gap-2 py-6 justify-center">
+                                  <div className="flex gap-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-purple-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
+                                  <span className="text-gray-500 text-xs">{retryMsg || (isAr ? "جاري إعداد دليل التنفيذ..." : "Preparing your implementation guide...")}</span>
+                                </div>
+                              )}
+                              {implRoomData[selectedTaskId] && (
+                                <>
+                                  {implRoomData[selectedTaskId].steps.length > 0 && (
+                                    <div className="mb-3 p-3 rounded-lg border border-purple-500/15" style={{ background: "rgba(139,92,246,0.05)" }}>
+                                      <div className="text-[11px] text-purple-300 font-medium mb-2">{isAr ? "تقدم الخطوات" : "Step Progress"} — {implRoomData[selectedTaskId].steps.filter(s => s.done).length}/{implRoomData[selectedTaskId].steps.length}</div>
+                                      <div className="space-y-1.5">
+                                        {implRoomData[selectedTaskId].steps.map((step, si) => (
+                                          <label key={step.id} className="flex items-start gap-2 cursor-pointer group">
+                                            <button
+                                              onClick={() => toggleImplStep(selectedTaskId, step.id)}
+                                              className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition text-[9px] ${
+                                                step.done ? "bg-purple-500/30 border-purple-500/50 text-purple-300" : "border-purple-500/30 hover:border-purple-500/60 group-hover:border-purple-400/50"
+                                              }`}
+                                            >
+                                              {step.done && "✓"}
+                                            </button>
+                                            <span className={`text-[11px] leading-relaxed ${step.done ? "line-through text-gray-600" : "text-gray-300"}`}>
+                                              <span className="text-purple-400/70 font-medium">{si + 1}.</span> {step.label}
+                                            </span>
+                                          </label>
+                                        ))}
+                                      </div>
+                                      <div className="mt-2 h-1.5 rounded-full bg-[#1e3a5f] overflow-hidden">
+                                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${implRoomData[selectedTaskId].steps.length ? (implRoomData[selectedTaskId].steps.filter(s => s.done).length / implRoomData[selectedTaskId].steps.length) * 100 : 0}%`, background: "linear-gradient(90deg, #8b5cf6, #a78bfa)" }} />
+                                      </div>
+                                    </div>
+                                  )}
+                                  <div className="max-h-80 overflow-y-auto mb-3">
+                                    <div className="rounded-lg px-3 py-2 text-xs leading-relaxed bg-[#0a1628]/60 border border-purple-500/15 text-gray-300">
+                                      <Markdown text={implRoomData[selectedTaskId].content} onMatrixClick={onMatrixClick} />
+                                      <LoadMatrixButtons text={implRoomData[selectedTaskId].content} onLoadMatrix={onMatrixClick} />
+                                    </div>
+                                  </div>
+                                  {(implRoomData[selectedTaskId].messages || []).length > 0 && (
+                                    <div className="max-h-48 overflow-y-auto space-y-2 mb-3">
+                                      {implRoomData[selectedTaskId].messages.map((m, i) => (
+                                        <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                                          <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed ${
+                                            m.role === "user"
+                                              ? "bg-purple-500/20 text-purple-100 rounded-br-sm"
+                                              : m.error
+                                                ? "bg-red-500/10 text-red-300 rounded-bl-sm border border-red-500/20"
+                                                : "bg-[#0a1628]/60 text-gray-300 rounded-bl-sm border border-purple-500/15"
+                                          }`}>
+                                            {m.role === "ai" ? <><Markdown text={m.text} onMatrixClick={onMatrixClick} /><LoadMatrixButtons text={m.text} onLoadMatrix={onMatrixClick} /></> : <span className="whitespace-pre-wrap">{m.text}</span>}
+                                          </div>
+                                        </div>
+                                      ))}
+                                      {implRoomChatLoading && implRoomTaskId === selectedTaskId && (
+                                        <div className="flex gap-1 px-2 py-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-purple-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
+                                      )}
+                                      <div ref={implRoomEndRef} />
+                                    </div>
+                                  )}
+                                  <div className="flex gap-2">
+                                    <input
+                                      type="text"
+                                      value={implRoomChatInput}
+                                      onChange={e => setImplRoomChatInput(e.target.value)}
+                                      onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendImplRoomChat(selectedTaskId); } }}
+                                      placeholder={isAr ? "اسأل مرشدك عن أي خطوة..." : "Ask your coach about any step..."}
+                                      disabled={implRoomChatLoading}
+                                      className="flex-1 px-3 py-2 rounded-lg bg-[#0a1628]/60 border border-purple-500/20 text-white placeholder-gray-600 focus:border-purple-500/40 focus:outline-none transition text-xs"
+                                    />
+                                    <button
+                                      onClick={() => sendImplRoomChat(selectedTaskId)}
+                                      disabled={implRoomChatLoading || !implRoomChatInput.trim()}
+                                      className="px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-30 transition-all hover:scale-105"
+                                      style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: DEEP }}
+                                    >
+                                      {isAr ? "إرسال" : "Send"}
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Wizard navigation */}
+                        <div className="flex items-center justify-between">
+                          <button
+                            onClick={() => goToStep(wizardStep - 1)}
+                            disabled={wizardStep === 1}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium border transition disabled:opacity-30 disabled:cursor-not-allowed"
+                            style={{ borderColor: BORDER, color: "#94a3b8" }}
+                          >
+                            <span>←</span> {isAr ? "السابق" : "Back"}
+                          </button>
+                          <button
+                            onClick={() => goToStep(wizardStep + 1)}
+                            disabled={wizardStep === 4}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition hover:scale-[1.02] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
+                            style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, color: DEEP }}
+                          >
+                            {isAr ? "التالي" : "Next"} <span>→</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
-              </>
-            )}
-
-            {/* ─── Side-by-Side Comparison View ─── */}
-            {planView === "comparison" && customPlan && (
-              <div className="flex gap-4">
-                {/* Recommended column */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-3 pb-2" style={{ borderBottom: `2px solid ${BORDER}` }}>
-                    <span>📋</span>
-                    <h3 className="text-sm font-semibold text-white">{isAr ? "الخطة الموصى بها" : "Recommended Plan"}</h3>
-                    {tasks.length > 0 && (
-                      <span className="ml-auto text-[10px] text-gray-500">{tasks.filter(t => t.done).length}/{tasks.length}</span>
-                    )}
-                  </div>
-                  {tasks.length > 0 ? (
-                    <div className="space-y-2">
-                      {tasks.map(t => (
-                        <div key={t.id} className={`rounded-lg transition-all ${t.done ? "opacity-60" : ""}`} style={glass(0.4)}>
-                          <div className="flex items-start gap-2 p-3">
-                            <button onClick={() => toggleTask(t.id)} className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition text-[10px] ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-gray-600 hover:border-amber-500/50"}`}>
-                              {t.done && "✓"}
-                            </button>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className={`text-xs font-medium ${t.done ? "line-through text-gray-500" : "text-white"}`}>{t.name}</span>
-                                <PriorityBadge priority={t.priority} />
-                              </div>
-                              {t.details && <div className="text-gray-400 text-[10px] mt-0.5 line-clamp-2">{t.details}</div>}
-                              <div className="flex items-center gap-3 mt-1.5">
-                                <span className="text-[9px] text-gray-600">👤 {t.owner}</span>
-                                <span className="text-[9px] text-gray-600">⏱ {t.timeline}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-gray-600">{isAr ? "لا توجد مهام" : "No tasks"}</p>
-                  )}
-                  {tasks.length > 0 && (
-                    <div className="mt-3 flex items-center gap-2">
-                      <div className="flex-1 h-1.5 rounded-full bg-[#1e3a5f] overflow-hidden">
-                        <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${tasks.length ? (tasks.filter(t => t.done).length / tasks.length) * 100 : 0}%` }} />
-                      </div>
-                      <span className="text-[10px] text-gray-500">{Math.round(tasks.length ? (tasks.filter(t => t.done).length / tasks.length) * 100 : 0)}%</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Divider */}
-                <div className="w-px shrink-0" style={{ background: BORDER }} />
-
-                {/* Customized column */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-3 pb-2" style={{ borderBottom: `2px solid ${GOLD}60` }}>
-                    <span>✨</span>
-                    <h3 className="text-sm font-semibold text-amber-300">{isAr ? "الخطة المخصصة" : "Customized Plan"}</h3>
-                    {customTasks.length > 0 && (
-                      <span className="ml-auto text-[10px] text-gray-500">{customTasks.filter(t => t.done).length}/{customTasks.length}</span>
-                    )}
-                  </div>
-                  {customTasks.length > 0 ? (
-                    <div className="space-y-2">
-                      {customTasks.map(t => (
-                        <div key={t.id} className={`rounded-lg transition-all ${t.done ? "opacity-60" : ""}`} style={{ ...glass(0.4), borderLeft: `3px solid ${GOLD}60` }}>
-                          <div className="flex items-start gap-2 p-3">
-                            <button onClick={() => toggleCustomTask(t.id)} className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition text-[10px] ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-amber-500/40 hover:border-amber-500/70"}`}>
-                              {t.done && "✓"}
-                            </button>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className={`text-xs font-medium ${t.done ? "line-through text-gray-500" : "text-white"}`}>{t.name}</span>
-                                <PriorityBadge priority={t.priority} />
-                              </div>
-                              {t.details && <div className="text-gray-400 text-[10px] mt-0.5 line-clamp-2">{t.details}</div>}
-                              <div className="flex items-center gap-3 mt-1.5">
-                                <span className="text-[9px] text-gray-600">👤 {t.owner}</span>
-                                <span className="text-[9px] text-gray-600">⏱ {t.timeline}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-gray-600">{isAr ? "لا توجد مهام" : "No tasks"}</p>
-                  )}
-                  {customTasks.length > 0 && (
-                    <div className="mt-3 flex items-center gap-2">
-                      <div className="flex-1 h-1.5 rounded-full bg-[#1e3a5f] overflow-hidden">
-                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${customTasks.length ? (customTasks.filter(t => t.done).length / customTasks.length) * 100 : 0}%`, background: `linear-gradient(90deg, ${GOLD}, ${GOLD_L})` }} />
-                      </div>
-                      <span className="text-[10px] text-gray-500">{Math.round(customTasks.length ? (customTasks.filter(t => t.done).length / customTasks.length) * 100 : 0)}%</span>
-                    </div>
-                  )}
-                </div>
               </div>
             )}
           </div>
