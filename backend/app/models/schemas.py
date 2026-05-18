@@ -267,6 +267,7 @@ class AIGenerateRequest(BaseModel):
     prompt: str
     framework: str = "okr"
     parent_id: Optional[UUID] = None
+    strategy_id: Optional[UUID] = None
 
 
 # ─── QUESTIONNAIRE ───

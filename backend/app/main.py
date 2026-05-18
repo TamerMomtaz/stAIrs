@@ -283,6 +283,87 @@ async def ensure_strategies_table():
         """)
 
 
+# ─── AUTO-MIGRATION: ORPHAN STAIR CLEANUP ───
+
+async def ensure_no_orphan_stairs():
+    """Repair stair elements that were created without a strategy_id.
+
+    The old POST /api/v1/stairs handler dropped strategy_id, leaving
+    elements unattached so the AI advisor leaked them across strategies and
+    the tree under-counted. Resolve each orphan, most reliable signal first:
+
+      1. Inherit strategy_id from the nearest ancestor that has one
+         (handles wizard trees where only the root got linked).
+      2. If the org has exactly one strategy, attach orphans to it.
+      3. Anything still unresolved can't be safely placed — soft-delete it
+         so it stops poisoning AI context (recoverable via deleted_at).
+
+    Idempotent: after a clean run there are no orphans, so re-runs no-op.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        has_col = await conn.fetchval("""
+            SELECT EXISTS(SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'stairs' AND column_name = 'strategy_id')
+        """)
+        if not has_col:
+            return
+
+        before = await conn.fetchval(
+            "SELECT COUNT(*) FROM stairs WHERE strategy_id IS NULL AND deleted_at IS NULL"
+        )
+        if not before:
+            return
+        print(f"  → Orphan stair cleanup: {before} element(s) with NULL strategy_id")
+
+        # 1. Inherit from parent, repeatedly, so multi-level trees resolve
+        #    from the linked root down to the deepest descendant.
+        for _ in range(25):
+            result = await conn.execute("""
+                UPDATE stairs c SET strategy_id = p.strategy_id, updated_at = NOW()
+                FROM stairs p
+                WHERE c.parent_id = p.id
+                  AND c.strategy_id IS NULL
+                  AND c.deleted_at IS NULL
+                  AND p.strategy_id IS NOT NULL
+            """)
+            if result == "UPDATE 0":
+                break
+
+        # 2. Single-strategy orgs: the only strategy is the unambiguous home.
+        await conn.execute("""
+            UPDATE stairs s SET strategy_id = one.sid, updated_at = NOW()
+            FROM (
+                SELECT organization_id AS oid, MIN(id) AS sid
+                FROM strategies
+                GROUP BY organization_id
+                HAVING COUNT(*) = 1
+            ) one
+            WHERE s.organization_id = one.oid
+              AND s.strategy_id IS NULL
+              AND s.deleted_at IS NULL
+        """)
+
+        # 3. Unresolvable orphans (multi-strategy org, no linked ancestor):
+        #    soft-delete so they stop leaking into AI context.
+        remaining = await conn.fetch(
+            "SELECT id, organization_id, title FROM stairs "
+            "WHERE strategy_id IS NULL AND deleted_at IS NULL"
+        )
+        if remaining:
+            for r in remaining:
+                print(f"     soft-deleting unassignable orphan {r['id']} \"{r['title']}\" (org {r['organization_id']})")
+            await conn.execute(
+                "UPDATE stairs SET deleted_at = NOW(), updated_at = NOW() "
+                "WHERE strategy_id IS NULL AND deleted_at IS NULL"
+            )
+
+        after = await conn.fetchval(
+            "SELECT COUNT(*) FROM stairs WHERE strategy_id IS NULL AND deleted_at IS NULL"
+        )
+        print(f"  ✅ Orphan stair cleanup complete — remaining orphans: {after}")
+
+
 # ─── AUTO-MIGRATION: NOTES TABLE ───
 
 async def ensure_notes_table():
@@ -443,6 +524,10 @@ async def lifespan(app: FastAPI):
         await ensure_strategies_table()
     except Exception as e:
         print(f"  ⚠️ Strategies migration: {e}")
+    try:
+        await ensure_no_orphan_stairs()
+    except Exception as e:
+        print(f"  ⚠️ Orphan stair cleanup: {e}")
     try:
         await ensure_notes_table()
     except Exception as e:

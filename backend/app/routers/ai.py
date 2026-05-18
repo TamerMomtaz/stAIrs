@@ -402,6 +402,7 @@ Start with Vision, then Objectives, then Key Results. 3-5 KRs per Objective. Inc
         elements = json.loads(text[start:end]) if start >= 0 else []
     except Exception:
         return {"generated": 0, "elements": [], "raw": text[:500], "message": "Could not parse AI response."}
+    strategy_id = str(req.strategy_id) if req.strategy_id else None
     created, parent_ids = [], []
     async with pool.acquire() as conn:
         for i, el in enumerate(elements):
@@ -414,10 +415,10 @@ Start with Vision, then Objectives, then Key Results. 3-5 KRs per Objective. Inc
                 p = await conn.fetchrow("SELECT level FROM stairs WHERE id = $1", parent_id)
                 level = (p["level"] + 1) if p else 0
             await conn.execute("""INSERT INTO stairs (id, organization_id, code, title, title_ar, description, element_type,
-                parent_id, level, status, health, progress_percent, confidence_percent, target_value, unit, priority, created_by)
-                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active','on_track',0,50,$10,$11,$12,$13)""",
+                parent_id, strategy_id, level, status, health, progress_percent, confidence_percent, target_value, unit, priority, created_by)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'active','on_track',0,50,$11,$12,$13,$14)""",
                 stair_id, auth.org_id, code, el.get("title", "Untitled"), el.get("title_ar", ""), el.get("description", ""),
-                el_type, parent_id, level, el.get("target_value"), el.get("unit"), el.get("priority", "medium"), auth.user_id)
+                el_type, parent_id, strategy_id, level, el.get("target_value"), el.get("unit"), el.get("priority", "medium"), auth.user_id)
             await conn.execute("INSERT INTO stair_closure (ancestor_id, descendant_id, depth) VALUES ($1,$1,0) ON CONFLICT DO NOTHING", stair_id)
             if parent_id:
                 await conn.execute("INSERT INTO stair_closure (ancestor_id, descendant_id, depth) SELECT ancestor_id, $1, depth+1 FROM stair_closure WHERE descendant_id = $2", stair_id, parent_id)

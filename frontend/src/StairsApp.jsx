@@ -154,8 +154,9 @@ export default function App() {
         for (const el of stratData._localElements) {
           try {
             const serverParentId = el.parent_id ? (idMap[el.parent_id] || null) : null;
-            const serverEl = await api.post(`/api/v1/stairs`, { title: el.title, title_ar: el.title_ar || null, description: el.description || null, element_type: el.element_type, parent_id: serverParentId });
-            if (serverEl?.id) await api.put(`/api/v1/stairs/${serverEl.id}`, { strategy_id: created.id });
+            const serverEl = await api.post(`/api/v1/stairs`, { title: el.title, title_ar: el.title_ar || null, description: el.description || null, element_type: el.element_type, parent_id: serverParentId, strategy_id: created.id });
+            // POST now persists strategy_id; PUT stays as a safety net in case an older backend ignores it.
+            if (serverEl?.id && !serverEl.strategy_id) await api.put(`/api/v1/stairs/${serverEl.id}`, { strategy_id: created.id });
             if (el.id && serverEl?.id) idMap[el.id] = serverEl.id;
           } catch (e) { console.warn("Failed to create stair element:", el.title, e.message); }
         }
@@ -197,8 +198,8 @@ export default function App() {
     if (existingId) {
       await api.put(`/api/v1/stairs/${existingId}`, form);
     } else {
-      const created = await api.post(`/api/v1/stairs`, form);
-      if (created?.id) await api.put(`/api/v1/stairs/${created.id}`, { strategy_id: activeStrat.id });
+      const created = await api.post(`/api/v1/stairs`, { ...form, strategy_id: activeStrat.id });
+      if (created?.id && !created.strategy_id) await api.put(`/api/v1/stairs/${created.id}`, { strategy_id: activeStrat.id });
     }
     try { const tree = await api.get(`/api/v1/strategies/${activeStrat.id}/tree`); setStairTree(tree || []); } catch {}
     try { const dash = await api.get(`/api/v1/dashboard`); setDashData(dash); } catch {}

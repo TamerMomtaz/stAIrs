@@ -18,7 +18,7 @@ export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, str
       const prompt = action === "explain"
         ? `${ctx}${sourceRef}\n\nExplain: ${stair.element_type} "${stair.title}" (${stair.code||""}), health: ${stair.health}, progress: ${stair.progress_percent}%.\n${stair.description||""}\n\nExplain meaning, importance, success criteria, and risks.`
         : `${ctx}${sourceRef}\n\nEnhance: ${stair.element_type} "${stair.title}" (${stair.code||""}), health: ${stair.health}, progress: ${stair.progress_percent}%.\n${stair.description||""}\n\nSuggest: 1) Better definition, 2) KPIs, 3) Next actions, 4) Sub-elements.`;
-      const res = await api.aiPost("/api/v1/ai/chat", { message: prompt }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+      const res = await api.aiPost("/api/v1/ai/chat", { message: prompt, strategy_id: strategyContext?.id || null }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
       setRetryMsg(null);
       setAiResult(prev => ({...prev, [stair.id]: {...prev[stair.id], [action]: res.response}}));
       fireGuidance("ai_insight", { name: stair.title, stair });
