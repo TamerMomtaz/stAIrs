@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api } from "../api";
-import { GOLD, GOLD_L, TEAL, typeColors, typeIcons } from "../constants";
+import { GOLD, GOLD_L, TEAL, DEEP, typeColors, typeIcons } from "../constants";
 import { HealthBadge } from "./SharedUI";
 import { Markdown } from "./Markdown";
 import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
@@ -53,14 +53,24 @@ export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, str
             <div className="px-4 pb-4 pt-1 space-y-3" style={{ borderTop:`1px solid ${color}15` }}>
               {s.description && <div className="text-gray-400 text-sm leading-relaxed">{s.description}</div>}
               <div className="flex items-center gap-2 flex-wrap" data-tutorial="staircase-actions">
-                <button onClick={e => {e.stopPropagation();handleAI(s,"explain");}} disabled={isLd} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{borderColor:`${TEAL}60`,color:"#5eead4",background:`${TEAL}20`}}>{isLd&&aiAction?.type==="explain"?<span className="animate-spin">⟳</span>:"💡"} {isAr?"شرح":"Explain"}</button>
-                <button onClick={e => {e.stopPropagation();handleAI(s,"enhance");}} disabled={isLd} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{borderColor:`${GOLD}60`,color:GOLD,background:`${GOLD}15`}}>{isLd&&aiAction?.type==="enhance"?<span className="animate-spin">⟳</span>:"✨"} {isAr?"تحسين":"Enhance"}</button>
-                {onExecutionRoom && <button onClick={e => {e.stopPropagation();onExecutionRoom(s);}} data-tutorial="execution-room" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{borderColor:"#6366f160",color:"#a5b4fc",background:"#6366f120"}}>🚀 {isAr?"غرفة التنفيذ":"Execution Room"}</button>}
-                <button onClick={e => {e.stopPropagation();onEdit(s);}} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#1e3a5f] text-gray-400 hover:text-white transition hover:bg-white/5">✎ {isAr?"تعديل":"Edit"}</button>
+                {onExecutionRoom && <button onClick={e => {e.stopPropagation();onExecutionRoom(s);}} data-tutorial="execution-room" className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition hover:scale-[1.02]" style={{background:`linear-gradient(135deg, ${GOLD}, ${GOLD_L})`,color:DEEP}}>🚀 {isAr?"غرفة التنفيذ":"Execution Room"}</button>}
+                <button onClick={e => {e.stopPropagation();handleAI(s,"explain");}} disabled={isLd} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-transparent transition hover:scale-[1.02]" style={{borderColor:`${TEAL}60`,color:"#5eead4"}}>{isLd&&aiAction?.type==="explain"?<span className="animate-spin">⟳</span>:"💡"} {isAr?"شرح":"Explain"}</button>
+                <button onClick={e => {e.stopPropagation();handleAI(s,"enhance");}} disabled={isLd} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-transparent transition hover:scale-[1.02]" style={{borderColor:`${GOLD}60`,color:GOLD}}>{isLd&&aiAction?.type==="enhance"?<span className="animate-spin">⟳</span>:"✨"} {isAr?"تحسين":"Enhance"}</button>
+                <button onClick={e => {e.stopPropagation();onEdit(s);}} className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-gray-500 hover:text-white underline-offset-2 hover:underline transition">✎ {isAr?"تعديل":"Edit"}</button>
               </div>
               {isLd && <div className="flex items-center gap-2 py-3"><div className="flex gap-1">{[0,1,2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-amber-500/40 animate-bounce" style={{animationDelay:`${i*0.15}s`}} />)}</div><span className="text-gray-500 text-xs">{retryMsg || (aiAction?.type==="explain"?"Analyzing...":"Generating...")}</span></div>}
               {result?.explain && <div className="p-3 rounded-lg" style={{background:`${TEAL}10`,border:`1px solid ${TEAL}25`}}><div className="flex items-center justify-between mb-2"><span className="text-xs font-semibold text-teal-300 uppercase tracking-wider">💡 Explanation</span>{onSaveNote&&<button onClick={() => onSaveNote(`💡 ${s.title} — Explain`, result.explain, "ai_explain")} className="text-[10px] text-gray-600 hover:text-teal-300 transition px-1.5 py-0.5 rounded hover:bg-teal-500/10">📌 Save</button>}</div><div className="text-sm"><Markdown text={result.explain} onMatrixClick={onMatrixClick}/><LoadMatrixButtons text={result.explain} onLoadMatrix={onMatrixClick}/></div></div>}
               {result?.enhance && <div className="p-3 rounded-lg" style={{background:`${GOLD}08`,border:`1px solid ${GOLD}20`}}><div className="flex items-center justify-between mb-2"><span className="text-xs font-semibold text-amber-300 uppercase tracking-wider">✨ Enhancement</span>{onSaveNote&&<button onClick={() => onSaveNote(`✨ ${s.title} — Enhance`, result.enhance, "ai_enhance")} className="text-[10px] text-gray-600 hover:text-amber-300 transition px-1.5 py-0.5 rounded hover:bg-amber-500/10">📌 Save</button>}</div><div className="text-sm"><Markdown text={result.enhance} onMatrixClick={onMatrixClick}/><LoadMatrixButtons text={result.enhance} onLoadMatrix={onMatrixClick}/></div></div>}
+              {(result?.explain || result?.enhance) && !isLd && (
+                <div className="rounded-xl p-4 flex items-center gap-4 flex-wrap" style={{background:`${GOLD}10`,border:`1px solid ${GOLD}33`}}>
+                  <div className="flex-1 min-w-[180px]">
+                    <div className="text-white text-sm font-semibold">{isAr?"جاهز للتنفيذ؟":"Ready to execute?"}</div>
+                    <div className="text-gray-400 text-xs mt-0.5">{isAr?"حوّل هذه الرؤى إلى خطة عمل قابلة للتنفيذ.":"Turn these insights into an actionable plan."}</div>
+                  </div>
+                  {onExecutionRoom && <button onClick={e => {e.stopPropagation();onExecutionRoom(s);}} className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-semibold transition hover:scale-[1.02]" style={{background:`linear-gradient(135deg, ${GOLD}, ${GOLD_L})`,color:DEEP}}>🚀 {isAr?"افتح غرفة التنفيذ":"Open Execution Room"}</button>}
+                  {onSaveNote && <button onClick={e => {e.stopPropagation(); const parts=[]; if(result?.explain)parts.push(`## 💡 Explain\n\n${result.explain}`); if(result?.enhance)parts.push(`## ✨ Enhance\n\n${result.enhance}`); onSaveNote(`${s.title} — AI Insights`, parts.join("\n\n---\n\n"), "ai_insight");}} className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium border bg-transparent transition hover:scale-[1.02]" style={{borderColor:`${GOLD}40`,color:GOLD}}>📌 {isAr?"حفظ في الملاحظات":"Save to Notes"}</button>}
+                </div>
+              )}
             </div>
           )}
         </div>
