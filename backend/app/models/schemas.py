@@ -125,6 +125,7 @@ class StairUpdate(BaseModel):
     element_type: Optional[str] = None
     parent_id: Optional[UUID] = None
     strategy_id: Optional[UUID] = None
+    sort_order: Optional[int] = None
     status: Optional[str] = None
     health: Optional[str] = None
     progress_percent: Optional[float] = None
