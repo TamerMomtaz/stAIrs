@@ -332,15 +332,22 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
         </div>
       </div>
 
+      {/* Intro */}
+      <p className="text-gray-400 text-sm mb-5 max-w-3xl">
+        {isAr
+          ? "ملف تنفيذ استراتيجيتك. كل ما يتم إنشاؤه في غرفة التنفيذ يعيش هنا كسجلك الدائم."
+          : "Your strategy execution dossier. Everything generated in the Execution Room lives here as your permanent record."}
+      </p>
+
       {/* Summary Bar */}
       <div className="grid grid-cols-3 gap-3 mb-5">
         <div className="px-4 py-3 rounded-xl text-center" style={glass(0.4)}>
           <div className="text-lg font-bold text-white">{totalActions}</div>
-          <div className="text-[10px] text-gray-500 uppercase tracking-wider">{isAr ? "إجمالي الإجراءات" : "Total Actions"}</div>
+          <div className="text-[10px] text-gray-500 tracking-wider">{isAr ? "بنود الإجراءات" : "Action Items"}</div>
         </div>
-        <div className="px-4 py-3 rounded-xl text-center" style={glass(0.4)}>
+        <div className="px-4 py-3 rounded-xl text-center" style={glass(0.4)} title={isAr ? "موثّق = يحتوي على سجل واحد على الأقل" : "Documented = has at least one manifest"}>
           <div className="text-lg font-bold text-amber-400">{actionsWithManifest}</div>
-          <div className="text-[10px] text-gray-500 uppercase tracking-wider">{isAr ? "سجلات مكتملة" : "With Manifests"}</div>
+          <div className="text-[10px] text-gray-500 tracking-wider">{isAr ? "موثّق" : "Documented"} <span className="text-gray-600 cursor-help">ⓘ</span></div>
         </div>
         <div className="px-4 py-3 rounded-xl text-center" style={glass(0.4)}>
           <div className="text-lg font-bold" style={{ color: overallProgress >= 70 ? "#10b981" : overallProgress >= 40 ? GOLD : "#94a3b8" }}>{overallProgress}%</div>
@@ -437,7 +444,17 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
                           <span className="text-sm">📦</span>
                           <div className="flex-1 min-w-0">
                             <span className="text-xs font-semibold text-white">{task.name || m.task_name || "Action"}</span>
-                            <div className="flex items-center gap-2 mt-0.5">
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                              {[
+                                { label: isAr ? "الشرح" : "Explanation", ok: !!m.explanation },
+                                { label: isAr ? "التقييم" : "Assessment", ok: !!m.ability_assessment },
+                                { label: isAr ? "خطة مخصصة" : "Custom Plan", ok: !!m.customized_plan },
+                                { label: isAr ? "التنفيذ" : "Implementation", ok: !!m.impl_guide },
+                              ].map((sec, i) => (
+                                <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded border ${sec.ok ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/25" : "bg-white/[0.02] text-gray-600 border-[#1e3a5f]"}`}>
+                                  {sec.ok ? "✅" : "❌"} {sec.label}
+                                </span>
+                              ))}
                               <span className="text-[10px] text-gray-600">{completedSections}/4 {isAr ? "أقسام" : "sections"}</span>
                               {mSteps.length > 0 && <span className="text-[10px] text-purple-400/70">{mDone}/{mSteps.length} {isAr ? "خطوات" : "steps"}</span>}
                             </div>
