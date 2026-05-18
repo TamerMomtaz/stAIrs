@@ -5,14 +5,15 @@ import { Markdown } from "./Markdown";
 import { DEVONEERS_LOGO_URI } from "../exportUtils";
 
 // ═══ PDF HELPERS ═══
-const pdfStyles = `@page{margin:20mm 15mm}*{box-sizing:border-box;margin:0;padding:0}body{background:#fff;color:#1e293b;font-family:'Segoe UI',system-ui,sans-serif;line-height:1.5}.section{margin-top:24px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;color:#B8904A;font-size:16px;font-weight:700}.footer{text-align:center;margin-top:30px;padding-top:16px;border-top:1px solid #e5e7eb;color:#94a3b8;font-size:10px}.header{padding-bottom:16px;border-bottom:2px solid #B8904A;margin-bottom:20px}.manifest-card{margin-top:16px;padding:16px;border:1px solid #e2e8f0;border-radius:8px;page-break-inside:avoid}.toc-item{padding:4px 0;font-size:13px;color:#475569}.toc-num{color:#B8904A;font-weight:600;margin-right:8px}`;
+const pdfStyles = `@page{margin:20mm 15mm}*{box-sizing:border-box;margin:0;padding:0}html,body{background:#fff}body{color:#1e293b;font-family:'Segoe UI',system-ui,sans-serif;line-height:1.5}.section{margin-top:24px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;color:#B8904A;font-size:16px;font-weight:700}.footer{text-align:center;margin-top:40px;padding-top:20px;border-top:2px solid #B8904A}.brand{color:#B8904A;font-weight:700;letter-spacing:2px}.header{padding-bottom:16px;border-bottom:3px solid #B8904A;margin-bottom:20px}.manifest-card{margin-top:16px;padding:16px;border:1px solid #e2e8f0;border-radius:8px;page-break-inside:avoid}.toc-item{padding:4px 0;font-size:13px;color:#475569}.toc-num{color:#B8904A;font-weight:600;margin-right:8px}.page-break{page-break-before:always}.sec{margin-bottom:12px;padding:10px 14px;border-radius:6px;background:#f8fafc;border:1px solid #e5e7eb;border-left:4px solid #cbd5e1}.sec-explain{border-left-color:#0d9488}.sec-assess{border-left-color:#2563eb}.sec-custom{border-left-color:#B8904A}.sec-impl{border-left-color:#059669}.sec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}.sec-body{font-size:12px;color:#334155;white-space:pre-wrap}.step{display:flex;align-items:flex-start;gap:8px;padding:4px 0;font-size:12px;color:#334155}.cbox{display:inline-block;width:13px;height:13px;border:1.5px solid #94a3b8;border-radius:3px;flex-shrink:0;margin-top:1px;text-align:center;line-height:11px;font-size:10px;font-weight:700;color:#fff}.cbox-done{background:#059669;border-color:#059669}.step-done{color:#94a3b8;text-decoration:line-through}.step-num{font-weight:700;margin-right:2px}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.manifest-card{page-break-inside:avoid}.page-break{page-break-before:always}.no-print{display:none}}`;
 
 const typeColor = t => ({ vision: "#7c3aed", objective: "#2563eb", key_result: "#059669", initiative: "#d97706", task: "#64748b" }[t] || "#64748b");
 
+const cleanMd = (txt) => (txt || "").replace(/\*\*/g, "").replace(/##\s/g, "").replace(/\n/g, "<br>");
+
 const buildManifestHtml = (manifest, taskInfo, index) => {
   const stepsHtml = (manifest.impl_steps || []).map((s, i) => {
-    const checked = s.done ? "&#9745;" : "&#9744;";
-    return `<div style="padding:4px 0;font-size:12px;color:${s.done ? '#94a3b8' : '#334155'};${s.done ? 'text-decoration:line-through' : ''}">${checked} <span style="color:#8b5cf6;font-weight:600">${i + 1}.</span> ${s.label}</div>`;
+    return `<div class="step"><span class="cbox${s.done ? ' cbox-done' : ''}">${s.done ? '&#10003;' : ''}</span><span class="${s.done ? 'step-done' : ''}"><span class="step-num" style="color:#059669">${i + 1}.</span> ${s.label}</span></div>`;
   }).join("");
   const doneSteps = (manifest.impl_steps || []).filter(s => s.done).length;
   const totalSteps = (manifest.impl_steps || []).length;
@@ -26,34 +27,34 @@ const buildManifestHtml = (manifest, taskInfo, index) => {
     <div class="manifest-card" id="manifest-${index}">
       <div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:12px">${index + 1}. ${taskInfo?.name || manifest.task_name || "Action"}</div>
       ${manifest.explanation ? `
-        <div style="margin-bottom:12px">
-          <div style="font-size:11px;font-weight:600;color:#3b82f6;text-transform:uppercase;margin-bottom:4px">Explanation</div>
-          <div style="font-size:12px;color:#334155;white-space:pre-wrap">${(manifest.explanation || "").replace(/\*\*/g, "").replace(/##\s/g, "").replace(/\n/g, "<br>")}</div>
+        <div class="sec sec-explain">
+          <div class="sec-title" style="color:#0d9488">Explanation</div>
+          <div class="sec-body">${cleanMd(manifest.explanation)}</div>
         </div>` : ""}
       ${manifest.ability_assessment ? `
-        <div style="margin-bottom:12px">
-          <div style="font-size:11px;font-weight:600;color:#0d9488;text-transform:uppercase;margin-bottom:4px">Ability Assessment</div>
-          <div style="font-size:12px;color:#334155;white-space:pre-wrap">${(manifest.ability_assessment || "").replace(/\*\*/g, "").replace(/##\s/g, "").replace(/\n/g, "<br>")}</div>
+        <div class="sec sec-assess">
+          <div class="sec-title" style="color:#2563eb">Assessment</div>
+          <div class="sec-body">${cleanMd(manifest.ability_assessment)}</div>
         </div>` : ""}
       ${manifest.customized_plan ? `
-        <div style="margin-bottom:12px">
-          <div style="font-size:11px;font-weight:600;color:#B8904A;text-transform:uppercase;margin-bottom:4px">Customized Plan</div>
-          <div style="font-size:12px;color:#334155;white-space:pre-wrap">${(manifest.customized_plan || "").replace(/\*\*/g, "").replace(/##\s/g, "").replace(/\n/g, "<br>")}</div>
+        <div class="sec sec-custom">
+          <div class="sec-title" style="color:#B8904A">Custom Plan</div>
+          <div class="sec-body">${cleanMd(manifest.customized_plan)}</div>
         </div>` : ""}
       ${manifest.impl_guide ? `
-        <div style="margin-bottom:12px">
-          <div style="font-size:11px;font-weight:600;color:#8b5cf6;text-transform:uppercase;margin-bottom:4px">Implementation Guide</div>
-          <div style="font-size:12px;color:#334155;white-space:pre-wrap">${(manifest.impl_guide || "").replace(/\*\*/g, "").replace(/##\s/g, "").replace(/\n/g, "<br>")}</div>
+        <div class="sec sec-impl">
+          <div class="sec-title" style="color:#059669">Implementation</div>
+          <div class="sec-body">${cleanMd(manifest.impl_guide)}</div>
         </div>` : ""}
       ${totalSteps > 0 ? `
-        <div style="margin-bottom:12px">
-          <div style="font-size:11px;font-weight:600;color:#8b5cf6;text-transform:uppercase;margin-bottom:4px">Step Progress &mdash; ${doneSteps}/${totalSteps} complete (${stepPct}%)</div>
-          <div style="margin-bottom:8px;height:6px;border-radius:4px;background:#e5e7eb;overflow:hidden"><div style="height:100%;border-radius:4px;background:#8b5cf6;width:${stepPct}%"></div></div>
+        <div class="sec sec-impl">
+          <div class="sec-title" style="color:#059669">Step Checklist &mdash; ${doneSteps}/${totalSteps} complete (${stepPct}%)</div>
+          <div style="margin-bottom:8px;height:6px;border-radius:4px;background:#e5e7eb;overflow:hidden"><div style="height:100%;border-radius:4px;background:#059669;width:${stepPct}%"></div></div>
           ${stepsHtml}
         </div>` : ""}
       ${sourcesHtml ? `
-        <div>
-          <div style="font-size:11px;font-weight:600;color:#2563eb;text-transform:uppercase;margin-bottom:4px">Source of Truth References</div>
+        <div style="margin-top:12px">
+          <div class="sec-title" style="color:#2563eb;margin-bottom:6px">Source of Truth References</div>
           ${sourcesHtml}
         </div>` : ""}
     </div>`;
@@ -62,7 +63,7 @@ const buildManifestHtml = (manifest, taskInfo, index) => {
 const openPrintWindow = (title, bodyContent) => {
   const w = window.open("", "_blank");
   if (!w) return;
-  w.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>${pdfStyles}</style></head><body>${bodyContent}<div class="footer" style="text-align:center;margin-top:40px;padding-top:20px;border-top:2px solid #B8904A"><div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:3px;margin-bottom:4px">BY DEVONEERS &bull; Stairs &bull; HUMAN IS THE LOOP &bull; ${new Date().getFullYear()}</div></div></body></html>`);
+  w.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>${pdfStyles}</style></head><body>${bodyContent}<div class="footer"><div class="brand" style="font-size:14px;letter-spacing:3px">BY DEVONEERS &middot; ST.AIRS v3.7.0 &middot; Human IS the Loop &middot; 2026</div></div></body></html>`);
   w.document.close();
   w.print();
 };
@@ -225,9 +226,9 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
           <img src="${DEVONEERS_LOGO_URI}" style="height:32px" alt="DEVONEERS" />
           <div>
-            <div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:2px;margin-bottom:4px">Stairs <span style="color:#64748b;font-weight:400;font-size:12px;letter-spacing:1px">&nbsp;|&nbsp; ${strategyContext?.name || "Strategy"} &nbsp;|&nbsp; ${new Date().toLocaleDateString()}</span></div>
+            <div class="brand" style="font-size:14px;margin-bottom:4px">ST.AIRS <span style="color:#64748b;font-weight:400;font-size:12px;letter-spacing:1px">&nbsp;|&nbsp; BY DEVONEERS &nbsp;|&nbsp; ${new Date().toLocaleDateString()}</span></div>
             <h1 style="font-size:24px;font-weight:700;margin:0">${strategyContext?.name || "Strategy"}</h1>
-            <div style="font-size:12px;color:#64748b">${strategyContext?.company || ""} &middot; Implementation Manifest &middot; ${new Date().toLocaleDateString()}</div>
+            <div style="font-size:12px;color:#64748b">${strategyContext?.company || ""} &middot; ${isAr && group.stair_title_ar ? group.stair_title_ar : group.stair_title} &middot; Implementation Manifest &middot; ${new Date().toLocaleDateString()}</div>
           </div>
         </div>
         <div style="margin-top:12px;padding:10px 14px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0">
@@ -248,7 +249,7 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
     for (const group of manifestGroups) {
       const tColor = typeColor(group.element_type);
       manifestSections += `
-        <div style="margin-top:28px;padding-bottom:8px;border-bottom:2px solid ${tColor}">
+        <div class="${idx > 0 ? "page-break" : ""}" style="margin-top:28px;padding-bottom:8px;border-bottom:2px solid ${tColor}">
           <div style="display:flex;align-items:center;gap:8px">
             <span style="color:${tColor};font-size:16px">${typeIcons[group.element_type] || "&#8226;"}</span>
             <span style="font-size:10px;color:${tColor};font-weight:600;text-transform:uppercase">${group.element_type?.replace("_", " ") || ""}</span>
@@ -274,7 +275,7 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
           <img src="${DEVONEERS_LOGO_URI}" style="height:32px" alt="DEVONEERS" />
           <div>
-            <div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:2px;margin-bottom:4px">Stairs <span style="color:#64748b;font-weight:400;font-size:12px;letter-spacing:1px">&nbsp;|&nbsp; ${strategyContext?.name || "Strategy"} &nbsp;|&nbsp; ${new Date().toLocaleDateString()}</span></div>
+            <div class="brand" style="font-size:14px;margin-bottom:4px">ST.AIRS <span style="color:#64748b;font-weight:400;font-size:12px;letter-spacing:1px">&nbsp;|&nbsp; BY DEVONEERS &nbsp;|&nbsp; ${new Date().toLocaleDateString()}</span></div>
             <h1 style="font-size:24px;font-weight:700;margin:0">${strategyContext?.name || "Strategy"}</h1>
             <div style="font-size:12px;color:#64748b">${strategyContext?.company || ""} &middot; Implementation Manifests Export &middot; ${new Date().toLocaleDateString()}</div>
           </div>
