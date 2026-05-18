@@ -1657,8 +1657,8 @@ User question: ${msg}`;
             {messages.length <= 1 && (
               <div className="shrink-0 flex flex-wrap gap-2 mb-3">
                 {(isAr
-                  ? ["ما هي المخاطر المحتملة؟", "كيف أقيس النجاح؟", "ما الموارد المطلوبة؟"]
-                  : ["What resources do I need?", "What are the key risks?", "How do I measure success?", "Suggest alternative approaches"]
+                  ? ["ما الأطر التي تنطبق على هذا؟", "ما الذي قد يحدث خطأ؟", "أعطني خطة انطلاق سريعة لمدة 30 يومًا"]
+                  : ["What frameworks apply to this?", "What could go wrong?", "Give me a 30-day quick-start plan"]
                 ).map((q, i) => (
                   <button key={i} onClick={() => setChatInput(q)} className="text-xs px-3 py-1.5 rounded-full border border-amber-500/20 text-amber-400/70 hover:bg-amber-500/10 transition">{q}</button>
                 ))}
