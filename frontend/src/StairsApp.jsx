@@ -213,7 +213,32 @@ export default function App() {
   };
 
   const moveStair = async (id, dir) => {
-    console.warn("Move not yet implemented on backend");
+    if (!activeStrat) return;
+    // Locate the sibling list (top level or a node's children) containing this stair.
+    let siblings = null;
+    const find = (nodes) => {
+      if (siblings) return;
+      if (nodes.some(n => n.stair.id === id)) { siblings = nodes; return; }
+      nodes.forEach(n => n.children && find(n.children));
+    };
+    find(stairTree);
+    if (!siblings) return;
+    const idx = siblings.findIndex(n => n.stair.id === id);
+    const swap = dir === "up" ? idx - 1 : idx + 1;
+    if (swap < 0 || swap >= siblings.length) return;
+    // Reorder by display position, then normalize sort_order to the index.
+    // Elements seeded with sort_order=0 get distinct values on first move so
+    // the swap actually takes effect; only changed rows are persisted.
+    const ordered = siblings.map(n => n.stair);
+    [ordered[idx], ordered[swap]] = [ordered[swap], ordered[idx]];
+    const changed = ordered
+      .map((s, i) => ({ id: s.id, sort_order: i }))
+      .filter((x, i) => (ordered[i].sort_order || 0) !== x.sort_order);
+    try {
+      await Promise.all(changed.map(c => api.put(`/api/v1/stairs/${c.id}`, { sort_order: c.sort_order })));
+      const tree = await api.get(`/api/v1/strategies/${activeStrat.id}/tree`);
+      setStairTree(tree || []);
+    } catch (e) { console.error("Move stair:", e); }
   };
 
   const exportPDF = () => {
