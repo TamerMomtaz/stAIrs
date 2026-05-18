@@ -6,6 +6,18 @@ import { Markdown } from "./Markdown";
 import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
 import { fireGuidance } from "../guidanceConfig";
 
+const typeTextStyle = {
+  vision: { fontSize: 18, fontWeight: 700, color: "#fff" },
+  objective: { fontSize: 16, fontWeight: 700, color: "#fff" },
+  key_result: { fontSize: 14, fontWeight: 600, color: "#fff" },
+  initiative: { fontSize: 14, fontWeight: 400, color: "#fff" },
+  task: { fontSize: 13, fontWeight: 400, color: "#94a3b8" },
+};
+
+const NotStartedBadge = () => (
+  <span className="text-[10px] px-2 py-0.5 rounded-full border font-medium whitespace-nowrap bg-slate-500/20 text-slate-300 border-slate-500/40">○ NOT STARTED</span>
+);
+
 export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, strategyContext, onSaveNote, onExecutionRoom, onMatrixClick }) => {
   const [expanded, setExpanded] = useState(null); const [aiAction, setAiAction] = useState(null);
   const [aiResult, setAiResult] = useState({}); const [aiLoading, setAiLoading] = useState(false); const [retryMsg, setRetryMsg] = useState(null);
@@ -34,8 +46,8 @@ export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, str
             <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition shrink-0"><button onClick={e => {e.stopPropagation();onMove(s.id,"up");}} disabled={si===0} className="text-gray-600 hover:text-white text-[10px] disabled:opacity-20 p-0.5">▲</button><button onClick={e => {e.stopPropagation();onMove(s.id,"down");}} disabled={si>=sc-1} className="text-gray-600 hover:text-white text-[10px] disabled:opacity-20 p-0.5">▼</button></div>
             <span className={`text-gray-600 text-[10px] transition-transform ${isExp?"rotate-90":""}`}>▶</span>
             <span style={{color,fontSize:16}}>{typeIcons[s.element_type]||"•"}</span>
-            <div className="flex-1 min-w-0"><div className="flex items-center gap-2"><span className="text-xs font-mono opacity-40" style={{color}}>{s.code}</span><span className="text-white text-sm font-medium truncate">{isAr&&s.title_ar?s.title_ar:s.title}</span></div>{s.description&&!isExp&&<div className="text-gray-600 text-xs mt-0.5 truncate max-w-md">{s.description}</div>}</div>
-            <HealthBadge health={s.health}/><div className="w-14 text-right shrink-0"><div className="text-xs font-medium" style={{color}}>{s.progress_percent}%</div><div className="h-1 rounded-full bg-[#1e3a5f] mt-0.5 overflow-hidden"><div className="h-full rounded-full" style={{width:`${s.progress_percent}%`,background:color,transition:"width 0.6s ease"}}/></div></div>
+            <div className="flex-1 min-w-0"><div className="flex items-center gap-2"><span className="text-xs font-mono opacity-40" style={{color}}>{s.code}</span><span className="truncate" style={typeTextStyle[s.element_type]||{fontSize:14,fontWeight:500,color:"#fff"}}>{isAr&&s.title_ar?s.title_ar:s.title}</span></div>{s.description&&!isExp&&<div className="text-gray-600 text-xs mt-0.5 truncate max-w-md">{s.description}</div>}</div>
+            {(!s.progress_percent && (s.health==="off_track"||!s.health)) ? <NotStartedBadge/> : <HealthBadge health={s.health}/>}<div className="w-14 text-right shrink-0"><div className="text-xs font-medium" style={{color}}>{s.progress_percent}%</div><div className="h-1 rounded-full bg-[#1e3a5f] mt-0.5 overflow-hidden"><div className="h-full rounded-full" style={{width:`${s.progress_percent}%`,background:color,transition:"width 0.6s ease"}}/></div></div>
           </div>
           {isExp && (
             <div className="px-4 pb-4 pt-1 space-y-3" style={{ borderTop:`1px solid ${color}15` }}>
