@@ -107,6 +107,7 @@ class StairCreate(BaseModel):
     framework_id: Optional[UUID] = None
     strategy_id: Optional[UUID] = None
     team_id: Optional[UUID] = None
+    sort_order: int = 0
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     target_value: Optional[float] = None

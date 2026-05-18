@@ -73,13 +73,13 @@ async def create_stair(stair: StairCreate, auth: AuthContext = Depends(get_auth)
                 strategy_id = str(parent_strat["strategy_id"])
         await conn.execute("""
             INSERT INTO stairs (id, organization_id, code, title, title_ar, description, description_ar,
-                element_type, framework_id, parent_id, strategy_id, level, owner_id, team_id,
+                element_type, framework_id, parent_id, strategy_id, level, sort_order, owner_id, team_id,
                 start_date, end_date, target_value, current_value, unit,
                 priority, tags, metadata, status, health, progress_percent, confidence_percent, created_by)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,'active',$23,0,50,$24)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,'active',$24,0,50,$25)
         """, stair_id, auth.org_id, code, stair.title, stair.title_ar, stair.description, stair.description_ar,
             stair.element_type, str(stair.framework_id) if stair.framework_id else None,
-            str(stair.parent_id) if stair.parent_id else None, strategy_id, level, auth.user_id,
+            str(stair.parent_id) if stair.parent_id else None, strategy_id, level, stair.sort_order, auth.user_id,
             str(stair.team_id) if stair.team_id else None,
             stair.start_date, stair.end_date, stair.target_value, stair.current_value, stair.unit,
             stair.priority or "medium", stair.tags, json.dumps(stair.metadata) if stair.metadata else "{}",
