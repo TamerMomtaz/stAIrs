@@ -750,9 +750,9 @@ User question: ${msg}`;
   };
 
   const tabs = [
-    { key: "plan", icon: "📋", label: isAr ? "خطة العمل" : "Action Plan" },
-    { key: "solutions", icon: "💡", label: isAr ? "الحلول" : "Solutions" },
-    { key: "chat", icon: "💬", label: isAr ? "المحادثة" : "Chat" },
+    { key: "plan", icon: "📋", label: isAr ? "خطة العمل" : "Action Plan", sub: isAr ? "مهام منشأة بالذكاء الاصطناعي لتنفيذ هذا العنصر" : "AI-generated tasks to execute this element" },
+    { key: "solutions", icon: "💡", label: isAr ? "التوصيات" : "Recommendations", sub: isAr ? "نصائح استراتيجية مرتبة حسب مستوى التأثير" : "Strategic advice organized by impact level" },
+    { key: "chat", icon: "💬", label: isAr ? "المحادثة" : "Chat", sub: isAr ? "اطرح أسئلة متابعة حول هذا العنصر" : "Ask follow-up questions about this element" },
   ];
 
   return (
@@ -789,8 +789,9 @@ User question: ${msg}`;
       <nav className="flex items-center gap-1 px-6 py-2 shrink-0" style={{ borderBottom: `1px solid ${BORDER}` }}>
         {tabs.map(t => (
           <button key={t.key} onClick={() => setActiveTab(t.key)}
-            className={`px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition ${activeTab === t.key ? "bg-amber-500/15 text-amber-300 border border-amber-500/20" : "text-gray-500 hover:text-gray-300 border border-transparent"}`}>
-            {t.icon} {t.label}
+            className={`px-3 py-2 rounded-lg text-left whitespace-nowrap transition ${activeTab === t.key ? "bg-amber-500/15 border border-amber-500/20" : "border border-transparent hover:bg-white/5"}`}>
+            <div className={`text-xs font-medium ${activeTab === t.key ? "text-amber-300" : "text-gray-500"}`}>{t.icon} {t.label}</div>
+            <div className={`text-[10px] mt-0.5 ${activeTab === t.key ? "text-amber-300/60" : "text-gray-600"}`}>{t.sub}</div>
           </button>
         ))}
         <div className="flex-1" />
@@ -1598,7 +1599,7 @@ User question: ${msg}`;
         {activeTab === "solutions" && (
           <div className="h-full overflow-y-auto px-6 py-5 max-w-5xl mx-auto">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">{isAr ? "الحلول والتوصيات" : "Solutions & Recommendations"}</h2>
+              <h2 className="text-lg font-semibold text-white">{isAr ? "التوصيات" : "Recommendations"}</h2>
               <button onClick={generateSolutions} disabled={solLoading} className="text-xs text-amber-400/70 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10">
                 {solLoading ? "..." : `↻ ${isAr ? "تجديد" : "Regenerate"}`}
               </button>
