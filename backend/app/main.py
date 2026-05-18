@@ -334,7 +334,7 @@ async def ensure_no_orphan_stairs():
         await conn.execute("""
             UPDATE stairs s SET strategy_id = one.sid, updated_at = NOW()
             FROM (
-                SELECT organization_id AS oid, MIN(id) AS sid
+                SELECT organization_id AS oid, MIN(id::text)::uuid AS sid
                 FROM strategies
                 GROUP BY organization_id
                 HAVING COUNT(*) = 1
