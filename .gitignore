@@ -53,3 +53,13 @@ htmlcov/
 *_backup.*
 *.bak
 *.zip
+
+# ───────────────────────────────────────
+# LLM fine-tuning dataset — keep generators & metadata, exclude data blobs
+# ───────────────────────────────────────
+dataset/scratch/
+dataset/out/
+dataset/**/*.train.jsonl
+dataset/**/*.eval.jsonl
+dataset/**/*.index.jsonl
+!dataset/**/smoke*.jsonl
