@@ -53,3 +53,9 @@ htmlcov/
 *_backup.*
 *.bak
 *.zip
+
+# ═══════════════════════════════════════
+# Finetune dataset pipeline — big/intermediate data (keep OUT of git)
+# ═══════════════════════════════════════
+finetune/out/
+finetune/dist/
