@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { NotesStore, NotesAPI } from "../api";
 import { GOLD, GOLD_L, glass, inputCls } from "../constants";
 import { logoUrl, printDocument } from "../exportUtils";
+import { ViewHeader } from "./ViewHeader";
 
 export const NotesView = ({ lang, userId, strategyName }) => {
   const storeRef = useRef(null); if (!storeRef.current && userId) storeRef.current = new NotesStore(userId); const store = storeRef.current;
@@ -94,6 +95,7 @@ export const NotesView = ({ lang, userId, strategyName }) => {
 
   return (
     <div className="space-y-4">
+      <ViewHeader title={isAr ? "ملاحظات" : "Notes"} />
       <div className="flex items-center gap-3 flex-wrap">
         <button onClick={startNew} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-[1.02]" style={{ background: `${GOLD}22`, border: `1px solid ${GOLD}33`, color: GOLD }}>+ {isAr ? "ملاحظة جديدة" : "New Note"}</button>
         <div className="flex-1" />

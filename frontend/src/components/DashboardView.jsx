@@ -4,6 +4,8 @@ import { HealthBadge, ProgressRing } from "./SharedUI";
 import { MATRIX_FRAMEWORKS } from "./StrategyMatrixToolkit";
 import { buildHeader, openExportWindow } from "../exportUtils";
 import { AdminAPI, DataQaAPI, canSeeAgentTelemetry } from "../api";
+import LoadFailed from "./LoadFailed";
+import { ViewHeader } from "./ViewHeader";
 
 const AGENT_ICONS = {
   strategy_advisor: "\uD83D\uDCCA",
@@ -123,7 +125,7 @@ const DataHealthSummary = ({ strategyContext, isAr }) => {
   );
 };
 
-export const DashboardView = ({ data, lang, matrixResults, onMatrixClick, strategyContext }) => {
+export const DashboardView = ({ data, lang, matrixResults, onMatrixClick, strategyContext, failed, retrying, onRetry }) => {
   const s = data?.stats || {}; const isAr = lang === "ar";
   const stats = [{ label: isAr?"إجمالي":"Total Elements", value: s.total_elements||0, color: "#60a5fa" },{ label: isAr?"على المسار":"On Track", value: s.on_track||0, color: "#34d399" },{ label: isAr?"في خطر":"At Risk", value: s.at_risk||0, color: "#fbbf24" },{ label: isAr?"خارج المسار":"Off Track", value: s.off_track||0, color: "#f87171" }];
   const exportDashboard = () => {
@@ -138,8 +140,19 @@ export const DashboardView = ({ data, lang, matrixResults, onMatrixClick, strate
       ${matrixCards ? `<div class="section">🔧 ${isAr ? "أدوات الاستراتيجية" : "Strategy Tools Results"}</div>${matrixCards}` : ""}`;
     openExportWindow("Dashboard", body);
   };
+  // A dashboard that reports 0% across 0 elements looks deliberate, so a
+  // client reads it as "my strategy is gone" rather than "the request failed".
+  // With no data to show, say what actually happened instead.
+  if (failed && !data) return (
+    <div>
+      <ViewHeader title={isAr ? "لوحة القيادة" : "Dashboard"} />
+      <div className="py-8"><LoadFailed what={isAr ? "لوحة القيادة" : "your dashboard"} lang={lang} onRetry={onRetry} retrying={retrying} /></div>
+    </div>
+  );
   return (
     <div className="space-y-6">
+      <ViewHeader title={isAr ? "لوحة القيادة" : "Dashboard"} />
+      {failed && <LoadFailed compact what={isAr ? "أحدث الأرقام" : "the latest numbers"} lang={lang} onRetry={onRetry} retrying={retrying} />}
       <div className="flex items-center gap-6 p-6 rounded-2xl" style={glass()}>
         <ProgressRing percent={s.overall_progress||0} size={120} stroke={8} />
         <div className="flex-1"><div className="text-gray-400 text-sm">{isAr?"التقدم الإجمالي":"Overall Progress"}</div><div className="text-3xl font-bold text-white">{Math.round(s.overall_progress||0)}%</div></div>

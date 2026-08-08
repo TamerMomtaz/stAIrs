@@ -4,6 +4,8 @@ import { GOLD, GOLD_L, DEEP, BORDER, glass, typeColors, typeIcons } from "../con
 import { Markdown } from "./Markdown";
 import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
 import { logoUrl, printDocument } from "../exportUtils";
+import LoadFailed from "./LoadFailed";
+import { ViewHeader } from "./ViewHeader";
 
 // ═══ PDF EXPORT HELPERS ═══
 const pdfStyles = `@page{margin:20mm 15mm}*{box-sizing:border-box;margin:0;padding:0}body{background:#fff;color:#1e293b;font-family:'Segoe UI',system-ui,sans-serif;line-height:1.5}table{width:100%;border-collapse:collapse}thead th{text-align:left;padding:10px 8px;border-bottom:2px solid #B8904A;color:#B8904A;font-size:11px;text-transform:uppercase;font-weight:600}.section{margin-top:24px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;color:#B8904A;font-size:16px;font-weight:700}.footer{text-align:center;margin-top:30px;padding-top:16px;border-top:1px solid #e5e7eb;color:#94a3b8;font-size:10px}.header{padding-bottom:16px;border-bottom:2px solid #B8904A;margin-bottom:20px}`;
@@ -143,6 +145,7 @@ const exportAllPlans = (planGroups, strategyContext, isAr) => {
 export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
   const [planGroups, setPlanGroups] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const [expandedStair, setExpandedStair] = useState(null);
   const [expandedPlan, setExpandedPlan] = useState(null);
   const isAr = lang === "ar";
@@ -154,11 +157,14 @@ export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
   const loadPlans = async () => {
     setLoading(true);
     try {
+      setFailed(false);
       const data = await ActionPlansAPI.getForStrategy(strategyContext.id);
       setPlanGroups(data || []);
     } catch (e) {
       console.error("Load action plans:", e);
-      setPlanGroups([]);
+      // Leave whatever is on screen and say the load failed. Emptying the list
+      // here is what made an outage read as "you have no plans".
+      setFailed(true);
     }
     setLoading(false);
   };
@@ -203,15 +209,29 @@ export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
 
   if (loading) {
     return (
+      <div>
+        <ViewHeader title={isAr ? "خطط العمل" : "Action Plans"} />
       <div className="flex items-center gap-2 py-12 justify-center">
         <div className="flex gap-1">{[0, 1, 2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-amber-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
         <span className="text-gray-500 text-xs">{isAr ? "جاري تحميل خطط العمل..." : "Loading action plans..."}</span>
+      </div>
+      </div>
+    );
+  }
+
+  if (failed && planGroups.length === 0) {
+    return (
+      <div>
+        <ViewHeader title={isAr ? "خطط العمل" : "Action Plans"} />
+        <div className="py-8"><LoadFailed what={isAr ? "خطط العمل" : "your action plans"} lang={lang} onRetry={loadPlans} /></div>
       </div>
     );
   }
 
   if (planGroups.length === 0) {
     return (
+      <div>
+        <ViewHeader title={isAr ? "خطط العمل" : "Action Plans"} />
       <div className="text-center py-16">
         <div className="text-4xl mb-4">📋</div>
         <h3 className="text-white text-lg font-semibold mb-2">{isAr ? "لا توجد خطط عمل بعد" : "No Action Plans Yet"}</h3>
@@ -221,6 +241,7 @@ export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
             : "When you generate action plans in the Execution Room for any stair step, they will appear here automatically."}
         </p>
       </div>
+      </div>
     );
   }
 
@@ -228,9 +249,7 @@ export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-5">
-        <h2 className="text-lg font-semibold text-white">{isAr ? "خطط العمل" : "Action Plans"}</h2>
-        <div className="flex items-center gap-3">
+      <ViewHeader title={isAr ? "خطط العمل" : "Action Plans"} right={<>
           <span className="text-xs text-gray-500">
             {planGroups.length} {isAr ? "خطوة" : planGroups.length === 1 ? "stair" : "stairs"}
           </span>
@@ -245,8 +264,7 @@ export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
           <button onClick={loadPlans} className="text-xs text-amber-400/70 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10">
             {isAr ? "↻ تحديث" : "↻ Refresh"}
           </button>
-        </div>
-      </div>
+        </>} />
 
       <div className="space-y-3">
         {planGroups.map((group, gi) => {

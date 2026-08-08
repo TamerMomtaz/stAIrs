@@ -176,6 +176,35 @@ export default function App() {
   const dismissNewSteps = () => { const s = getTutorialState() || getDefaultTutorialState(); s.completedVersion = (getTutorialState()?.completedVersion || 0); saveTutorialState(s); setTutorialNewSteps(false); };
   const trackFeature = (key) => { if (key) markFeatureUsed(key); };
 
+  // ── Loading the three panels the shell owns ──
+  // Each tracks its own failure, so one blip doesn't blank the other two and a
+  // retry only re-requests what actually failed. On failure the existing data
+  // is deliberately left alone: showing a stale staircase under a "couldn't
+  // load" notice is honest, whereas replacing it with an empty one reads as
+  // "your strategy is gone" — which is exactly what these panels used to do.
+  const [loadFail, setLoadFail] = useState({ tree: false, dash: false, alerts: false });
+  const [retrying, setRetrying] = useState({});
+
+  const runLoad = async (key, fn) => {
+    setRetrying(r => ({ ...r, [key]: true }));
+    try {
+      await fn();
+      setLoadFail(f => (f[key] ? { ...f, [key]: false } : f));
+    } catch (e) {
+      console.error(`[stairs] load ${key}:`, e);
+      setLoadFail(f => ({ ...f, [key]: true }));
+    }
+    setRetrying(r => ({ ...r, [key]: false }));
+  };
+
+  const loadTree = (sid) => runLoad("tree", async () => {
+    const id = sid || activeStrat?.id;
+    if (!id) return;
+    setStairTree(await api.get(`/api/v1/strategies/${id}/tree`) || []);
+  });
+  const loadDash = () => runLoad("dash", async () => setDashData(await api.get(`/api/v1/dashboard`)));
+  const loadAlerts = () => runLoad("alerts", async () => setAlerts(await api.get(`/api/v1/alerts`) || []));
+
   const selectStrategy = async (strat) => {
     setActiveStrat(strat); setView("dashboard");
     if (stratApiRef.current) stratApiRef.current.setActive(strat.id);
@@ -195,9 +224,7 @@ export default function App() {
         for (const [k, v] of Object.entries(fromServer)) matrixStoreRef.current?.save(k, v);
       })
       .catch(() => {});
-    try { const tree = await api.get(`/api/v1/strategies/${strat.id}/tree`); setStairTree(tree || []); } catch { setStairTree([]); }
-    try { const dash = await api.get(`/api/v1/dashboard`); setDashData(dash); } catch { setDashData({ stats: { total_elements: 0, overall_progress: 0 } }); }
-    try { const al = await api.get(`/api/v1/alerts`); setAlerts(al || []); } catch { setAlerts([]); }
+    await Promise.all([loadTree(strat.id), loadDash(), loadAlerts()]);
     try { const sc = await SourcesAPI.count(strat.id); setSourceCount(sc?.count || 0); } catch { setSourceCount(0); }
   };
 
@@ -257,15 +284,13 @@ export default function App() {
       const created = await api.post(`/api/v1/stairs`, { ...form, strategy_id: activeStrat.id });
       if (created?.id && !created.strategy_id) await api.put(`/api/v1/stairs/${created.id}`, { strategy_id: activeStrat.id });
     }
-    try { const tree = await api.get(`/api/v1/strategies/${activeStrat.id}/tree`); setStairTree(tree || []); } catch {}
-    try { const dash = await api.get(`/api/v1/dashboard`); setDashData(dash); } catch {}
+    await Promise.all([loadTree(), loadDash()]);
   };
 
   const deleteStair = async (id) => {
     if (!activeStrat) return;
     await api.del(`/api/v1/stairs/${id}`);
-    try { const tree = await api.get(`/api/v1/strategies/${activeStrat.id}/tree`); setStairTree(tree || []); } catch {}
-    try { const dash = await api.get(`/api/v1/dashboard`); setDashData(dash); } catch {}
+    await Promise.all([loadTree(), loadDash()]);
   };
 
   const moveStair = async (id, dir) => {
@@ -361,7 +386,15 @@ export default function App() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden text-white" dir={isAr ? "rtl" : "ltr"} style={{ background: `linear-gradient(180deg, ${DEEP} 0%, #0f1f3a 50%, ${DEEP} 100%)`, fontFamily: fontStack(isAr) }}>
-      <header className="flex items-center justify-between px-6 py-3 shrink-0" style={{ borderBottom: `1px solid ${BORDER}` }}>
+      <header className="flex items-center justify-between px-6 py-3 shrink-0"
+        /* px-6 here is dead: index.html's unlayered `* { padding: 0 }` reset
+                 outranks Tailwind v4's @layer utilities, so all 1,036 spacing
+                 utilities in the app compute to zero. Until that reset moves
+                 into @layer base, the header needs its padding inline — without
+                 it the wordmark sits flush against the viewport edge, which
+                 under RTL is the first thing an Arabic client sees. Delete this
+                 style, not the class, once the cascade is fixed. */
+        style={{ borderBottom: `1px solid ${BORDER}`, paddingInline: "1.5rem" }}>
         <div className="flex items-center gap-3">
           <button onClick={() => setMobileNavOpen(v => !v)} className="md:hidden p-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition text-lg" title="Menu" aria-label="Toggle navigation">☰</button>
           <button onClick={() => { setActiveStrat(null); if (stratApiRef.current) stratApiRef.current.setActive(null); }} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition group" title="Back to Strategies">
@@ -375,9 +408,9 @@ export default function App() {
         </div>
         <div className="flex items-center gap-3">
           {aiProvider && canSeeAgentTelemetry() && <span className="text-[10px] text-gray-500 flex items-center gap-1 px-2 py-1 rounded-md border border-gray-700/50 bg-gray-800/30" title={`AI powered by ${aiProvider.provider_display}`}>⚡ {aiProvider.provider_display}</span>}
-          <button onClick={() => setShowWelcomeSlideshow(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition uppercase tracking-wider" title="Watch the Stairs introduction" data-testid="watch-intro-btn">
-            <span className="text-sm">🎬</span> <span className="hidden sm:inline">{isAr ? "مقدمة" : "Watch Intro"}</span>
-          </button>
+          {!isAr && <button onClick={() => setShowWelcomeSlideshow(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition uppercase tracking-wider" title="Watch the Stairs introduction" data-testid="watch-intro-btn">
+            <span className="text-sm">🎬</span> <span className="hidden sm:inline">Watch Intro</span>
+          </button>}
           <button onClick={startTutorial} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition uppercase tracking-wider" title="How to Climb These Stairs Guide" data-tutorial="guide-btn">
             <span className="text-sm">🪜</span> <span className="hidden sm:inline">{isAr ? "دليل الاستخدام" : "Guide"}</span>
           </button>
@@ -420,12 +453,12 @@ export default function App() {
         <Sidebar navItems={navItems} view={view} onSelect={goToView} collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebar} isAr={isAr} mobileOpen={mobileNavOpen} onMobileClose={() => setMobileNavOpen(false)} />
         <main className="flex-1 overflow-y-auto overflow-x-hidden">
           <div className="max-w-6xl mx-auto px-6 py-6">
-        {view === "dashboard" && <DashboardView data={dashData} lang={lang} matrixResults={matrixResults} onMatrixClick={openMatrix} strategyContext={activeStrat} />}
-        {view === "staircase" && <StaircaseView tree={stairTree} lang={lang} onEdit={s => { setEditStair(s); setShowEditor(true); }} onAdd={() => { setEditStair(null); setShowEditor(true); }} onExport={exportPDF} onMove={moveStair} strategyContext={activeStrat} onSaveNote={saveToNotes} onExecutionRoom={openExecutionRoom} onMatrixClick={openMatrix} />}
+        {view === "dashboard" && <DashboardView data={dashData} failed={loadFail.dash} retrying={retrying.dash} onRetry={loadDash} lang={lang} matrixResults={matrixResults} onMatrixClick={openMatrix} strategyContext={activeStrat} />}
+        {view === "staircase" && <StaircaseView tree={stairTree} failed={loadFail.tree} retrying={retrying.tree} onRetry={loadTree} lang={lang} onEdit={s => { setEditStair(s); setShowEditor(true); }} onAdd={() => { setEditStair(null); setShowEditor(true); }} onExport={exportPDF} onMove={moveStair} strategyContext={activeStrat} onSaveNote={saveToNotes} onExecutionRoom={openExecutionRoom} onMatrixClick={openMatrix} />}
         {view === "ai" && <AIChatView lang={lang} userId={user.id || user.email} strategyContext={activeStrat} onSaveNote={saveToNotes} onMatrixClick={openMatrix} />}
         {view === "actionplans" && <ActionPlansView strategyContext={activeStrat} lang={lang} onMatrixClick={openMatrix} />}
         {view === "manifest" && <ManifestRoom strategyContext={activeStrat} lang={lang} />}
-        {view === "alerts" && <AlertsView alerts={alerts} lang={lang} strategyContext={activeStrat} />}
+        {view === "alerts" && <AlertsView alerts={alerts} failed={loadFail.alerts} retrying={retrying.alerts} onRetry={loadAlerts} lang={lang} strategyContext={activeStrat} />}
         {view === "knowledge" && <KnowledgeLibrary lang={lang} strategyContext={activeStrat} />}
         {view === "tools" && <StrategyToolsPanel lang={lang} onMatrixClick={openMatrix} matrixResults={matrixResults} strategyContext={activeStrat} />}
         {view === "sources" && <SourceOfTruthView lang={lang} strategyContext={activeStrat} />}

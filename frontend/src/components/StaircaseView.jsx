@@ -7,6 +7,8 @@ import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
 import { fireGuidance } from "../guidanceConfig";
 import { normalizeAiResult } from "../lib/aiResilience";
 import AiUnavailable from "./AiUnavailable";
+import LoadFailed from "./LoadFailed";
+import { ViewHeader } from "./ViewHeader";
 
 const typeTextStyle = {
   vision: { fontSize: 18, fontWeight: 700, color: "#fff" },
@@ -20,7 +22,7 @@ const NotStartedBadge = () => (
   <span className="text-[10px] px-2 py-0.5 rounded-full border font-medium whitespace-nowrap bg-slate-500/20 text-slate-300 border-slate-500/40">○ NOT STARTED</span>
 );
 
-export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, strategyContext, onSaveNote, onExecutionRoom, onMatrixClick }) => {
+export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, strategyContext, onSaveNote, onExecutionRoom, onMatrixClick, failed, retrying, onRetry }) => {
   const [expanded, setExpanded] = useState(null); const [aiAction, setAiAction] = useState(null);
   const [aiResult, setAiResult] = useState({}); const [aiLoading, setAiLoading] = useState(false); const [retryMsg, setRetryMsg] = useState(null);
   // scope_key → ISO timestamp for content read back from the server.
@@ -195,8 +197,11 @@ export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, str
   };
   return (
     <div>
+      <ViewHeader title={isAr ? "السلم" : "Staircase"} />
       <div className="flex items-center gap-3 mb-4"><button onClick={onAdd} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-[1.02]" style={{background:`${GOLD}22`,border:`1px solid ${GOLD}33`,color:GOLD}}>+ {isAr?"إضافة":"Add Element"}</button><div className="flex-1"/><button onClick={onExport} data-tutorial="export-btn" className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition" style={{border:`1px solid rgba(30, 58, 95, 0.5)`}}>↓ {isAr?"تصدير":"Export"}</button></div>
-      {!tree?.length ? <div className="text-gray-500 text-center py-12">{isAr?"لا توجد عناصر بعد.":"No elements yet. Add your first or use AI Advisor."}</div> : <div className="space-y-0.5">{tree.map((n,i) => renderStair(n,0,i,tree.length))}</div>}
+      {failed && <div className={tree?.length ? "mb-3" : "py-12"}><LoadFailed compact={!!tree?.length} what={isAr ? "السلم" : "your staircase"} lang={lang} onRetry={onRetry} retrying={retrying} /></div>}
+      {!failed && !tree?.length && <div className="text-gray-500 text-center py-12">{isAr?"لا توجد عناصر بعد.":"No elements yet. Add your first or use AI Advisor."}</div>}
+      {!!tree?.length && <div className="space-y-0.5">{tree.map((n,i) => renderStair(n,0,i,tree.length))}</div>}
     </div>
   );
 };
