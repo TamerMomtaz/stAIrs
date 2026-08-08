@@ -43,6 +43,7 @@ from app.db.connection import get_pool, init_db, close_pool
 from app.helpers import (
     hash_password, DEFAULT_USER_ID, JWT_SECRET,
 )
+from app import ai_client
 
 # Import routers
 from app.routers.auth import router as auth_router
@@ -467,12 +468,17 @@ async def ensure_agent_logs_table():
                     tokens_used INTEGER DEFAULT 0,
                     model_used VARCHAR(50),
                     confidence_score INTEGER,
+                    ok BOOLEAN,
                     created_at TIMESTAMPTZ DEFAULT NOW()
                 )
             """)
             await conn.execute("CREATE INDEX idx_agent_logs_strategy ON agent_logs(strategy_id, created_at DESC)")
             await conn.execute("CREATE INDEX idx_agent_logs_agent ON agent_logs(agent_name, created_at DESC)")
             print("  ✅ agent_logs table created")
+
+        # Nullable on purpose: rows written before this column existed stay NULL
+        # ("unknown") rather than being retroactively counted as successes.
+        await conn.execute("ALTER TABLE agent_logs ADD COLUMN IF NOT EXISTS ok BOOLEAN")
 
 
 async def ensure_ai_usage_logs_table():
@@ -548,6 +554,17 @@ async def lifespan(app: FastAPI):
         await ensure_strategy_sources_table()
     except Exception as e:
         print(f"  ⚠️ Strategy sources migration: {e}")
+    # Resolve a live Claude model now, so a bad key or a retired CLAUDE_MODEL
+    # shows up in this boot log instead of in front of a client.
+    try:
+        warm = await ai_client.warmup()
+        if warm.get("ok"):
+            print(f"  ✅ AI ready on model {warm['model']}")
+        else:
+            print(f"  ⚠️ AI degraded at startup: {warm.get('reason')} — see logs, "
+                  f"check GET /api/v1/ai/status")
+    except Exception as e:
+        print(f"  ⚠️ AI warmup: {e}")
     yield
     await close_pool()
     print("🪜 Stairs Shutting down...")
@@ -673,6 +690,8 @@ app.include_router(ws_router)
 app.include_router(admin_router)
 app.include_router(sources_router)
 app.include_router(data_qa_router)
+# GET /api/v1/ai/status + POST /api/v1/ai/status/refresh
+app.include_router(ai_client.router)
 
 
 # ─── CORS TEST ───

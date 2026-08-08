@@ -439,6 +439,7 @@ CREATE TABLE agent_logs (
     tokens_used INTEGER DEFAULT 0,
     model_used VARCHAR(50),
     confidence_score INTEGER,
+    ok BOOLEAN,                        -- NULL = unknown (pre-dates the column)
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

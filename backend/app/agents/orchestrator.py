@@ -30,6 +30,53 @@ def _is_framework_request(message: str) -> bool:
     return any(kw in lower for kw in _FRAMEWORK_KEYWORDS)
 
 
+def _failed(result: dict) -> bool:
+    """True when the AI layer handed back client-safe failure copy, not an answer.
+
+    When the assistant is down there is nothing to validate and nothing a
+    regeneration pass can improve — every extra agent call just makes the
+    client wait longer for the same failure.
+    """
+    return result.get("ok") is False
+
+
+def _short_circuit(result: dict, agent_chain: list) -> dict:
+    result["validation"] = None
+    result["agent_chain"] = agent_chain
+    return result
+
+
+def _should_regenerate(validation: dict) -> bool:
+    """Only regenerate on a score we actually measured.
+
+    A failed validator reports confidence_score=None ("unknown"). Treating that
+    as 0 would spend a second agent call chasing a number nobody produced.
+    """
+    score = (validation or {}).get("confidence_score")
+    return score is not None and score < 60
+
+
+def _validation_feedback(validation: dict) -> list:
+    """Build previous_outputs[] from validation feedback.
+
+    base_agent injects these verbatim into the next agent's system prompt, so
+    nothing from a failed call may end up here: a validator that never ran has
+    no feedback to give, and its `text` is client-safe failure copy, not
+    analysis. Returns [] in that case, and marks every entry ok=True so the
+    consumer's filter is asserting on something real.
+    """
+    if not validation or validation.get("ok") is False:
+        return []
+    warnings = "; ".join((validation.get("warnings") or [])[:3])
+    contradictions = "; ".join((validation.get("contradictions") or [])[:3])
+    if not warnings and not contradictions:
+        return []
+    summary = f"Validation feedback: {warnings}"
+    if contradictions:
+        summary += f". Contradictions: {contradictions}"
+    return [{"agent": "validation", "summary": summary, "ok": True}]
+
+
 class Orchestrator:
     """Routes incoming requests to the correct specialist agent.
 
@@ -172,6 +219,8 @@ class Orchestrator:
                 user_message=f"CONTEXT:\n{chr(10).join(context_parts)}\n\nUSER REQUEST:\n{message}",
                 strategy_context=strategy_context,
             )
+            if _failed(framework_result):
+                return _short_circuit(framework_result, ["strategy_analyst"])
 
             # Validate strategy output
             validation = await self._validate_output(
@@ -182,12 +231,8 @@ class Orchestrator:
             )
 
             # If low confidence, regenerate with feedback
-            if validation["confidence_score"] < 60:
-                strategy_context["previous_outputs"] = [{
-                    "agent": "validation",
-                    "summary": f"Validation feedback: {'; '.join(validation.get('warnings', [])[:3])}. "
-                               f"Contradictions: {'; '.join(validation.get('contradictions', [])[:3])}",
-                }]
+            if _should_regenerate(validation):
+                strategy_context["previous_outputs"] = _validation_feedback(validation)
                 framework_result = await self.strategy_agent.run_framework(
                     framework="auto",
                     user_message=f"CONTEXT:\n{chr(10).join(context_parts)}\n\nUSER REQUEST:\n{message}",
@@ -211,6 +256,8 @@ class Orchestrator:
             context_parts=context_parts,
             strategy_context=strategy_context,
         )
+        if _failed(result):
+            return _short_circuit(result, ["strategy_advisor"])
 
         # Validate advisor output
         validation = await self._validate_output(
@@ -220,11 +267,8 @@ class Orchestrator:
             strategy_context=strategy_context,
         )
 
-        if validation["confidence_score"] < 60:
-            strategy_context["previous_outputs"] = [{
-                "agent": "validation",
-                "summary": f"Validation feedback: {'; '.join(validation.get('warnings', [])[:3])}",
-            }]
+        if _should_regenerate(validation):
+            strategy_context["previous_outputs"] = _validation_feedback(validation)
             result = await self.advisor_agent.chat(
                 user_message=message,
                 context_parts=context_parts,
@@ -249,6 +293,8 @@ class Orchestrator:
             document_text=document_text,
             strategy_context=strategy_context,
         )
+        if _failed(result):
+            return _short_circuit(result, ["document_analyst"])
 
         validation = await self._validate_output(
             agent_name=self.document_agent.name,
@@ -257,11 +303,8 @@ class Orchestrator:
             strategy_context=strategy_context,
         )
 
-        if validation["confidence_score"] < 60:
-            strategy_context["previous_outputs"] = [{
-                "agent": "validation",
-                "summary": f"Validation feedback: {'; '.join(validation.get('warnings', [])[:3])}",
-            }]
+        if _should_regenerate(validation):
+            strategy_context["previous_outputs"] = _validation_feedback(validation)
             result = await self.document_agent.analyze_document(
                 document_text=document_text,
                 strategy_context=strategy_context,
@@ -286,6 +329,8 @@ class Orchestrator:
             strategy_type=payload.get("strategy_type", "general"),
             strategy_context=strategy_context,
         )
+        if _failed(result):
+            return _short_circuit(result, ["strategy_analyst"])
 
         # Questionnaire validation is lighter — skip regeneration loop
         validation = await self._validate_output(
@@ -312,6 +357,7 @@ class Orchestrator:
         )
 
         result["agent_chain"] = ["document_analyst"]
+        result.setdefault("validation", None)
         return result
 
     async def _handle_action_plan(self, payload: dict, strategy_context: dict) -> dict:
@@ -320,6 +366,8 @@ class Orchestrator:
             stair_context=payload.get("stair_context", ""),
             strategy_context=strategy_context,
         )
+        if _failed(result):
+            return _short_circuit(result, ["execution_planner"])
 
         validation = await self._validate_output(
             agent_name=self.execution_agent.name,
@@ -328,11 +376,8 @@ class Orchestrator:
             strategy_context=strategy_context,
         )
 
-        if validation["confidence_score"] < 60:
-            strategy_context["previous_outputs"] = [{
-                "agent": "validation",
-                "summary": f"Validation feedback: {'; '.join(validation.get('warnings', [])[:3])}",
-            }]
+        if _should_regenerate(validation):
+            strategy_context["previous_outputs"] = _validation_feedback(validation)
             result = await self.execution_agent.generate_action_plan(
                 stair_context=payload.get("stair_context", ""),
                 strategy_context=strategy_context,
@@ -355,6 +400,8 @@ class Orchestrator:
             feedback=payload.get("feedback", ""),
             strategy_context=strategy_context,
         )
+        if _failed(result):
+            return _short_circuit(result, ["execution_planner"])
 
         validation = await self._validate_output(
             agent_name=self.execution_agent.name,
@@ -376,6 +423,7 @@ class Orchestrator:
         )
 
         result["agent_chain"] = ["execution_planner"]
+        result.setdefault("validation", None)
         return result
 
     async def _handle_implementation_guide(self, payload: dict, strategy_context: dict) -> dict:
@@ -384,6 +432,8 @@ class Orchestrator:
             element_context=payload.get("element_context", ""),
             strategy_context=strategy_context,
         )
+        if _failed(result):
+            return _short_circuit(result, ["execution_planner"])
 
         validation = await self._validate_output(
             agent_name=self.execution_agent.name,
@@ -392,11 +442,8 @@ class Orchestrator:
             strategy_context=strategy_context,
         )
 
-        if validation["confidence_score"] < 60:
-            strategy_context["previous_outputs"] = [{
-                "agent": "validation",
-                "summary": f"Validation feedback: {'; '.join(validation.get('warnings', [])[:3])}",
-            }]
+        if _should_regenerate(validation):
+            strategy_context["previous_outputs"] = _validation_feedback(validation)
             result = await self.execution_agent.implementation_guide(
                 element_context=payload.get("element_context", ""),
                 strategy_context=strategy_context,

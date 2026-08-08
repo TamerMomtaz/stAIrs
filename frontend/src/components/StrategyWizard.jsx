@@ -4,6 +4,8 @@ import { GOLD, GOLD_L, TEAL, DEEP, BORDER, glass, typeColors, typeIcons, inputCl
 import { Markdown } from "./Markdown";
 import { Modal } from "./SharedUI";
 import { StrategyQuestionnaire } from "./StrategyQuestionnaire";
+import { normalizeAiResult, classifyAiFailure, promptTurn, isPromptTurn } from "../lib/aiResilience";
+import AiUnavailable from "./AiUnavailable";
 
 const strategyTypes = [
   { value: "marketing", label: "Marketing Strategy", icon: "📣" },
@@ -21,6 +23,14 @@ const strategyTypes = [
   { value: "risk_management", label: "Risk Management", icon: "🛡️" },
   { value: "compliance", label: "Compliance & Governance", icon: "📋" },
   { value: "growth", label: "General Growth Strategy", icon: "🚀" },
+];
+
+const frameworkOpts = [
+  { value: "okr", label: "OKR — Objectives & Key Results" },
+  { value: "bsc", label: "Balanced Scorecard" },
+  { value: "ogsm", label: "OGSM" },
+  { value: "hoshin", label: "Hoshin Kanri" },
+  { value: "custom", label: "Custom / Freeform" },
 ];
 
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".xlsx", ".csv", ".txt", ".png", ".jpg", ".jpeg"];
@@ -57,12 +67,13 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
   // Step 3: AI chat
   // Step 4: Review & create
   const [step, setStep] = useState(0);
-  const [info, setInfo] = useState({ name: "", company: "", industry: "", description: "", strategyType: "", icon: "🎯", color: GOLD });
+  const [info, setInfo] = useState({ name: "", company: "", industry: "", description: "", strategyType: "", framework: "okr", icon: "🎯", color: GOLD });
   const [aiMessages, setAiMessages] = useState([]); const [aiInput, setAiInput] = useState("");
   const [aiLoading, setAiLoading] = useState(false); const [generatedElements, setGeneratedElements] = useState([]);
   const [questionnaireData, setQuestionnaireData] = useState(null);
   const [questionnaireAnswers, setQuestionnaireAnswers] = useState({});
   const [questionnaireLoading, setQuestionnaireLoading] = useState(false);
+  // Failure *kind* (never a raw message) so the calm card can render instead.
   const [questionnaireError, setQuestionnaireError] = useState(null);
   const [retryMsg, setRetryMsg] = useState(null);
   // Document upload state (NEW)
@@ -80,6 +91,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
   const colorOpts = [GOLD, TEAL, "#60a5fa", "#a78bfa", "#f87171", "#34d399", "#fbbf24", "#ec4899"];
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [aiMessages]);
 
+  const isAr = lang === "ar";
   const selectedType = strategyTypes.find(t => t.value === info.strategyType);
   const typeLabel = selectedType?.label || info.strategyType.replace(/_/g, " ");
 
@@ -195,14 +207,15 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
             }
           } catch (e) {
             setRetryMsg(null);
-            console.warn("Prefill failed (non-critical):", e.message);
+            // Pre-fill is a convenience — the client just answers by hand.
+            console.warn("[stairs.ai] questionnaire pre-fill failed (non-critical):", e);
           }
           setPrefilling(false);
         }
       }
     } catch (e) {
       setRetryMsg(null);
-      setQuestionnaireError(e.message);
+      setQuestionnaireError(classifyAiFailure(e));
       setQuestionnaireLoading(false);
     }
   };
@@ -223,7 +236,10 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
       await goToQuestionnaire(texts);
     } catch (e) {
       setExtracting(false);
-      setExtractionError(e.message || "Failed to extract text from documents");
+      console.error("[stairs] document text extraction failed:", e);
+      setExtractionError(isAr
+        ? "تعذّر قراءة هذه الملفات. يمكنك المتابعة وملء الاستبيان يدويًا."
+        : "We couldn't read those files. You can continue and fill the questionnaire manually.");
     }
   };
 
@@ -241,19 +257,40 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
     setAiMessages([{ role: "ai", text: `Great! Let's build the **${typeLabel}** strategy for **${info.company || info.name}**.${introNote}\n\nTell me about your business goals, challenges, and what you want to achieve. Or click the button below to generate the staircase directly.\n\nExamples:\n- "We want to expand across the MENA region"\n- "Our goal is $5M ARR by 2027"` }]);
   };
 
-  const sendToAI = async () => {
-    if (!aiInput.trim() || aiLoading) return;
-    const msg = aiInput.trim(); setAiInput("");
-    setAiMessages(prev => [...prev, { role: "user", text: msg }]); setAiLoading(true);
+  // `turn` is either a plain string or a promptTurn(): what the client sees
+  // and what the model receives are deliberately two different things.
+  const sendToAI = async (turn) => {
+    const source = turn ?? aiInput;
+    const t = isPromptTurn(source) ? source : promptTurn(String(source || "").trim());
+    if (!t.display.trim() || aiLoading) return;
+    if (!turn) setAiInput("");
+    return runTurn(t);
+  };
+
+  // echo=false is the retry path: the client's question is already in the
+  // transcript, so replace the failure card rather than repeating the question.
+  const runTurn = async (t, { echo = true } = {}) => {
+    if (echo) setAiMessages(prev => [...prev, { role: "user", text: t.display }]);
+    else setAiMessages(prev => (prev.length && prev[prev.length - 1].failure ? prev.slice(0, -1) : prev));
+    setAiLoading(true);
+
+    const qContext = formatQuestionnaireContext(questionnaireData, questionnaireAnswers);
+    const contextMessage = `[CONTEXT: Creating ${typeLabel} strategy "${info.name}" for "${info.company || info.name}" in ${info.industry || "unspecified"} industry. ${info.description || ""}${qContext}\nGenerate structured strategy elements. Cite sources when referencing frameworks or research.]\n\nUser: ${t.payload}`;
+
+    let res;
     try {
-      const qContext = formatQuestionnaireContext(questionnaireData, questionnaireAnswers);
-      const contextMessage = `[CONTEXT: Creating ${typeLabel} strategy "${info.name}" for "${info.company || info.name}" in ${info.industry || "unspecified"} industry. ${info.description || ""}${qContext}\nGenerate structured strategy elements. Cite sources when referencing frameworks or research.]\n\nUser: ${msg}`;
-      const res = await api.aiPost("/api/v1/ai/chat", { message: contextMessage }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
-      setRetryMsg(null);
-      setAiMessages(prev => [...prev, { role: "ai", text: res.response, tokens: res.tokens_used }]);
-      const extracted = extractElements(res.response);
+      res = await api.aiPost("/api/v1/ai/chat", { message: contextMessage }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+    } catch (e) { res = e; }
+    setRetryMsg(null);
+
+    const r = normalizeAiResult(res, { lang });
+    if (!r.ok) {
+      setAiMessages(prev => [...prev, { role: "ai", failure: r.kind, retry: () => runTurn(t, { echo: false }) }]);
+    } else {
+      setAiMessages(prev => [...prev, { role: "ai", text: r.text, tokens: res.tokens_used }]);
+      const extracted = extractElements(r.text);
       if (extracted.length > 0) setGeneratedElements(prev => [...prev, ...extracted]);
-    } catch (e) { setRetryMsg(null); setAiMessages(prev => [...prev, { role: "ai", text: `Warning: ${e.message}`, error: true }]); }
+    }
     setAiLoading(false);
   };
 
@@ -272,10 +309,17 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
     return elements;
   };
 
+  // The client's own bubble must never show our scaffolding. They see one
+  // sentence; the model still receives the full [Vision]/[Objective N] template.
   const askForStrategy = () => {
     const qContext = formatQuestionnaireContext(questionnaireData, questionnaireAnswers);
     const enrichment = qContext ? `\n\nUse these questionnaire answers to make the strategy specific and actionable:${qContext}` : "";
-    setAiInput(`Based on our discussion, generate a complete ${typeLabel} strategic staircase for ${info.company || info.name}.${enrichment}\n\nFormat:\n[Vision]: ...\n[Objective 1]: ...\n[KR 1.1]: ...\n[Initiative 1.1]: ...\nBe specific and tailored to this ${typeLabel.toLowerCase()} context.`);
+    return sendToAI(promptTurn(
+      isAr
+        ? "أنشئ السلّم الكامل بناءً على كل ما ناقشناه."
+        : "Generate the full staircase from everything we've discussed.",
+      `Based on our discussion, generate a complete ${typeLabel} strategic staircase for ${info.company || info.name}.${enrichment}\n\nFormat:\n[Vision]: ...\n[Objective 1]: ...\n[KR 1.1]: ...\n[Initiative 1.1]: ...\nBe specific and tailored to this ${typeLabel.toLowerCase()} context.`,
+    ));
   };
 
   const finishWizard = async () => {
@@ -333,17 +377,18 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
     }
     // Log AI chat messages from wizard
     const userMsgs = aiMessages.filter(m => m.role === "user");
-    const aiMsgs = aiMessages.filter(m => m.role === "ai" && !m.error);
+    const aiMsgs = aiMessages.filter(m => m.role === "ai" && !m.error && !m.failure);
+    const loggable = aiMessages.filter(m => !m.error && !m.failure && typeof m.text === "string");
     if (userMsgs.length > 0) {
       pendingSources.push({
         source_type: "ai_chat",
-        content: `Strategy Wizard AI Chat (${userMsgs.length} user messages, ${aiMsgs.length} AI responses):\n\n${aiMessages.filter(m => !m.error).map(m => `${m.role === "user" ? "User" : "AI"}: ${m.text.slice(0, 300)}`).join("\n\n")}`,
+        content: `Strategy Wizard AI Chat (${userMsgs.length} user messages, ${aiMsgs.length} AI responses):\n\n${loggable.map(m => `${m.role === "user" ? "User" : "AI"}: ${m.text.slice(0, 300)}`).join("\n\n")}`,
         metadata: { context: "strategy_wizard_chat", user_message_count: userMsgs.length, ai_response_count: aiMsgs.length },
       });
     }
 
     try {
-      await onCreate({ name: info.name, company: info.company || info.name, description: info.description, icon: info.icon, color: info.color, industry: info.industry, _localElements: localElements, _pendingSources: pendingSources, _pendingDocumentFiles: uploadedFiles.length > 0 ? uploadedFiles : null });
+      await onCreate({ name: info.name, company: info.company || info.name, description: info.description, icon: info.icon, color: info.color, industry: info.industry, framework: info.framework, _localElements: localElements, _pendingSources: pendingSources, _pendingDocumentFiles: uploadedFiles.length > 0 ? uploadedFiles : null });
       resetWizard();
     } catch (e) {
       console.error("Strategy creation failed:", e);
@@ -353,7 +398,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
 
   const resetWizard = () => {
     setStep(0);
-    setInfo({ name: "", company: "", industry: "", description: "", strategyType: "", icon: "🎯", color: GOLD });
+    setInfo({ name: "", company: "", industry: "", description: "", strategyType: "", framework: "okr", icon: "🎯", color: GOLD });
     setAiMessages([]); setGeneratedElements([]);
     setQuestionnaireData(null); setQuestionnaireAnswers({}); setQuestionnaireError(null);
     setUploadedFiles([]); setExtractedTexts([]); setPrefilledQuestionIds(new Set());
@@ -365,19 +410,22 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
   const stepTitles = ["New Strategy", "Upload Documents", "Strategy Questionnaire", "AI Strategy Builder", "Review & Create"];
 
   return (
-    <Modal open={open} onClose={onClose} title={stepTitles[step] || "New Strategy"} wide={step > 0} data-tutorial="strategy-wizard">
+    <Modal open={open} onClose={onClose} title={stepTitles[step] || "New Strategy"} size={step === 0 ? "lg" : "full"} data-tutorial="strategy-wizard">
       {/* ═══ STEP 0: Company Brief + Strategy Type ═══ */}
       {step === 0 && (
-        <div className="space-y-4">
-          <div><label className={labelCls}>Strategy Name *</label><input value={info.name} onChange={e => setInfo(f => ({...f, name: e.target.value}))} placeholder="e.g., Growth Plan 2026" className={inputCls} /></div>
-          <div><label className={labelCls}>Company / Product</label><input value={info.company} onChange={e => setInfo(f => ({...f, company: e.target.value}))} className={inputCls} /></div>
-          <div><label className={labelCls}>Industry</label><input value={info.industry} onChange={e => setInfo(f => ({...f, industry: e.target.value}))} className={inputCls} /></div>
-          <div><label className={labelCls}>Brief Description</label><textarea value={info.description} onChange={e => setInfo(f => ({...f, description: e.target.value}))} rows={2} className={`${inputCls} resize-none`} placeholder="Describe your company, current situation, and what you're trying to achieve..." /></div>
+        <div className="space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-1">
+            <div className="mb-4"><label className={labelCls}>Strategy Name *</label><input value={info.name} onChange={e => setInfo(f => ({...f, name: e.target.value}))} placeholder="e.g., Growth Plan 2026" className={inputCls} /></div>
+            <div className="mb-4"><label className={labelCls}>Company / Product</label><input value={info.company} onChange={e => setInfo(f => ({...f, company: e.target.value}))} className={inputCls} /></div>
+            <div className="mb-4"><label className={labelCls}>Industry</label><input value={info.industry} onChange={e => setInfo(f => ({...f, industry: e.target.value}))} className={inputCls} /></div>
+            <div className="mb-4"><label className={labelCls}>Framework</label><select value={info.framework} onChange={e => setInfo(f => ({...f, framework: e.target.value}))} className={inputCls}>{frameworkOpts.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}</select></div>
+          </div>
+          <div><label className={labelCls}>Brief Description</label><textarea value={info.description} onChange={e => setInfo(f => ({...f, description: e.target.value}))} rows={4} className={`${inputCls} resize-none`} placeholder="Describe your company, current situation, and what you're trying to achieve..." /></div>
 
           {/* Strategy Type Selector */}
           <div>
             <label className={labelCls}>Strategy Type *</label>
-            <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-64 overflow-y-auto pr-1">
               {strategyTypes.map(t => (
                 <button key={t.value} onClick={() => setInfo(f => ({...f, strategyType: t.value}))}
                   className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-left text-sm transition-all border ${info.strategyType === t.value
@@ -390,21 +438,21 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
             </div>
           </div>
 
-          <div className="flex gap-6">
-            <div><label className={labelCls}>Icon</label><div className="flex flex-wrap gap-1.5">{iconOpts.map(ic => <button key={ic} onClick={() => setInfo(f => ({...f, icon: ic}))} className={`w-9 h-9 rounded-lg text-base flex items-center justify-center transition ${info.icon===ic ? "bg-amber-500/20 border border-amber-500/40 scale-110" : "bg-[#0a1628]/60 border border-[#1e3a5f]"}`}>{ic}</button>)}</div></div>
-            <div><label className={labelCls}>Color</label><div className="flex flex-wrap gap-1.5">{colorOpts.map(c => <button key={c} onClick={() => setInfo(f => ({...f, color: c}))} className={`w-7 h-7 rounded-full transition ${info.color===c ? "scale-125 ring-2 ring-white/30" : "hover:scale-110"}`} style={{ background: c }} />)}</div></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-5">
+            <div><label className={labelCls}>Icon</label><div className="flex flex-wrap gap-2">{iconOpts.map(ic => <button key={ic} onClick={() => setInfo(f => ({...f, icon: ic}))} className={`w-11 h-11 rounded-lg text-xl flex items-center justify-center transition ${info.icon===ic ? "bg-amber-500/20 border border-amber-500/40 scale-110" : "bg-[#0a1628]/60 border border-[#1e3a5f]"}`}>{ic}</button>)}</div></div>
+            <div><label className={labelCls}>Color</label><div className="flex flex-wrap gap-2">{colorOpts.map(c => <button key={c} onClick={() => setInfo(f => ({...f, color: c}))} className={`w-[34px] h-[34px] rounded-full transition ${info.color===c ? "scale-125 ring-2 ring-white/30" : "hover:scale-110"}`} style={{ background: c }} />)}</div></div>
           </div>
-          <div className="flex justify-end gap-3 pt-4" style={{ borderTop: `1px solid ${BORDER}` }}>
-            <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition">Cancel</button>
-            <button onClick={goToUploadStep} disabled={!info.name.trim() || !info.strategyType} className="px-5 py-2 rounded-lg text-sm font-semibold text-[#0a1628] disabled:opacity-40 transition-all hover:scale-[1.02]" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>Next → Strategy Questionnaire</button>
+          <div className="flex justify-end gap-3 pt-5" style={{ borderTop: `1px solid ${BORDER}` }}>
+            <button onClick={onClose} className="px-6 py-3 rounded-lg text-sm text-gray-400 hover:text-white transition">Cancel</button>
+            <button onClick={goToUploadStep} disabled={!info.name.trim() || !info.strategyType} className="px-6 py-3 rounded-lg text-sm font-semibold text-[#0a1628] disabled:opacity-40 transition-all hover:scale-[1.02]" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>Next → Strategy Questionnaire</button>
           </div>
         </div>
       )}
 
       {/* ═══ STEP 1: Upload Documents (Optional) — NEW ═══ */}
       {step === 1 && (
-        <div className="flex flex-col" style={{ minHeight: "50vh" }}>
-          <div className="flex-1">
+        <div className="flex flex-col h-full min-h-0">
+          <div className="flex-1 min-h-0 overflow-auto">
             <div className="mb-4">
               <p className="text-gray-300 text-sm mb-1">Have a business plan, pitch deck, or market research? Upload it and we'll pre-fill your strategy questionnaire.</p>
               <p className="text-gray-500 text-xs">You can skip this step and fill the questionnaire manually.</p>
@@ -478,8 +526,8 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
             <div className="flex justify-between">
               <button onClick={() => { setStep(0); setUploadedFiles([]); setExtractionError(null); }} className="text-xs text-gray-500 hover:text-gray-300 transition">← Back</button>
               <div className="flex gap-3">
-                <button onClick={handleSkipUpload} disabled={extracting} className="px-4 py-2 rounded-lg text-xs text-gray-500 hover:text-gray-300 border border-transparent hover:border-gray-700 transition disabled:opacity-40">Skip — Fill Manually</button>
-                <button onClick={handleUploadAndContinue} disabled={uploadedFiles.length === 0 || extracting} className="px-5 py-2 rounded-lg text-sm font-semibold text-[#0a1628] disabled:opacity-40 transition-all hover:scale-[1.02]" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>Upload & Continue</button>
+                <button onClick={handleSkipUpload} disabled={extracting} className="px-6 py-3 rounded-lg text-sm text-gray-500 hover:text-gray-300 border border-transparent hover:border-gray-700 transition disabled:opacity-40">Skip — Fill Manually</button>
+                <button onClick={handleUploadAndContinue} disabled={uploadedFiles.length === 0 || extracting} className="px-6 py-3 rounded-lg text-sm font-semibold text-[#0a1628] disabled:opacity-40 transition-all hover:scale-[1.02]" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>Upload & Continue</button>
               </div>
             </div>
           </div>
@@ -488,19 +536,25 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
 
       {/* ═══ STEP 2: AI Questionnaire ═══ */}
       {step === 2 && (
-        <div className="flex flex-col" style={{ minHeight: "50vh" }}>
+        <div className="flex flex-col h-full min-h-0">
           {questionnaireLoading ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-4 py-12">
               <div className="w-10 h-10 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
               <div className="text-gray-400 text-sm">{retryMsg || <>Generating tailored questions for your <span className="text-amber-300">{typeLabel}</span> strategy...</>}</div>
             </div>
           ) : questionnaireError ? (
-            <div className="flex-1 flex flex-col items-center justify-center gap-4 py-12">
-              <div className="text-red-400 text-sm">Failed to generate questionnaire: {questionnaireError}</div>
-              <button onClick={() => goToQuestionnaire(extractedTexts)} className="px-4 py-2 rounded-lg text-sm text-amber-400 border border-amber-500/30 hover:bg-amber-500/10 transition">Retry</button>
+            <div className="flex-1 flex flex-col items-center justify-center py-12">
+              <div className="w-full max-w-lg">
+                <AiUnavailable
+                  kind={questionnaireError}
+                  lang={lang}
+                  onRetry={() => goToQuestionnaire(extractedTexts)}
+                  onContinueManually={skipQuestionnaire}
+                />
+              </div>
             </div>
           ) : questionnaireData ? (
-            <div className="flex-1">
+            <div className="flex-1 min-h-0 overflow-auto">
               <div className="flex items-center gap-2 mb-4 p-3 rounded-lg" style={glass(0.3)}>
                 <span className="text-base">{selectedType?.icon}</span>
                 <span className="text-sm text-gray-300">{typeLabel} Strategy</span>
@@ -540,9 +594,9 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
             <div className="flex justify-between">
               <button onClick={() => { setStep(1); setQuestionnaireData(null); setQuestionnaireAnswers({}); setQuestionnaireError(null); setPrefilledQuestionIds(new Set()); setPrefilling(false); }} className="text-xs text-gray-500 hover:text-gray-300 transition">← Back</button>
               <div className="flex gap-3">
-                <button onClick={skipQuestionnaire} className="px-4 py-2 rounded-lg text-xs text-gray-500 hover:text-gray-300 border border-transparent hover:border-gray-700 transition">Skip questionnaire</button>
+                <button onClick={skipQuestionnaire} className="px-6 py-3 rounded-lg text-sm text-gray-500 hover:text-gray-300 border border-transparent hover:border-gray-700 transition">Skip questionnaire</button>
                 {!questionnaireLoading && questionnaireData && (
-                  <button onClick={goToAIChat} disabled={prefilling} className="px-5 py-2 rounded-lg text-sm font-semibold text-[#0a1628] transition-all hover:scale-[1.02] disabled:opacity-40" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>Next → AI Builder</button>
+                  <button onClick={goToAIChat} disabled={prefilling} className="px-6 py-3 rounded-lg text-sm font-semibold text-[#0a1628] transition-all hover:scale-[1.02] disabled:opacity-40" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>Next → AI Builder</button>
                 )}
               </div>
             </div>
@@ -552,19 +606,94 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
 
       {/* ═══ STEP 3: AI Chat ═══ */}
       {step === 3 && (
-        <div className="flex flex-col" style={{ height: "60vh" }}>
-          <div className="flex-1 overflow-y-auto space-y-3 pb-4 min-h-0">
-            {aiMessages.map((m, i) => (<div key={i} className={`flex ${m.role==="user"?"justify-end":"justify-start"}`}><div className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed ${m.role==="user"?"bg-amber-500/20 text-amber-100 rounded-br-md":m.error?"bg-red-500/10 text-red-300 rounded-bl-md border border-red-500/20":"bg-[#162544] text-gray-200 rounded-bl-md border border-[#1e3a5f]"}`}>{m.role==="ai"?<Markdown text={m.text}/>:<div className="whitespace-pre-wrap">{m.text}</div>}</div></div>))}
-            {aiLoading && <div className="flex items-center gap-2 px-4 py-2">{[0,1,2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-amber-500/40 animate-bounce" style={{ animationDelay:`${i*0.15}s` }} />)}{retryMsg && <span className="text-amber-400/80 text-xs ml-1">{retryMsg}</span>}</div>}
-            <div ref={endRef} />
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_330px] gap-5 h-full min-h-0">
+          {/* ── LEFT: the conversation ── */}
+          <div className="flex flex-col min-h-0">
+            <div className="flex-1 overflow-auto space-y-3 pb-4 min-h-0">
+              {aiMessages.map((m, i) => (
+                <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                  {m.failure ? (
+                    <div className="max-w-[74ch]">
+                      <AiUnavailable
+                        kind={m.failure}
+                        lang={lang}
+                        onRetry={m.retry}
+                        onContinueManually={() => setStep(4)}
+                        retrying={aiLoading}
+                      />
+                    </div>
+                  ) : (
+                    <div className={`max-w-[74ch] px-[18px] py-[15px] rounded-2xl text-[15px] leading-[1.68] ${m.role === "user" ? "bg-amber-500/20 text-amber-100 rounded-br-md" : "bg-[#162544] text-gray-200 rounded-bl-md border border-[#1e3a5f]"}`}>
+                      {m.role === "ai" ? <Markdown text={m.text} /> : <div className="whitespace-pre-wrap">{m.text}</div>}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {aiLoading && <div className="flex items-center gap-2 px-4 py-2">{[0,1,2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-amber-500/40 animate-bounce" style={{ animationDelay:`${i*0.15}s` }} />)}{retryMsg && <span className="text-amber-400/80 text-xs ml-1">{retryMsg}</span>}</div>}
+              <div ref={endRef} />
+            </div>
+
+            {/* Below lg the rail collapses, so the captured strip comes back here. */}
+            {generatedElements.length > 0 && (
+              <div className="lg:hidden flex items-center gap-2 px-3 py-2 mb-2 rounded-lg flex-shrink-0" style={glass(0.3)}>
+                <span className="text-amber-400 text-xs">✓ {generatedElements.length} elements captured</span>
+                <div className="flex-1" />
+                <button onClick={() => setStep(4)} className="text-xs px-3 py-1 rounded-md bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition">Review &amp; Create →</button>
+              </div>
+            )}
+            {aiMessages.length >= 1 && generatedElements.length === 0 && (
+              <div className="mb-2 flex-shrink-0"><button onClick={askForStrategy} disabled={aiLoading} className="text-xs px-3 py-1.5 rounded-full border border-amber-500/30 text-amber-400/80 hover:bg-amber-500/10 transition disabled:opacity-40">✨ Ask AI to generate the staircase now</button></div>
+            )}
+
+            {/* ── Composer ── */}
+            <div className="flex-shrink-0 flex gap-2 pt-2">
+              <textarea
+                value={aiInput}
+                onChange={e => setAiInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendToAI(); } }}
+                placeholder={isAr ? "صف أهدافك..." : "Describe your goals..."}
+                disabled={aiLoading}
+                rows={3}
+                className="flex-1 px-4 py-3.5 rounded-xl bg-[#0a1628]/60 border border-[#1e3a5f] text-white text-[15px] placeholder-gray-600 focus:border-amber-500/45 focus:ring-2 focus:ring-amber-500/10 focus:outline-none transition resize-none"
+              />
+              <button onClick={() => sendToAI()} disabled={aiLoading || !aiInput.trim()} className="px-6 py-3.5 rounded-xl font-medium text-[15px] self-stretch disabled:opacity-30 transition-all hover:scale-[1.02]" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, color: DEEP }}>{isAr ? "إرسال" : "Send"}</button>
+            </div>
+            <div className="flex-shrink-0 text-[11px] text-gray-600 mt-1.5">{isAr ? "Enter للإرسال · Shift+Enter لسطر جديد" : "Enter to send · Shift+Enter for a new line"}</div>
+
+            <div className="flex-shrink-0 flex justify-between mt-3"><button onClick={() => setStep(questionnaireData ? 2 : 1)} className="text-xs text-gray-500 hover:text-gray-300 transition">← Back</button><button onClick={() => setStep(4)} className="text-xs text-gray-500 hover:text-gray-300 transition">Skip AI → Create empty</button></div>
           </div>
-          {generatedElements.length > 0 && (<div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-lg" style={glass(0.3)}><span className="text-amber-400 text-xs">✓ {generatedElements.length} elements captured</span><div className="flex-1"/><button onClick={() => setStep(4)} className="text-xs px-3 py-1 rounded-md bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition">Review & Create →</button></div>)}
-          {aiMessages.length >= 1 && generatedElements.length === 0 && (<div className="mb-2"><button onClick={askForStrategy} className="text-xs px-3 py-1.5 rounded-full border border-amber-500/30 text-amber-400/80 hover:bg-amber-500/10 transition">✨ Ask AI to generate the staircase now</button></div>)}
-          <div className="shrink-0 flex gap-2 pt-2">
-            <textarea value={aiInput} onChange={e => setAiInput(e.target.value)} onKeyDown={e => { if (e.key==="Enter"&&!e.shiftKey) { e.preventDefault(); sendToAI(); } }} placeholder="Describe your goals... (Shift+Enter for new line)" disabled={aiLoading} rows={2} className="flex-1 px-4 py-3 rounded-xl bg-[#0a1628]/60 border border-[#1e3a5f] text-white placeholder-gray-600 focus:border-amber-500/40 focus:outline-none transition text-sm resize-none" />
-            <button onClick={sendToAI} disabled={aiLoading||!aiInput.trim()} className="px-5 py-3 rounded-xl font-medium text-sm disabled:opacity-30 transition-all hover:scale-105 self-end" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, color: DEEP }}>Send</button>
-          </div>
-          <div className="flex justify-between mt-3"><button onClick={() => setStep(questionnaireData ? 2 : 1)} className="text-xs text-gray-500 hover:text-gray-300 transition">← Back</button><button onClick={() => setStep(4)} className="text-xs text-gray-500 hover:text-gray-300 transition">Skip AI → Create empty</button></div>
+
+          {/* ── RIGHT (lg+): captured elements rail ── */}
+          <aside className="hidden lg:flex flex-col min-h-0 rounded-xl overflow-hidden" style={glass(0.3)}>
+            <div className="flex-shrink-0 px-4 py-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
+              <div className="text-[11px] uppercase tracking-[0.12em] text-gray-400 font-medium">
+                {isAr ? "تم الالتقاط" : "Captured"} · {generatedElements.length} {isAr ? "عنصر" : `element${generatedElements.length === 1 ? "" : "s"}`}
+              </div>
+            </div>
+            <div className="flex-1 min-h-0 overflow-auto p-2 space-y-1">
+              {generatedElements.length === 0 ? (
+                <div className="text-gray-600 text-xs leading-relaxed p-3">
+                  {isAr
+                    ? "ستظهر عناصر الاستراتيجية هنا فور توليدها."
+                    : "Strategy elements will collect here as the assistant generates them."}
+                </div>
+              ) : generatedElements.map((el, i) => (
+                <div key={i} className="flex items-start gap-2 py-2 px-2 rounded" style={{ borderLeft: `2px solid ${typeColors[el.element_type] || "#94a3b8"}` }}>
+                  <span style={{ color: typeColors[el.element_type], fontSize: 12 }} className="mt-0.5 shrink-0">{typeIcons[el.element_type]}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[10px] text-gray-500 uppercase tracking-wider">{el.element_type.replace("_", " ")}</div>
+                    <div className="text-[13px] text-gray-200 leading-snug break-words">{el.title}</div>
+                  </div>
+                  <button onClick={() => setGeneratedElements(prev => prev.filter((_, j) => j !== i))} className="text-gray-600 hover:text-red-400 text-xs shrink-0">✕</button>
+                </div>
+              ))}
+            </div>
+            <div className="flex-shrink-0 p-3" style={{ borderTop: `1px solid ${BORDER}` }}>
+              <button onClick={() => setStep(4)} disabled={generatedElements.length === 0} className="w-full px-4 py-2.5 rounded-lg text-sm font-semibold text-[#0a1628] disabled:opacity-30 transition-all hover:scale-[1.02]" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>
+                {isAr ? "المراجعة والإنشاء ←" : "Review & Create →"}
+              </button>
+            </div>
+          </aside>
         </div>
       )}
 
@@ -589,7 +718,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
             </div>
           )}
           {generatedElements.length > 0 ? (<div><label className={labelCls}>{generatedElements.length} elements will be created:</label><div className="max-h-60 overflow-y-auto space-y-1 p-3 rounded-lg" style={glass(0.3)}>{generatedElements.map((el,i) => (<div key={i} className="flex items-center gap-2 py-1.5 px-2 rounded" style={{ borderLeft: `2px solid ${typeColors[el.element_type]||"#94a3b8"}` }}><span style={{ color: typeColors[el.element_type], fontSize: 12 }}>{typeIcons[el.element_type]}</span><span className="text-[10px] text-gray-500 uppercase w-16 shrink-0">{el.element_type.replace("_"," ")}</span><span className="text-sm text-gray-200 truncate">{el.title}</span><button onClick={() => setGeneratedElements(prev => prev.filter((_,j) => j!==i))} className="ml-auto text-gray-600 hover:text-red-400 text-xs shrink-0">✕</button></div>))}</div></div>) : (<div className="text-gray-500 text-sm text-center py-6">No elements generated. Add them manually after creation.</div>)}
-          <div className="flex justify-end gap-3 pt-4" style={{ borderTop: `1px solid ${BORDER}` }}><button onClick={() => setStep(3)} disabled={creating} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition disabled:opacity-40">← Back to AI</button><button onClick={finishWizard} disabled={creating} className="px-5 py-2 rounded-lg text-sm font-semibold text-[#0a1628] transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>{creating ? "Creating..." : `Create Strategy ${generatedElements.length > 0 ? `(${generatedElements.length} el)` : ""}`}</button></div>
+          <div className="flex justify-end gap-3 pt-4" style={{ borderTop: `1px solid ${BORDER}` }}><button onClick={() => setStep(3)} disabled={creating} className="px-6 py-3 rounded-lg text-sm text-gray-400 hover:text-white transition disabled:opacity-40">← Back to AI</button><button onClick={finishWizard} disabled={creating} className="px-6 py-3 rounded-lg text-sm font-semibold text-[#0a1628] transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>{creating ? "Creating..." : `Create Strategy ${generatedElements.length > 0 ? `(${generatedElements.length} el)` : ""}`}</button></div>
         </div>
       )}
     </Modal>

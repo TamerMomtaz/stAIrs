@@ -104,6 +104,32 @@ Return ONLY valid JSON with: confidence_score, validated, warnings, contradictio
 
         # Parse the validation result
         text = result.get("text", "")
+
+        if result.get("ok") is False:
+            # The validator itself never ran. Defaulting to 75/validated would
+            # put a fabricated "Medium Confidence" badge on an answer nothing
+            # checked — say "unknown" instead and let the badge disappear.
+            validation = {
+                "confidence_score": None,
+                "validated": None,
+                "warnings": [],
+                "contradictions": [],
+                "suggestions": [],
+                "ok": False,
+                "error_kind": result.get("error_kind"),
+            }
+            await self._log(
+                strategy_id=strategy_context.get("strategy_id") if strategy_context else None,
+                task_type=f"validate_{task_type}",
+                input_summary=f"Validating {agent_name} output for {task_type}"[:500],
+                output_summary=f"[unavailable: {result.get('error_kind') or 'unknown'}]",
+                tokens_used=result.get("tokens", 0),
+                model_used="unavailable",
+                confidence_score=None,   # nothing measured it — not a low score
+                ok=False,
+            )
+            return validation
+
         try:
             start = text.find("{")
             end = text.rfind("}") + 1
@@ -120,6 +146,8 @@ Return ONLY valid JSON with: confidence_score, validated, warnings, contradictio
             "warnings": parsed.get("warnings", []),
             "contradictions": parsed.get("contradictions", []),
             "suggestions": parsed.get("suggestions", []),
+            "ok": True,
+            "error_kind": None,
         }
 
         # Log with confidence score
@@ -132,6 +160,7 @@ Return ONLY valid JSON with: confidence_score, validated, warnings, contradictio
             tokens_used=result.get("tokens", 0),
             model_used=result.get("provider_display", ""),
             confidence_score=validation["confidence_score"],
+            ok=True,
         )
 
         return validation

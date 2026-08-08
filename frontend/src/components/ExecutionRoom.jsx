@@ -6,6 +6,8 @@ import { Markdown } from "./Markdown";
 import { DEVONEERS_LOGO_URI } from "../exportUtils";
 import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
 import { fireGuidance } from "../guidanceConfig";
+import { normalizeAiResult } from "../lib/aiResilience";
+import AiUnavailable from "./AiUnavailable";
 
 // ═══ EXECUTION ROOM ═══
 export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote, onMatrixClick }) => {
@@ -33,6 +35,10 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   const [hasSavedPlan, setHasSavedPlan] = useState(false);
   const [savedPlanId, setSavedPlanId] = useState(null);
   const [retryMsg, setRetryMsg] = useState(null);
+  // Failure *kinds* for the panels that hold a document rather than a chat.
+  const [planFailure, setPlanFailure] = useState(null);
+  const [solutionsFailure, setSolutionsFailure] = useState(null);
+  const [customPlanFailure, setCustomPlanFailure] = useState(null);
   const [savedCustomPlanId, setSavedCustomPlanId] = useState(null);
   const [planValidation, setPlanValidation] = useState(null);
   const [planAgentsUsed, setPlanAgentsUsed] = useState(null);
@@ -161,19 +167,24 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
       const prompt = `[${stratCtx}]\n\n${sourceRef}\n\nGenerate a detailed, actionable execution plan for: ${stairCtx}\n\nFormat your response EXACTLY as follows:\n\n## Action Plan\n\nFor each task, use this format:\n- **Task:** [task name]\n- **Owner:** [suggested role/team]\n- **Timeline:** [estimated duration]\n- **Priority:** [High/Medium/Low]\n- **Details:** [brief description of what needs to be done]\n\n---\n\n(Repeat for each task. Generate 5-8 concrete tasks. Make them specific, measurable, and directly related to executing this strategic element.)`;
       const res = await api.aiPost("/api/v1/ai/chat", { message: prompt, strategy_id: strategyContext?.id || null }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
       setRetryMsg(null);
-      setActionPlan(res.response);
+      const r = normalizeAiResult(res, { lang });
+      if (!r.ok) { setPlanFailure(r.kind); setActionPlan(null); }
+      else {
+      setPlanFailure(null);
+      setActionPlan(r.text);
       fireGuidance("action_plan_created", { name: stair?.title });
       setPlanValidation(res.validation || null);
       setPlanAgentsUsed(res.agents_used || null);
-      const parsed = parseTasks(res.response);
+      const parsed = parseTasks(r.text);
       setTasks(parsed);
       try {
         const taskData = parsed.map(t => ({ id: t.id, name: t.name, owner: t.owner, timeline: t.timeline, priority: t.priority, details: t.details, done: false }));
-        const saved = await ActionPlansAPI.save(stair.id, "recommended", res.response, taskData);
+        const saved = await ActionPlansAPI.save(stair.id, "recommended", r.text, taskData);
         setSavedPlanId(saved.id);
         setHasSavedPlan(true);
-      } catch (saveErr) { console.warn("Auto-save action plan failed:", saveErr.message); }
-    } catch (e) { setRetryMsg(null); setActionPlan(`Error generating plan: ${e.message}`); }
+      } catch (saveErr) { console.warn("Auto-save action plan failed:", saveErr); }
+      }
+    } catch (e) { setRetryMsg(null); setPlanFailure(normalizeAiResult(e, { lang }).kind); setActionPlan(null); }
     clearInterval(agentStepRef.current); setPlanLoading(false);
   };
 
@@ -183,8 +194,10 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
       const prompt = `[${stratCtx}]\n\n${sourceRef}\n\nProvide practical, specific solutions and recommendations for executing: ${stairCtx}\n\nInclude:\n## Solutions & Recommendations\n\n1. **Quick Wins** — Actions that can be taken immediately with minimal resources\n2. **Strategic Moves** — Medium-term initiatives that drive significant progress\n3. **Risk Mitigation** — Specific ways to address potential obstacles\n4. **Resource Optimization** — How to maximize impact with available resources\n5. **Success Metrics** — How to measure successful execution\n\nBe specific and practical. Provide concrete examples where possible.`;
       const res = await api.aiPost("/api/v1/ai/chat", { message: prompt, strategy_id: strategyContext?.id || null }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
       setRetryMsg(null);
-      setSolutions(res.response);
-    } catch (e) { setRetryMsg(null); setSolutions(`Error generating solutions: ${e.message}`); }
+      const r = normalizeAiResult(res, { lang });
+      if (!r.ok) { setSolutionsFailure(r.kind); setSolutions(null); }
+      else { setSolutionsFailure(null); setSolutions(r.text); }
+    } catch (e) { setRetryMsg(null); setSolutionsFailure(normalizeAiResult(e, { lang }).kind); setSolutions(null); }
     setSolLoading(false);
   };
 
@@ -223,23 +236,22 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
     });
   };
 
-  const sendChat = async () => {
-    if (!chatInput.trim() || chatLoading) return;
-    const msg = chatInput.trim();
-    setChatInput("");
-    const userMsg = { role: "user", text: msg, ts: new Date().toISOString() };
-    const newMsgs = [...messages, userMsg];
-    setMessages(newMsgs);
+  const sendChat = async (retryText) => {
+    if ((!retryText && !chatInput.trim()) || chatLoading) return;
+    const msg = retryText || chatInput.trim();
+    if (!retryText) setChatInput("");
+    if (!retryText) setMessages(prev => [...prev, { role: "user", text: msg, ts: new Date().toISOString() }]);
     setChatLoading(true);
     try {
       const contextMsg = `[${stratCtx} Currently in Execution Room for: ${stairCtx}]\n\nThe user has an action plan and solutions generated. They are asking follow-up questions about execution.\n\n${sourceRef}\n\n${msg}`;
       const res = await api.aiPost("/api/v1/ai/chat", { message: contextMsg, strategy_id: strategyContext?.id || null }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
       setRetryMsg(null);
-      const aiMsg = { role: "ai", text: res.response, tokens: res.tokens_used, ts: new Date().toISOString() };
-      setMessages(prev => [...prev, aiMsg]);
+      const r = normalizeAiResult(res, { lang });
+      if (!r.ok) setMessages(prev => [...prev, { role: "ai", failure: r.kind, retry: () => sendChat(msg), ts: new Date().toISOString() }]);
+      else setMessages(prev => [...prev, { role: "ai", text: r.text, tokens: res.tokens_used, ts: new Date().toISOString() }]);
     } catch (e) {
       setRetryMsg(null);
-      setMessages(prev => [...prev, { role: "ai", text: `Error: ${e.message}`, error: true, ts: new Date().toISOString() }]);
+      setMessages(prev => [...prev, { role: "ai", failure: normalizeAiResult(e, { lang }).kind, retry: () => sendChat(msg), ts: new Date().toISOString() }]);
     }
     setChatLoading(false);
   };
@@ -275,7 +287,13 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
     }
     setExplainTaskId(task.id);
     setExplainChatInput("");
-    if (!explainChats[task.id]) {
+    if (!explainChats[task.id]) runExplain(task);
+  };
+
+  // The fetch on its own, so "Try again" doesn't have to fight the toggle.
+  const runExplain = (task) => {
+    if (!task) return;
+    {
       setExplainChatLoading(true);
       const explainPrompt = `[${stratCtx} Execution Room for: ${stairCtx}]
 
@@ -306,28 +324,28 @@ Keep the explanation concise but thorough. The user should feel confident they u
       }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`))
         .then(res => {
           setRetryMsg(null);
+          const r = normalizeAiResult(res, { lang });
+          if (!r.ok) {
+            setExplainChats(prev => ({ ...prev, [task.id]: [{ role: "ai", failure: r.kind, ts: new Date().toISOString() }] }));
+            return;
+          }
           setExplainChats(prev => ({
             ...prev,
             [task.id]: [{
               role: "ai",
-              text: res.response,
+              text: r.text,
               tokens: res.tokens_used,
               sources_used: res.sources_used,
               ts: new Date().toISOString(),
             }],
           }));
-          saveManifest(task.id, { task_name: task.name, explanation: res.response, sources_used: res.sources_used || [] });
+          saveManifest(task.id, { task_name: task.name, explanation: r.text, sources_used: res.sources_used || [] });
         })
         .catch(e => {
           setRetryMsg(null);
           setExplainChats(prev => ({
             ...prev,
-            [task.id]: [{
-              role: "ai",
-              text: `Error generating explanation: ${e.message}`,
-              error: true,
-              ts: new Date().toISOString(),
-            }],
+            [task.id]: [{ role: "ai", failure: normalizeAiResult(e, { lang }).kind, ts: new Date().toISOString() }],
           }));
         })
         .finally(() => setExplainChatLoading(false));
@@ -343,7 +361,7 @@ Keep the explanation concise but thorough. The user should feel confident they u
     setExplainChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), userMsg] }));
     setExplainChatLoading(true);
     try {
-      const history = (explainChats[taskId] || []).map(m => `${m.role === "user" ? "User" : "AI"}: ${m.text}`).join("\n\n");
+      const history = (explainChats[taskId] || []).filter(m => !m.failure).map(m => `${m.role === "user" ? "User" : "AI"}: ${m.text}`).join("\n\n");
       const contextMsg = `[${stratCtx} Execution Room for: ${stairCtx}]
 
 ${sourceRef}
@@ -365,11 +383,14 @@ User: ${msg}`;
         context_stair_id: stair.id,
       }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
       setRetryMsg(null);
-      const aiMsg = { role: "ai", text: res.response, tokens: res.tokens_used, sources_used: res.sources_used, ts: new Date().toISOString() };
+      const r = normalizeAiResult(res, { lang });
+      const aiMsg = r.ok
+        ? { role: "ai", text: r.text, tokens: res.tokens_used, sources_used: res.sources_used, ts: new Date().toISOString() }
+        : { role: "ai", failure: r.kind, ts: new Date().toISOString() };
       setExplainChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), aiMsg] }));
     } catch (e) {
       setRetryMsg(null);
-      setExplainChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), { role: "ai", text: `Error: ${e.message}`, error: true, ts: new Date().toISOString() }] }));
+      setExplainChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), { role: "ai", failure: normalizeAiResult(e, { lang }).kind, ts: new Date().toISOString() }] }));
     }
     setExplainChatLoading(false);
   };
@@ -383,11 +404,16 @@ User: ${msg}`;
     }
     setImplRoomTaskId(task.id);
     setImplRoomChatInput("");
-    if (!implRoomData[task.id]) {
+    if (!implRoomData[task.id]) await runImplRoom(task);
+  };
+
+  const runImplRoom = async (task) => {
+    if (!task) return;
+    {
       setImplRoomLoading(true);
       try {
         const feedbackContext = actionChats[task.id]
-          ? actionChats[task.id].map(m => `${m.role === "user" ? "User" : "AI"}: ${m.text}`).join("\n")
+          ? actionChats[task.id].filter(m => !m.failure).map(m => `${m.role === "user" ? "User" : "AI"}: ${m.text}`).join("\n")
           : "";
         const implPrompt = `[${stratCtx} Execution Room for: ${stairCtx}]
 
@@ -437,8 +463,14 @@ IMPORTANT: Ground ALL guidance in the user's actual data from Source of Truth. R
           context_stair_id: stair.id,
         }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
         setRetryMsg(null);
+        const r = normalizeAiResult(res, { lang });
+        if (!r.ok) {
+          setImplRoomData(prev => ({ ...prev, [task.id]: { content: null, failure: r.kind, steps: [], messages: [], ts: new Date().toISOString() } }));
+          setImplRoomLoading(false);
+          return;
+        }
         // Parse steps from the response to create checkboxes
-        const stepMatches = res.response.match(/\*\*Step\s+\d+[:.]\s*(.+?)\*\*/g) || [];
+        const stepMatches = r.text.match(/\*\*Step\s+\d+[:.]\s*(.+?)\*\*/g) || [];
         const steps = stepMatches.map((s, i) => ({
           id: `impl_step_${task.id}_${i}`,
           label: s.replace(/\*\*/g, "").replace(/^Step\s+\d+[:.]\s*/, "").trim(),
@@ -447,7 +479,7 @@ IMPORTANT: Ground ALL guidance in the user's actual data from Source of Truth. R
         setImplRoomData(prev => ({
           ...prev,
           [task.id]: {
-            content: res.response,
+            content: r.text,
             steps,
             tokens: res.tokens_used,
             sources_used: res.sources_used,
@@ -456,17 +488,17 @@ IMPORTANT: Ground ALL guidance in the user's actual data from Source of Truth. R
           },
         }));
         // Save implementation guide and steps to manifest
-        saveManifest(task.id, { task_name: task.name, impl_guide: res.response, impl_steps: steps, impl_sources_used: res.sources_used || [] });
+        saveManifest(task.id, { task_name: task.name, impl_guide: r.text, impl_steps: steps, impl_sources_used: res.sources_used || [] });
         fireGuidance("manifest_saved");
       } catch (e) {
         setRetryMsg(null);
         setImplRoomData(prev => ({
           ...prev,
           [task.id]: {
-            content: `Error generating implementation guide: ${e.message}`,
+            content: null,
+            failure: normalizeAiResult(e, { lang }).kind,
             steps: [],
             messages: [],
-            error: true,
             ts: new Date().toISOString(),
           },
         }));
@@ -512,9 +544,9 @@ IMPORTANT: Ground ALL guidance in the user's actual data from Source of Truth. R
   };
 
   // These guards re-use the existing toggle/open functions without ever toggling a panel closed.
-  const ensureExplainOpen = (task) => { if (explainTaskId !== task.id) toggleExplainChat(task); };
-  const ensureAssessOpen = (task) => { if (actionChatTaskId !== task.id) toggleActionChat(task); };
-  const ensureImplOpen = (task) => { if (implRoomTaskId !== task.id) openImplRoom(task); };
+  const ensureExplainOpen = (task) => { if (task && explainTaskId !== task.id) toggleExplainChat(task); };
+  const ensureAssessOpen = (task) => { if (task && actionChatTaskId !== task.id) toggleActionChat(task); };
+  const ensureImplOpen = (task) => { if (task && implRoomTaskId !== task.id) openImplRoom(task); };
 
   const selectAction = (task) => {
     setSelectedTaskId(task.id);
@@ -545,7 +577,7 @@ IMPORTANT: Ground ALL guidance in the user's actual data from Source of Truth. R
     }));
     setImplRoomChatLoading(true);
     try {
-      const chatHistory = (data.messages || []).map(m => `${m.role === "user" ? "User" : "AI"}: ${m.text}`).join("\n\n");
+      const chatHistory = (data.messages || []).filter(m => !m.failure).map(m => `${m.role === "user" ? "User" : "AI"}: ${m.text}`).join("\n\n");
       const contextMsg = `[${stratCtx} Execution Room for: ${stairCtx}]
 
 ${sourceRef}
@@ -562,7 +594,10 @@ User question: ${msg}`;
         context_stair_id: stair.id,
       }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
       setRetryMsg(null);
-      const aiMsg = { role: "ai", text: res.response, tokens: res.tokens_used, ts: new Date().toISOString() };
+      const r = normalizeAiResult(res, { lang });
+      const aiMsg = r.ok
+        ? { role: "ai", text: r.text, tokens: res.tokens_used, ts: new Date().toISOString() }
+        : { role: "ai", failure: r.kind, ts: new Date().toISOString() };
       setImplRoomData(prev => ({
         ...prev,
         [taskId]: { ...prev[taskId], messages: [...(prev[taskId].messages || []), aiMsg] },
@@ -571,7 +606,7 @@ User question: ${msg}`;
       setRetryMsg(null);
       setImplRoomData(prev => ({
         ...prev,
-        [taskId]: { ...prev[taskId], messages: [...(prev[taskId].messages || []), { role: "ai", text: `Error: ${e.message}`, error: true, ts: new Date().toISOString() }] },
+        [taskId]: { ...prev[taskId], messages: [...(prev[taskId].messages || []), { role: "ai", failure: normalizeAiResult(e, { lang }).kind, ts: new Date().toISOString() }] },
       }));
     }
     setImplRoomChatLoading(false);
@@ -586,19 +621,24 @@ User question: ${msg}`;
     setActionChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), userMsg] }));
     setActionChatLoading(true);
     try {
-      const history = (actionChats[taskId] || []).map(m => `${m.role === "user" ? "User" : "AI"}: ${m.text}`).join("\n\n");
+      const history = (actionChats[taskId] || []).filter(m => !m.failure).map(m => `${m.role === "user" ? "User" : "AI"}: ${m.text}`).join("\n\n");
       const contextMsg = `[${stratCtx} Execution Room for: ${stairCtx}]\n\nThe user is assessing their ability to execute this specific action item:\n- Task: ${task.name}\n- Owner: ${task.owner}\n- Timeline: ${task.timeline}\n- Priority: ${task.priority}\n- Details: ${task.details}\n\nYour role: Help the user honestly assess how far they can go with this action. Ask clarifying questions about their constraints (budget, time, skills, tools, authority). If they can only do it partially, help them identify what portion is achievable and what needs external help or resources. Be practical and specific.\n\nConversation so far:\n${history}\n\nUser: ${msg}`;
       const res = await api.aiPost("/api/v1/ai/chat", { message: contextMsg, strategy_id: strategyContext?.id || null }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
       setRetryMsg(null);
-      const aiMsg = { role: "ai", text: res.response, tokens: res.tokens_used, ts: new Date().toISOString() };
-      setActionChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), aiMsg] }));
-      // Save ability assessment to manifest
-      const allMsgs = [...(actionChats[taskId] || []), userMsg, aiMsg];
-      const assessmentText = allMsgs.filter(m => m.role === "user").map(m => `User: ${m.text}`).join("\n") + "\n" + allMsgs.filter(m => m.role === "ai" && !m.error).slice(-1).map(m => `AI Assessment: ${m.text}`).join("\n");
-      saveManifest(taskId, { task_name: task.name, ability_assessment: assessmentText });
+      const r = normalizeAiResult(res, { lang });
+      if (!r.ok) {
+        setActionChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), { role: "ai", failure: r.kind, ts: new Date().toISOString() }] }));
+      } else {
+        const aiMsg = { role: "ai", text: r.text, tokens: res.tokens_used, ts: new Date().toISOString() };
+        setActionChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), aiMsg] }));
+        // Save ability assessment to manifest
+        const allMsgs = [...(actionChats[taskId] || []), userMsg, aiMsg];
+        const assessmentText = allMsgs.filter(m => m.role === "user").map(m => `User: ${m.text}`).join("\n") + "\n" + allMsgs.filter(m => m.role === "ai" && !m.error && !m.failure).slice(-1).map(m => `AI Assessment: ${m.text}`).join("\n");
+        saveManifest(taskId, { task_name: task.name, ability_assessment: assessmentText });
+      }
     } catch (e) {
       setRetryMsg(null);
-      setActionChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), { role: "ai", text: `Error: ${e.message}`, error: true, ts: new Date().toISOString() }] }));
+      setActionChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), { role: "ai", failure: normalizeAiResult(e, { lang }).kind, ts: new Date().toISOString() }] }));
     }
     setActionChatLoading(false);
   };
@@ -609,7 +649,7 @@ User question: ${msg}`;
       const chat = actionChats[task.id];
       if (!chat || chat.length <= 1) continue;
       const userMessages = chat.filter(m => m.role === "user").map(m => m.text);
-      const aiMessages = chat.filter(m => m.role === "ai" && chat.indexOf(m) > 0).map(m => m.text);
+      const aiMessages = chat.filter(m => m.role === "ai" && !m.failure && chat.indexOf(m) > 0).map(m => m.text);
       if (userMessages.length > 0) {
         feedbackEntries.push({
           taskName: task.name,
@@ -642,18 +682,21 @@ User question: ${msg}`;
       const prompt = `[${stratCtx}]\n\n${sourceRef}\n\nYou previously generated an action plan for: ${stairCtx}\n\nOriginal tasks:\n${originalTasksSummary}\n\nThe user has provided feedback on their ability to execute these tasks. Here is all their feedback:\n\n${feedbackSummary}\n\nBased on this feedback, generate a NEW customized action plan that:\n1. Adapts tasks to the user's actual capabilities and constraints\n2. Breaks down tasks the user can only partially do into achievable sub-steps\n3. Suggests alternatives for tasks the user cannot currently do\n4. Prioritizes tasks the user CAN do to build momentum\n5. Adds specific workarounds for the constraints they mentioned\n\nFormat your response EXACTLY as follows:\n\n## Your Customized Action Plan\n\nFor each task, use this format:\n- **Task:** [task name]\n- **Owner:** [suggested role/team]\n- **Timeline:** [estimated duration]\n- **Priority:** [High/Medium/Low]\n- **Details:** [brief description tailored to the user's constraints and abilities]\n\n---\n\n(Repeat for each task. Generate 5-8 concrete tasks. Make them realistic based on what the user told you they can and cannot do.)`;
       const res = await api.aiPost("/api/v1/ai/chat", { message: prompt, strategy_id: strategyContext?.id || null }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
       setRetryMsg(null);
-      setCustomPlan(res.response);
-      const parsedCustom = parseTasks(res.response);
+      const r = normalizeAiResult(res, { lang });
+      if (!r.ok) { setCustomPlanFailure(r.kind); setCustomPlan(null); setCustomPlanLoading(false); return; }
+      setCustomPlanFailure(null);
+      setCustomPlan(r.text);
+      const parsedCustom = parseTasks(r.text);
       setCustomTasks(parsedCustom);
       setPlanView("customized");
       // Save customized plan to manifest for each task with feedback
       for (const f of feedback) {
         const task = tasks.find(t => t.name === f.taskName);
-        if (task) saveManifest(task.id, { task_name: task.name, customized_plan: res.response });
+        if (task) saveManifest(task.id, { task_name: task.name, customized_plan: r.text });
       }
       try {
         const taskData = parsedCustom.map(t => ({ id: t.id, name: t.name, owner: t.owner, timeline: t.timeline, priority: t.priority, details: t.details, done: false }));
-        const saved = await ActionPlansAPI.save(stair.id, "customized", res.response, taskData, feedback);
+        const saved = await ActionPlansAPI.save(stair.id, "customized", r.text, taskData, feedback);
         setSavedCustomPlanId(saved.id);
         setHasSavedPlan(true);
       } catch (saveErr) { console.warn("Auto-save customized plan failed:", saveErr.message); }
@@ -667,9 +710,9 @@ User question: ${msg}`;
             stair_title: stair.title,
             task_count: feedback.length,
           });
-        } catch (e) { console.warn("Failed to log feedback source:", e.message); }
+        } catch (e) { console.warn("Failed to log feedback source:", e); }
       }
-    } catch (e) { setRetryMsg(null); setCustomPlan(`Error generating customized plan: ${e.message}`); }
+    } catch (e) { setRetryMsg(null); setCustomPlanFailure(normalizeAiResult(e, { lang }).kind); setCustomPlan(null); }
     setCustomPlanLoading(false);
   };
 
@@ -730,7 +773,7 @@ User question: ${msg}`;
         </div>`).join("");
       return `<div class="section">Feedback Notes</div>${feedbackHtml}`;
     };
-    const chatInsights = messages.filter(m => m.role === "ai" && !m.text.startsWith("Welcome")).map(m => `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:8px"><div style="font-size:12px;color:#64748b;margin-bottom:4px">AI Insight</div><div style="font-size:13px;color:#334155;white-space:pre-wrap">${m.text.replace(/\*\*/g, "").replace(/##\s/g, "").slice(0, 500)}${m.text.length > 500 ? "..." : ""}</div></div>`).join("");
+    const chatInsights = messages.filter(m => m.role === "ai" && !m.failure && typeof m.text === "string" && !m.text.startsWith("Welcome")).map(m => `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:8px"><div style="font-size:12px;color:#64748b;margin-bottom:4px">AI Insight</div><div style="font-size:13px;color:#334155;white-space:pre-wrap">${m.text.replace(/\*\*/g, "").replace(/##\s/g, "").slice(0, 500)}${m.text.length > 500 ? "..." : ""}</div></div>`).join("");
     const titleMap = { recommended: "Recommended Action Plan", customized: "Customized Action Plan", both: "Action Plan Comparison" };
 
     let bodyContent = "";
@@ -740,7 +783,7 @@ User question: ${msg}`;
         ${buildTaskTable(tasks)}
         ${buildProgress(tasks)}
         ${buildFeedbackNotes()}
-        ${solutions ? `<div class="section">Solutions &amp; Recommendations</div><div style="font-size:13px;color:#334155;white-space:pre-wrap">${solutions.replace(/\*\*/g, "").replace(/##\s/g, "").replace(/\n/g, "<br>")}</div>` : ""}
+        ${solutions && !solutionsFailure ? `<div class="section">Solutions &amp; Recommendations</div><div style="font-size:13px;color:#334155;white-space:pre-wrap">${solutions.replace(/\*\*/g, "").replace(/##\s/g, "").replace(/\n/g, "<br>")}</div>` : ""}
         ${chatInsights ? `<div class="section">Chat Insights</div>${chatInsights}` : ""}`;
     } else if (mode === "customized") {
       bodyContent = `
@@ -767,7 +810,7 @@ User question: ${msg}`;
           </div>
         </div>
         ${buildFeedbackNotes()}
-        ${solutions ? `<div class="section">Solutions &amp; Recommendations</div><div style="font-size:13px;color:#334155;white-space:pre-wrap">${solutions.replace(/\*\*/g, "").replace(/##\s/g, "").replace(/\n/g, "<br>")}</div>` : ""}
+        ${solutions && !solutionsFailure ? `<div class="section">Solutions &amp; Recommendations</div><div style="font-size:13px;color:#334155;white-space:pre-wrap">${solutions.replace(/\*\*/g, "").replace(/##\s/g, "").replace(/\n/g, "<br>")}</div>` : ""}
         ${chatInsights ? `<div class="section">Chat Insights</div>${chatInsights}` : ""}`;
     }
 
@@ -884,6 +927,10 @@ User question: ${msg}`;
             {planLoading && !actionPlan ? (
               <div className="flex-1 overflow-y-auto p-6">
                 <AgentActivityIndicator agentStep={agentStep} />
+              </div>
+            ) : planFailure && tasks.length === 0 ? (
+              <div className="flex-1 overflow-y-auto p-6 mx-auto w-full" style={{ maxWidth: 900 }}>
+                <AiUnavailable kind={planFailure} lang={lang} onRetry={generateActionPlan} retrying={planLoading} />
               </div>
             ) : tasks.length === 0 && actionPlan ? (
               <div className="flex-1 overflow-y-auto p-6 mx-auto w-full" style={{ maxWidth: 900 }}>
@@ -1033,7 +1080,9 @@ User question: ${msg}`;
                                     <span className="text-gray-500 text-xs">{retryMsg || (isAr ? "جاري إعداد الشرح..." : "Preparing explanation...")}</span>
                                   </div>
                                 )}
-                                {(explainChats[selectedTaskId] || []).map((m, i) => (
+                                {(explainChats[selectedTaskId] || []).map((m, i) => m.failure ? (
+                                  <div key={i} className="flex justify-start"><div className="max-w-[85%] w-full"><AiUnavailable compact kind={m.failure} lang={lang} onRetry={() => { setExplainChats(prev => { const n = { ...prev }; delete n[selectedTaskId]; return n; }); runExplain(selectedTask); }} /></div></div>
+                                ) : (
                                   <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                                     <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed ${
                                       m.role === "user"
@@ -1051,7 +1100,7 @@ User question: ${msg}`;
                                 )}
                                 <div ref={explainChatEndRef} />
                               </div>
-                              {explainChats[selectedTaskId] && explainChats[selectedTaskId].length === 1 && !explainChats[selectedTaskId][0].error && (
+                              {explainChats[selectedTaskId] && explainChats[selectedTaskId].length === 1 && !explainChats[selectedTaskId][0].error && !explainChats[selectedTaskId][0].failure && (
                                 <div className="flex flex-wrap gap-1.5 mb-2">
                                   {(isAr
                                     ? ["هل يمكنك تبسيط أكثر؟", "ما الذي قد يفشل؟", "أعطني مثالاً عملياً"]
@@ -1090,7 +1139,9 @@ User question: ${msg}`;
                                 <span className="text-teal-300 text-sm font-semibold">🎯 {isAr ? "قيّم: إلى أي مدى تستطيع تنفيذ هذا؟" : "Assess: how far can you do this?"}</span>
                               </div>
                               <div className="max-h-[420px] overflow-y-auto space-y-2 mb-3">
-                                {(actionChats[selectedTaskId] || []).map((m, i) => (
+                                {(actionChats[selectedTaskId] || []).map((m, i) => m.failure ? (
+                                  <div key={i} className="flex justify-start"><div className="max-w-[85%] w-full"><AiUnavailable compact kind={m.failure} lang={lang} /></div></div>
+                                ) : (
                                   <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                                     <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed ${
                                       m.role === "user"
@@ -1155,6 +1206,8 @@ User question: ${msg}`;
                               )}
                               {customPlanLoading && !customPlan ? (
                                 <LoadingDots label={isAr ? "جاري إنشاء خطتك المخصصة..." : "Generating your customized plan..."} />
+                              ) : customPlanFailure ? (
+                                <div className="mb-3"><AiUnavailable compact kind={customPlanFailure} lang={lang} onRetry={generateCustomPlan} retrying={customPlanLoading} /></div>
                               ) : customPlan ? (
                                 <div className="rounded-lg p-3 max-h-[420px] overflow-y-auto bg-[#0a1628]/60 border border-amber-500/15 text-gray-300 text-xs leading-relaxed mb-3">
                                   <Markdown text={customPlan} onMatrixClick={onMatrixClick} />
@@ -1239,15 +1292,23 @@ User question: ${msg}`;
                                       </div>
                                     </div>
                                   )}
-                                  <div className="max-h-80 overflow-y-auto mb-3">
-                                    <div className="rounded-lg px-3 py-2 text-xs leading-relaxed bg-[#0a1628]/60 border border-purple-500/15 text-gray-300">
-                                      <Markdown text={implRoomData[selectedTaskId].content} onMatrixClick={onMatrixClick} />
-                                      <LoadMatrixButtons text={implRoomData[selectedTaskId].content} onLoadMatrix={onMatrixClick} />
+                                  {implRoomData[selectedTaskId].failure ? (
+                                    <div className="mb-3">
+                                      <AiUnavailable compact kind={implRoomData[selectedTaskId].failure} lang={lang} onRetry={() => { setImplRoomData(prev => { const n = { ...prev }; delete n[selectedTaskId]; return n; }); runImplRoom(selectedTask); }} retrying={implRoomLoading} />
                                     </div>
-                                  </div>
+                                  ) : (
+                                    <div className="max-h-80 overflow-y-auto mb-3">
+                                      <div className="rounded-lg px-3 py-2 text-xs leading-relaxed bg-[#0a1628]/60 border border-purple-500/15 text-gray-300">
+                                        <Markdown text={implRoomData[selectedTaskId].content} onMatrixClick={onMatrixClick} />
+                                        <LoadMatrixButtons text={implRoomData[selectedTaskId].content} onLoadMatrix={onMatrixClick} />
+                                      </div>
+                                    </div>
+                                  )}
                                   {(implRoomData[selectedTaskId].messages || []).length > 0 && (
                                     <div className="max-h-48 overflow-y-auto space-y-2 mb-3">
-                                      {implRoomData[selectedTaskId].messages.map((m, i) => (
+                                      {implRoomData[selectedTaskId].messages.map((m, i) => m.failure ? (
+                                        <div key={i} className="flex justify-start"><div className="max-w-[85%] w-full"><AiUnavailable compact kind={m.failure} lang={lang} /></div></div>
+                                      ) : (
                                         <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                                           <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed ${
                                             m.role === "user"
@@ -1331,6 +1392,8 @@ User question: ${msg}`;
 
             {solLoading && !solutions ? (
               <LoadingDots label={isAr ? "جاري إنشاء الحلول..." : "Generating solutions..."} />
+            ) : solutionsFailure ? (
+              <AiUnavailable kind={solutionsFailure} lang={lang} onRetry={generateSolutions} retrying={solLoading} />
             ) : solutions ? (
               <div className="rounded-xl p-5" style={glass(0.4)}>
                 <Markdown text={solutions} onMatrixClick={onMatrixClick} />
@@ -1352,9 +1415,11 @@ User question: ${msg}`;
         {activeTab === "chat" && (
           <div className="h-full flex flex-col px-6 py-4 max-w-5xl mx-auto">
             <div className="flex-1 overflow-y-auto space-y-3 pb-4 min-h-0">
-              {messages.map((m, i) => (
+              {messages.map((m, i) => m.failure ? (
+                <div key={i} className="flex justify-start"><div className="max-w-[74ch] w-full"><AiUnavailable kind={m.failure} lang={lang} onRetry={m.retry} retrying={chatLoading} /></div></div>
+              ) : (
                 <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`group/msg relative max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed ${
+                  <div className={`group/msg relative max-w-[74ch] px-[18px] py-[15px] rounded-2xl text-[15px] leading-[1.68] ${
                     m.role === "user"
                       ? "bg-amber-500/20 text-amber-100 rounded-br-md"
                       : m.error

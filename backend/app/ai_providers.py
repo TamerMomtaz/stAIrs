@@ -13,13 +13,17 @@ from collections import defaultdict
 
 import httpx
 
+from app import ai_client
+
 logger = logging.getLogger("stairs.ai_providers")
 
 # ─── API KEYS ───
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
-CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514")
+# NOTE: the Claude model id is no longer pinned here. app.ai_client discovers
+# which models this key can actually serve and fails over when one is retired,
+# so a repeat of the 2026-08-08 `claude-sonnet-4-20250514` outage heals itself.
 
 # ─── PROVIDER NAMES ───
 PROVIDER_CLAUDE = "claude"
@@ -152,26 +156,23 @@ def adapt_messages(messages: list, provider: str) -> list:
 # ─── PROVIDER-SPECIFIC API CALLS ───
 
 async def _call_claude_api(client: httpx.AsyncClient, messages: list, system: str, max_tokens: int) -> tuple:
-    resp = await client.post(
-        "https://api.anthropic.com/v1/messages",
-        headers={
-            "x-api-key": ANTHROPIC_API_KEY,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json",
-        },
-        json={
-            "model": CLAUDE_MODEL,
-            "max_tokens": max_tokens,
-            "system": system,
-            "messages": messages,
-        },
-    )
-    if resp.status_code == 200:
-        data = resp.json()
-        text = data["content"][0]["text"] if data.get("content") else ""
-        tokens = data.get("usage", {}).get("input_tokens", 0) + data.get("usage", {}).get("output_tokens", 0)
-        return True, text, tokens, resp.status_code
-    return False, None, 0, resp.status_code
+    """Claude leg of the provider chain.
+
+    Delegates to app.ai_client, which resolves a live model id, refuses to
+    send to retired ones, fails over on 404, and backs off on 429/5xx. The
+    `client` argument is unused — ai_client owns its own transport — but the
+    signature is kept so every provider caller looks the same.
+    """
+    result = await ai_client.call_claude(messages=messages, system=system, max_tokens=max_tokens)
+    if result.get("ok"):
+        content = result.get("content") or []
+        text = content[0].get("text", "") if content else ""
+        usage = result.get("usage") or {}
+        tokens = usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
+        return True, text, tokens, 200
+    # ai_client already logged the upstream detail; surface only a status hint
+    # so the provider chain can decide whether to try OpenAI/Gemini next.
+    return False, None, 0, ai_client._state.get("last_status", 0) or 503
 
 
 async def _call_openai_api(client: httpx.AsyncClient, messages: list, system: str, max_tokens: int) -> tuple:
@@ -248,11 +249,17 @@ async def call_ai_with_fallback(
 
     no_keys = all(not _get_api_key(p) for p in PROVIDER_CHAIN)
     if no_keys:
+        logger.error(
+            "No AI provider key configured. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, "
+            "or GOOGLE_API_KEY to enable Stairs AI."
+        )
         return {
-            "text": "⚙️ AI features require an API key. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GOOGLE_API_KEY to enable Stairs AI.",
+            "text": ai_client.user_message("no_key"),
             "tokens": 0,
             "provider": "none",
             "fallback_used": False,
+            "ok": False,
+            "error_kind": "no_key",
         }
 
     fallback_used = False
@@ -267,8 +274,11 @@ async def call_ai_with_fallback(
             adapted_system = adapt_system_prompt(system, provider)
             adapted_messages = adapt_messages(messages, provider)
             caller = _PROVIDER_CALLERS[provider]
+            # Claude already retries and fails over across model ids inside
+            # ai_client, so retrying it again here just multiplies the wait.
+            attempts_allowed = 1 if provider == PROVIDER_CLAUDE else RETRIES_PER_PROVIDER
 
-            for attempt in range(1, RETRIES_PER_PROVIDER + 1):
+            for attempt in range(1, attempts_allowed + 1):
                 start_time = time.time()
                 try:
                     success, text, tokens, status_code = await caller(
@@ -303,6 +313,8 @@ async def call_ai_with_fallback(
                             "tokens": tokens,
                             "provider": provider,
                             "fallback_used": fallback_used,
+                            "ok": True,
+                            "error_kind": None,
                         }
 
                     # Non-success response
@@ -319,24 +331,25 @@ async def call_ai_with_fallback(
                         )
 
                     if status_code not in FALLBACK_STATUS_CODES and status_code < 500:
-                        # Client error (4xx except those we handle) — don't retry
-                        return {
-                            "text": f"AI service returned status {status_code}. Please try again.",
-                            "tokens": 0,
-                            "provider": provider,
-                            "fallback_used": fallback_used,
-                        }
+                        # Client error (4xx except those we handle). Retrying the
+                        # same provider cannot help — move to the next one rather
+                        # than handing the caller a status code to render.
+                        logger.warning(
+                            "AI provider %s returned %d (client error), moving to next provider",
+                            provider, status_code,
+                        )
+                        break
 
-                    if attempt < RETRIES_PER_PROVIDER:
+                    if attempt < attempts_allowed:
                         logger.warning(
                             "AI provider %s returned %d, retrying in %ds (attempt %d/%d)",
-                            provider, status_code, RETRY_DELAY_SECONDS, attempt, RETRIES_PER_PROVIDER,
+                            provider, status_code, RETRY_DELAY_SECONDS, attempt, attempts_allowed,
                         )
                         await asyncio.sleep(RETRY_DELAY_SECONDS)
                     else:
                         logger.warning(
-                            "AI provider %s failed after %d attempts (last status: %d), moving to next provider",
-                            provider, RETRIES_PER_PROVIDER, status_code,
+                            "AI provider %s failed after %d attempt(s) (last status: %d), moving to next provider",
+                            provider, attempts_allowed, status_code,
                         )
 
                 except Exception as exc:
@@ -356,27 +369,27 @@ async def call_ai_with_fallback(
                             error_message=str(exc),
                         )
 
-                    if attempt < RETRIES_PER_PROVIDER:
+                    if attempt < attempts_allowed:
                         logger.warning("Retrying %s in %ds...", provider, RETRY_DELAY_SECONDS)
                         await asyncio.sleep(RETRY_DELAY_SECONDS)
                     else:
-                        logger.warning("Provider %s exhausted after %d attempts, moving to next", provider, RETRIES_PER_PROVIDER)
+                        logger.warning("Provider %s exhausted after %d attempt(s), moving to next", provider, attempts_allowed)
 
             # Mark fallback for subsequent providers
             fallback_used = True
 
     # All providers failed
     logger.error(
-        "🚨 ALL AI PROVIDERS FAILED — Claude, OpenAI, and Gemini all returned errors. "
-        "Check API keys and provider status."
+        "ALL AI PROVIDERS FAILED — Claude, OpenAI, and Gemini all returned errors. "
+        "Check API keys and provider status. Last Claude error: %s",
+        ai_client._state.get("last_error"),
     )
+    kind = "busy" if ai_client._state.get("last_status") == 429 else "unavailable"
     return {
-        "text": (
-            "All AI services are temporarily unavailable. "
-            "Your existing strategies and plans are still accessible. "
-            "Please try again in a few minutes."
-        ),
+        "text": ai_client.user_message(kind),
         "tokens": 0,
         "provider": "none",
         "fallback_used": True,
+        "ok": False,
+        "error_kind": kind,
     }

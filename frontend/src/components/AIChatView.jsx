@@ -6,6 +6,8 @@ import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
 import { buildHeader, openExportWindow } from "../exportUtils";
 import { ConfidenceBadge, ValidationWarnings, AgentActivityIndicator } from "./SharedUI";
 import { fireGuidance } from "../guidanceConfig";
+import { normalizeAiResult, promptTurn, isPromptTurn } from "../lib/aiResilience";
+import AiUnavailable from "./AiUnavailable";
 
 const SourcesUsed = ({ sources }) => {
   const [open, setOpen] = useState(false);
@@ -66,27 +68,49 @@ export const AIChatView = ({ lang, userId, strategyContext, onSaveNote, onMatrix
     { emoji: "⭐", label: "BCG Matrix", prompt: "Build a BCG Growth-Share Matrix for my strategy with business units, market growth rates, and relative market shares" },
     { emoji: "🏭", label: "Porter's Five Forces", prompt: "Analyze my strategy using Porter's Five Forces framework with ratings for each force" },
   ];
-  const send = async (directMsg) => {
-    const msg = directMsg || input.trim(); if (!msg||loading) return; setInput(""); let cid = activeId;
+  const send = async (directMsg, opts = {}) => {
+    // `directMsg` may be a plain string or a promptTurn(): the display half is
+    // what the client sees, the payload half is what the model receives.
+    const source = directMsg ?? input;
+    const t = isPromptTurn(source) ? source : promptTurn(String(source || "").trim());
+    const msg = t.display;
+    if (!msg||loading) return; if (!directMsg) setInput(""); let cid = activeId;
     if (!cid&&store) { const c = store.create(msg.slice(0,50)); store.saveMsgs(c.id,[welc()]); store.setActive(c.id); cid=c.id; setActiveId(c.id); setConvs(store.list()); setMessages([welc()]); }
+    // On a retry the question is already in the transcript — reuse it and drop
+    // the failure card instead of asking the client to read it twice.
+    const base = opts.base ?? messages;
     const srcRule = "When citing frameworks, books, or statistics, include a brief source reference.";
-    let contextMsg = strategyContext ? `[CONTEXT: Strategy "${strategyContext.name}" for "${strategyContext.company||strategyContext.name}"${strategyContext.industry?`, industry: ${strategyContext.industry}`:""}. ${srcRule}]\n\n${msg}` : `[${srcRule}]\n\n${msg}`;
-    const userMsg = { role: "user", text: msg, ts: new Date().toISOString() }; const newMsgs = [...messages, userMsg]; setMessages(newMsgs); if (store&&cid) store.saveMsgs(cid,newMsgs); setLoading(true);
+    let contextMsg = strategyContext ? `[CONTEXT: Strategy "${strategyContext.name}" for "${strategyContext.company||strategyContext.name}"${strategyContext.industry?`, industry: ${strategyContext.industry}`:""}. ${srcRule}]\n\n${t.payload}` : `[${srcRule}]\n\n${t.payload}`;
+    const userMsg = { role: "user", text: msg, ts: new Date().toISOString() }; const newMsgs = opts.echo === false ? base : [...base, userMsg]; setMessages(newMsgs); if (store&&cid) store.saveMsgs(cid,newMsgs); setLoading(true);
     setAgentStep(0); agentStepRef.current = setInterval(() => setAgentStep(s => s + 1), 2500);
+
+    const body = { message: contextMsg };
+    if (strategyContext?.id) body.strategy_id = strategyContext.id;
+    let res;
     try {
-      const body = { message: contextMsg };
-      if (strategyContext?.id) body.strategy_id = strategyContext.id;
-      const res = await api.aiPost("/api/v1/ai/chat", body, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
-      setRetryMsg(null);
-      const aiMsg = { role: "ai", text: res.response, tokens: res.tokens_used, provider_display: res.provider_display || null, sources_used: res.sources_used || null, agents_used: res.agents_used || null, validation: res.validation || null, ts: new Date().toISOString() }; const final = [...newMsgs, aiMsg]; setMessages(final);
+      res = await api.aiPost("/api/v1/ai/chat", body, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+    } catch (e) { res = e; }
+    setRetryMsg(null);
+
+    const r = normalizeAiResult(res, { lang });
+    if (!r.ok) {
+      const err = { role: "ai", failure: r.kind, ts: new Date().toISOString() };
+      const final = [...newMsgs, err]; setMessages(final); if (store&&cid) store.saveMsgs(cid,final);
+    } else {
+      const aiMsg = { role: "ai", text: r.text, tokens: res.tokens_used, provider_display: res.provider_display || null, sources_used: res.sources_used || null, agents_used: res.agents_used || null, validation: res.validation || null, ts: new Date().toISOString() }; const final = [...newMsgs, aiMsg]; setMessages(final);
       fireGuidance("ai_chat_active");
       if (store&&cid) { store.saveMsgs(cid,final); const conv = store.list().find(c => c.id===cid); if (conv) { if (conv.title==="New") conv.title=msg.slice(0,60); conv.updated_at=new Date().toISOString(); conv.count=final.length; store.save(conv); setConvs(store.list()); } }
-    } catch (e) { setRetryMsg(null); const err = { role: "ai", text: `\u26A0\uFE0F ${e.message}`, error: true, ts: new Date().toISOString() }; const final = [...newMsgs, err]; setMessages(final); if (store&&cid) store.saveMsgs(cid,final); }
+    }
     clearInterval(agentStepRef.current); setLoading(false);
+  };
+  // Retry re-sends the turn that failed, wrapper and all.
+  const retrySend = (i) => {
+    const prior = messages[i - 1];
+    if (prior?.role === "user") send(prior.text, { base: messages.slice(0, i), echo: false });
   };
   const exportConversation = () => {
     if (messages.length <= 1) return;
-    const msgHtml = messages.map(m => {
+    const msgHtml = messages.filter(m => !m.failure && typeof m.text === "string").map(m => {
       if (m.role === "user") return `<div class="chat-msg user"><div class="role" style="color:#B8904A">You</div><div class="text">${m.text}</div></div>`;
       const cleaned = m.text.replace(/\*\*/g, "").replace(/##\s/g, "").replace(/\n/g, "<br>");
       return `<div class="chat-msg ai"><div class="role" style="color:#0369a1">AI Advisor${m.provider_display ? ` · ${m.provider_display}` : ""}${m.tokens ? ` · ${m.tokens} tokens` : ""}</div><div class="text">${cleaned}</div></div>`;
@@ -115,13 +139,13 @@ export const AIChatView = ({ lang, userId, strategyContext, onSaveNote, onMatrix
         </div>
         <div className="flex-1 overflow-y-auto space-y-3 pb-4 px-1 min-h-0">
           {messages.length===0 && <div className="text-gray-600 text-center py-12 text-sm">{isAr?"ابدأ محادثة جديدة":"Start a new conversation"}</div>}
-          {messages.map((m,i) => <div key={i} className={`flex ${m.role==="user"?"justify-end":"justify-start"}`}><div className={`group/msg relative max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed ${m.role==="user"?"bg-amber-500/20 text-amber-100 rounded-br-md":m.error?"bg-red-500/10 text-red-300 rounded-bl-md border border-red-500/20":"bg-[#162544] text-gray-200 rounded-bl-md border border-[#1e3a5f]"}`}>{m.role==="ai"?<><Markdown text={m.text} onMatrixClick={onMatrixClick}/><LoadMatrixButtons text={m.text} onLoadMatrix={onMatrixClick}/></>:<div className="whitespace-pre-wrap">{m.text}</div>}{m.role==="ai"&&!m.error&&<><SourcesUsed sources={m.sources_used} />{m.validation && <ValidationWarnings validation={m.validation} />}<div className="flex items-center gap-2 mt-2 flex-wrap">{m.validation && <ConfidenceBadge validation={m.validation} agentsUsed={m.agents_used} />}{m.provider_display&&<span className="text-[10px] text-gray-500 bg-gray-700/30 px-1.5 py-0.5 rounded">{"\u26A1"} {m.provider_display}</span>}{m.tokens>0&&<span className="text-[10px] text-gray-600">{m.tokens} tokens</span>}{m.agents_used&&m.agents_used.length>0&&<span className="text-[10px] text-gray-600">{m.agents_used.length} agent{m.agents_used.length!==1?"s":""}</span>}<div className="flex-1"/>{onSaveNote&&<button onClick={() => onSaveNote(m.text.slice(0,60), m.text, "ai_chat")} className="opacity-0 group-hover/msg:opacity-100 text-[10px] text-gray-600 hover:text-amber-400 transition px-1.5 py-0.5 rounded hover:bg-amber-500/10" title="Save to Notes">{"\uD83D\uDCCC"} Save</button>}</div></>}</div></div>)}
+          {messages.map((m,i) => m.failure ? <div key={i} className="flex justify-start"><div className="max-w-[74ch] w-full"><AiUnavailable kind={m.failure} lang={lang} onRetry={() => retrySend(i)} retrying={loading} /></div></div> : <div key={i} className={`flex ${m.role==="user"?"justify-end":"justify-start"}`}><div className={`group/msg relative max-w-[74ch] px-[18px] py-[15px] rounded-2xl text-[15px] leading-[1.68] ${m.role==="user"?"bg-amber-500/20 text-amber-100 rounded-br-md":m.error?"bg-red-500/10 text-red-300 rounded-bl-md border border-red-500/20":"bg-[#162544] text-gray-200 rounded-bl-md border border-[#1e3a5f]"}`}>{m.role==="ai"?<><Markdown text={m.text} onMatrixClick={onMatrixClick}/><LoadMatrixButtons text={m.text} onLoadMatrix={onMatrixClick}/></>:<div className="whitespace-pre-wrap">{m.text}</div>}{m.role==="ai"&&!m.error&&<><SourcesUsed sources={m.sources_used} />{m.validation && <ValidationWarnings validation={m.validation} />}<div className="flex items-center gap-2 mt-2 flex-wrap">{m.validation && <ConfidenceBadge validation={m.validation} agentsUsed={m.agents_used} />}{m.provider_display&&<span className="text-[10px] text-gray-500 bg-gray-700/30 px-1.5 py-0.5 rounded">{"\u26A1"} {m.provider_display}</span>}{m.tokens>0&&<span className="text-[10px] text-gray-600">{m.tokens} tokens</span>}{m.agents_used&&m.agents_used.length>0&&<span className="text-[10px] text-gray-600">{m.agents_used.length} agent{m.agents_used.length!==1?"s":""}</span>}<div className="flex-1"/>{onSaveNote&&<button onClick={() => onSaveNote(m.text.slice(0,60), m.text, "ai_chat")} className="opacity-0 group-hover/msg:opacity-100 text-[10px] text-gray-600 hover:text-amber-400 transition px-1.5 py-0.5 rounded hover:bg-amber-500/10" title="Save to Notes">{"\uD83D\uDCCC"} Save</button>}</div></>}</div></div>)}
           {loading && <AgentActivityIndicator agentStep={agentStep} />}
           {loading && retryMsg && <div className="px-4"><span className="text-amber-400/80 text-xs">{retryMsg}</span></div>}
           <div ref={endRef}/>
         </div>
         {messages.length<=1 && <div className="shrink-0 flex flex-wrap gap-2 mb-3">{quicks.map((q,i) => <button key={i} onClick={() => setInput(q)} className="text-xs px-3 py-1.5 rounded-full border border-amber-500/20 text-amber-400/70 hover:bg-amber-500/10 transition">{q}</button>)}</div>}
-        {strategyContext && messages.length<=1 && !input.trim() && <div className="shrink-0 flex flex-wrap gap-2 mb-3">{suggestionChips.map((chip,i) => <button key={i} onClick={() => send(chip.prompt)} className="text-xs px-3 py-1.5 rounded-full border border-amber-500/30 text-amber-300/80 hover:bg-amber-500/15 hover:border-amber-500/50 transition-all bg-amber-500/5">{chip.emoji} {chip.label}</button>)}</div>}
+        {strategyContext && messages.length<=1 && !input.trim() && <div className="shrink-0 flex flex-wrap gap-2 mb-3">{suggestionChips.map((chip,i) => <button key={i} onClick={() => send(promptTurn(chip.label, chip.prompt))} className="text-xs px-3 py-1.5 rounded-full border border-amber-500/30 text-amber-300/80 hover:bg-amber-500/15 hover:border-amber-500/50 transition-all bg-amber-500/5">{chip.emoji} {chip.label}</button>)}</div>}
         <div className="shrink-0">
           {verifiedCount > 0 && (
             <div className="flex items-center gap-1.5 mb-2 px-1">

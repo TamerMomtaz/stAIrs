@@ -225,7 +225,11 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
       loadSources();
       fireGuidance("source_uploaded");
     } catch (e) {
-      setUploadError(e.message || (isAr ? "فشل الرفع" : "Upload failed"));
+      // Status codes belong in the console, not on the client's screen.
+      console.error("[stairs] document upload failed:", e);
+      setUploadError(isAr
+        ? "تعذّر رفع هذا الملف. تحقق من الحجم والصيغة ثم أعد المحاولة."
+        : "That file couldn't be uploaded. Check its size and format, then try again.");
     }
     setUploading(false);
   }, [strategyContext?.id]);
