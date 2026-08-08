@@ -422,6 +422,38 @@ async def ensure_action_plans_table():
             await conn.execute("CREATE INDEX idx_action_plans_org ON action_plans(organization_id)")
             print("  ✅ action_plans table created")
 
+        # One plan per (stair, plan_type). Regeneration used to INSERT a new
+        # row every time; reads take the newest, so the older rows never
+        # surfaced in the Execution Room but did show as the same plan repeated
+        # in Action Plans and the Manifest Room. Collapse them to the newest so
+        # the upsert in save_action_plan has a constraint to conflict on.
+        has_uq = await conn.fetchval("""
+            SELECT EXISTS(SELECT 1 FROM pg_indexes
+            WHERE tablename = 'action_plans' AND indexname = 'uq_action_plans_stair_type')
+        """)
+        if not has_uq:
+            dupes = await conn.fetchval("""
+                SELECT COUNT(*) FROM action_plans a
+                WHERE EXISTS (
+                    SELECT 1 FROM action_plans b
+                    WHERE b.stair_id = a.stair_id AND b.plan_type = a.plan_type
+                      AND (b.created_at, b.id) > (a.created_at, a.id)
+                )
+            """)
+            if dupes:
+                print(f"  → Collapsing {dupes} superseded action plan row(s) — keeping the newest per stair and plan type")
+                await conn.execute("""
+                    DELETE FROM action_plans a
+                    WHERE EXISTS (
+                        SELECT 1 FROM action_plans b
+                        WHERE b.stair_id = a.stair_id AND b.plan_type = a.plan_type
+                          AND (b.created_at, b.id) > (a.created_at, a.id)
+                    )
+                """)
+            await conn.execute(
+                "CREATE UNIQUE INDEX uq_action_plans_stair_type ON action_plans(stair_id, plan_type)")
+            print("  ✅ action_plans unique on (stair_id, plan_type)")
+
 
 # ─── AUTO-MIGRATION: AI USAGE LOGS TABLE ───
 

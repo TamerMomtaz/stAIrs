@@ -168,3 +168,64 @@ def test_delete_missing_artifact_404s(mock_pool):
     with patch("app.routers.artifacts.get_pool", AsyncMock(return_value=pool)):
         r = _client(pool).delete(f"/api/v1/artifacts/solutions/{STAIR_ID}")
     assert r.status_code == 404
+
+
+# ─── ACTION PLAN UPSERT ───
+# Regenerating a plan used to INSERT a new row each time. Reads take the newest
+# so the Execution Room looked right, but Action Plans and the Manifest Room
+# showed the same plan repeated.
+
+def _plan_row(**overrides):
+    row = {
+        "id": "f0000000-0000-0000-0000-000000000001",
+        "stair_id": STAIR_ID,
+        "organization_id": DEFAULT_ORG_ID,
+        "plan_type": "recommended",
+        "raw_text": "## Action Plan",
+        "tasks": [{"id": "t1", "name": "Build the pipeline", "done": False}],
+        "feedback": None,
+        "created_by": DEFAULT_USER_ID,
+        "created_at": "2026-08-08T10:00:00+00:00",
+    }
+    row.update(overrides)
+    return row
+
+
+def test_saving_a_plan_upserts_on_stair_and_type(mock_pool):
+    pool, conn = mock_pool
+    conn.fetchrow = AsyncMock(side_effect=[{"id": STAIR_ID}, _plan_row()])
+    with patch("app.routers.stairs.get_pool", AsyncMock(return_value=pool)):
+        r = _client(pool).post(f"/api/v1/stairs/{STAIR_ID}/action-plans", json={
+            "plan_type": "recommended",
+            "raw_text": "## Action Plan",
+            "tasks": [{"id": "t1", "name": "Build the pipeline", "done": False}],
+        })
+    assert r.status_code == 201
+    sql = conn.fetchrow.call_args_list[-1].args[0]
+    assert "ON CONFLICT (stair_id, plan_type) DO UPDATE" in sql
+    # created_at moves forward so the client's "Saved <when>" stamp is honest.
+    assert "created_at = NOW()" in sql
+
+
+def test_recommended_and_customized_plans_coexist(mock_pool):
+    """The constraint is per plan_type — customizing must not evict the
+    recommended plan it was derived from."""
+    pool, conn = mock_pool
+    conn.fetchrow = AsyncMock(side_effect=[{"id": STAIR_ID}, _plan_row(plan_type="customized")])
+    with patch("app.routers.stairs.get_pool", AsyncMock(return_value=pool)):
+        r = _client(pool).post(f"/api/v1/stairs/{STAIR_ID}/action-plans", json={
+            "plan_type": "customized", "raw_text": "## Your Customized Action Plan", "tasks": [],
+        })
+    assert r.status_code == 201
+    assert r.json()["plan_type"] == "customized"
+    assert conn.fetchrow.call_args_list[-1].args[4] == "customized"
+
+
+def test_saving_a_plan_for_an_unknown_stair_404s(mock_pool):
+    pool, conn = mock_pool
+    conn.fetchrow = AsyncMock(return_value=None)
+    with patch("app.routers.stairs.get_pool", AsyncMock(return_value=pool)):
+        r = _client(pool).post(f"/api/v1/stairs/{STAIR_ID}/action-plans", json={
+            "plan_type": "recommended", "raw_text": "x", "tasks": [],
+        })
+    assert r.status_code == 404

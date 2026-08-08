@@ -408,7 +408,7 @@ export default function App() {
 
       <StairEditor open={showEditor} onClose={() => { setShowEditor(false); setEditStair(null); }} stair={editStair} allStairs={stairTree} onSave={saveStair} onDelete={deleteStair} lang={lang} />
 
-      {execRoomStair && <ExecutionRoom stair={execRoomStair} strategyContext={activeStrat} lang={lang} onBack={() => setExecRoomStair(null)} onSaveNote={saveToNotes} onMatrixClick={openMatrix} />}
+      {execRoomStair && <ExecutionRoom stair={execRoomStair} strategyContext={activeStrat} lang={lang} onBack={() => setExecRoomStair(null)} onSaveNote={saveToNotes} onMatrixClick={openMatrix} onOpenManifest={() => { setExecRoomStair(null); goToView("manifest"); }} />}
 
       <StrategyMatrixToolkit open={matrixToolkit.open} matrixKey={matrixToolkit.key} onClose={closeMatrix} onSave={saveMatrixResult} strategyContext={activeStrat} initialData={matrixToolkit.initialData} />
 

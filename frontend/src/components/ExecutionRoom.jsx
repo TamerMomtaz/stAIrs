@@ -10,7 +10,7 @@ import { normalizeAiResult } from "../lib/aiResilience";
 import AiUnavailable from "./AiUnavailable";
 
 // ═══ EXECUTION ROOM ═══
-export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote, onMatrixClick }) => {
+export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote, onMatrixClick, onOpenManifest }) => {
   const [actionPlan, setActionPlan] = useState(null);
   const [solutions, setSolutions] = useState(null);
   const [planLoading, setPlanLoading] = useState(false);
@@ -1040,6 +1040,10 @@ User question: ${msg}`;
     </div>
   );
 
+  // How much of this room's work is on the server. Drives the Manifest Room
+  // signpost, so the client can see their work has a home and go find it.
+  const savedWorkCount = Object.keys(generatedAt).length;
+
   // "Saved <when>" — persisted content should read as saved, not just present.
   const SavedStamp = ({ type, scope }) => {
     const ts = generatedAt[stampKey(type, scope)];
@@ -1107,6 +1111,18 @@ User question: ${msg}`;
             <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
               <span className="text-emerald-400">✓</span> {isAr ? "الخطة محفوظة" : "Plan saved"}
             </span>
+          )}
+          {/* Where the saved work lives. "Plan saved" tells you it went
+              somewhere; this says where and takes you there. */}
+          {onOpenManifest && savedWorkCount > 0 && (
+            <button onClick={onOpenManifest}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium border transition hover:scale-[1.02] text-gray-300 hover:text-white"
+              style={{ borderColor: BORDER, background: "rgba(255,255,255,0.04)" }}
+              title={isAr ? "افتح سجل التنفيذ لرؤية كل ما تم إنشاؤه وحفظه" : "Open the Manifest Room to see everything you've generated and saved"}>
+              📦 {isAr
+                ? `${savedWorkCount} عنصر محفوظ — سجل التنفيذ`
+                : `${savedWorkCount} saved ${savedWorkCount === 1 ? "item" : "items"} · Manifest Room`}
+            </button>
           )}
           <button onClick={() => setShowExportModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{ borderColor: `${GOLD}60`, color: GOLD, background: `${GOLD}15` }}>
             ↓ {isAr ? "تصدير" : "Export Plan"}

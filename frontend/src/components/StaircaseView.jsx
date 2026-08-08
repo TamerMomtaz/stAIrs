@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { api, ArtifactsAPI, ARTIFACT, stairScope } from "../api";
+import { api, ArtifactsAPI, ActionPlansAPI, ARTIFACT, stairScope } from "../api";
 import { GOLD, GOLD_L, TEAL, DEEP, typeColors, typeIcons } from "../constants";
 import { HealthBadge } from "./SharedUI";
 import { Markdown } from "./Markdown";
@@ -25,35 +25,64 @@ export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, str
   const [aiResult, setAiResult] = useState({}); const [aiLoading, setAiLoading] = useState(false); const [retryMsg, setRetryMsg] = useState(null);
   // scope_key → ISO timestamp for content read back from the server.
   const [savedAt, setSavedAt] = useState({});
+  // stair id → { total, withWork }: how many of a stair's actions have work
+  // saved against them, so the row can say where the work went.
+  const [savedWork, setSavedWork] = useState({});
   const inFlight = useRef(new Set());
   const isAr = lang === "ar";
   const sourceRef = "When citing frameworks, books, or statistics, include a brief source reference.";
 
   // Explain/Enhance results used to live only in component state, so they
-  // vanished on any navigation and had to be re-asked. Read them back instead.
+  // vanished on any navigation and had to be re-asked. Read them back — and
+  // while we have the full artifact list, work out how much saved work sits
+  // behind each stair so the row can say so.
   useEffect(() => {
     if (!strategyContext?.id) return;
     let cancelled = false;
     Promise.all([
-      ArtifactsAPI.forStrategy(strategyContext.id, ARTIFACT.STAIR_EXPLAIN).catch(() => []),
-      ArtifactsAPI.forStrategy(strategyContext.id, ARTIFACT.STAIR_ENHANCE).catch(() => []),
-    ]).then(([explains, enhances]) => {
+      ArtifactsAPI.forStrategy(strategyContext.id).catch(() => []),
+      ActionPlansAPI.getForStrategy(strategyContext.id).catch(() => []),
+    ]).then(([artifacts, planGroups]) => {
       if (cancelled) return;
+
       const results = {}; const stamps = {};
-      for (const a of explains) {
-        results[a.scope_key] = { ...(results[a.scope_key] || {}), explain: a.content };
-        stamps[`explain:${a.scope_key}`] = a.generated_at;
+      // taskScope is "<stair id>:<task id>"; stair-level artifacts have no colon.
+      const workedTasksByStair = {};
+      for (const a of artifacts) {
+        if (a.artifact_type === ARTIFACT.STAIR_EXPLAIN) {
+          results[a.scope_key] = { ...(results[a.scope_key] || {}), explain: a.content };
+          stamps[`explain:${a.scope_key}`] = a.generated_at;
+        } else if (a.artifact_type === ARTIFACT.STAIR_ENHANCE) {
+          results[a.scope_key] = { ...(results[a.scope_key] || {}), enhance: a.content };
+          stamps[`enhance:${a.scope_key}`] = a.generated_at;
+        }
+        if (![ARTIFACT.EXPLAIN, ARTIFACT.ASSESS_CHAT, ARTIFACT.IMPL_GUIDE].includes(a.artifact_type)) continue;
+        const sep = a.scope_key.indexOf(":");
+        if (sep < 0) continue;
+        const stairId = a.scope_key.slice(0, sep);
+        (workedTasksByStair[stairId] ||= new Set()).add(a.scope_key.slice(sep + 1));
       }
-      for (const a of enhances) {
-        results[a.scope_key] = { ...(results[a.scope_key] || {}), enhance: a.content };
-        stamps[`enhance:${a.scope_key}`] = a.generated_at;
+
+      const counts = {};
+      for (const g of planGroups || []) {
+        const taskIds = new Set();
+        for (const p of g.plans || []) {
+          (p.tasks || []).forEach((t, i) => taskIds.add(t.id || `task_${i}_${p.id}`));
+        }
+        const worked = workedTasksByStair[String(g.stair_id)] || new Set();
+        // Only count work against tasks the current plan still has, so a
+        // regenerated plan doesn't inflate the number with orphaned artifacts.
+        const withWork = [...worked].filter(id => taskIds.has(id)).length;
+        if (taskIds.size > 0) counts[String(g.stair_id)] = { total: taskIds.size, withWork };
       }
+
       setAiResult(prev => {
         const merged = { ...prev };
         for (const [k, v] of Object.entries(results)) merged[k] = { ...(merged[k] || {}), ...v };
         return merged;
       });
       setSavedAt(stamps);
+      setSavedWork(counts);
     });
     return () => { cancelled = true; };
   }, [strategyContext?.id]);
@@ -112,6 +141,7 @@ export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, str
   };
   const renderStair = (node, depth=0, si=0, sc=1) => {
     const s = node.stair, color = typeColors[s.element_type]||"#94a3b8", isExp = expanded===s.id, result = aiResult[s.id], isLd = aiLoading&&aiAction?.id===s.id;
+    const work = savedWork[String(s.id)];
     return (
       <div key={s.id} style={{ marginLeft: depth*24 }}>
         <div className={`group rounded-xl my-1.5 transition-all ${isExp?"ring-1":""}`} style={{ borderLeft:`3px solid ${color}`, ...(isExp?{ringColor:`${color}40`,background:"rgba(22,37,68,0.4)"}:{}) }}>
@@ -119,7 +149,17 @@ export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, str
             <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition shrink-0"><button onClick={e => {e.stopPropagation();onMove(s.id,"up");}} disabled={si===0} className="text-gray-600 hover:text-white text-[10px] disabled:opacity-20 p-0.5">▲</button><button onClick={e => {e.stopPropagation();onMove(s.id,"down");}} disabled={si>=sc-1} className="text-gray-600 hover:text-white text-[10px] disabled:opacity-20 p-0.5">▼</button></div>
             <span className={`text-gray-600 text-[10px] transition-transform ${isExp?"rotate-90":""}`}>▶</span>
             <span style={{color,fontSize:16}}>{typeIcons[s.element_type]||"•"}</span>
-            <div className="flex-1 min-w-0"><div className="flex items-center gap-2"><span className="text-xs font-mono opacity-40" style={{color}}>{s.code}</span><span className="truncate" style={typeTextStyle[s.element_type]||{fontSize:14,fontWeight:500,color:"#fff"}}>{isAr&&s.title_ar?s.title_ar:s.title}</span></div>{s.description&&!isExp&&<div className="text-gray-600 text-xs mt-0.5 truncate max-w-md">{s.description}</div>}</div>
+            <div className="flex-1 min-w-0"><div className="flex items-center gap-2"><span className="text-xs font-mono opacity-40" style={{color}}>{s.code}</span><span className="truncate" style={typeTextStyle[s.element_type]||{fontSize:14,fontWeight:500,color:"#fff"}}>{isAr&&s.title_ar?s.title_ar:s.title}</span></div>{s.description&&!isExp&&<div className="text-gray-600 text-xs mt-0.5 truncate max-w-md">{s.description}</div>}{work&&work.withWork>0&&(
+              <button
+                onClick={e => { e.stopPropagation(); if (onExecutionRoom) onExecutionRoom(s); }}
+                className="text-[11px] mt-1 text-emerald-400/80 hover:text-emerald-300 transition"
+                title={isAr ? "افتح غرفة التنفيذ لعرض العمل المحفوظ" : "Open the Execution Room to see the saved work"}
+              >
+                💾 {isAr
+                  ? `${work.withWork} من ${work.total} إجراء لديها عمل محفوظ`
+                  : `${work.withWork} of ${work.total} action${work.total===1?"":"s"} ${work.withWork===1?"has":"have"} saved work`}
+              </button>
+            )}</div>
             {(!s.progress_percent && (s.health==="off_track"||!s.health)) ? <NotStartedBadge/> : <HealthBadge health={s.health}/>}<div className="w-14 text-right shrink-0"><div className="text-xs font-medium" style={{color}}>{s.progress_percent}%</div><div className="h-1 rounded-full bg-[#1e3a5f] mt-0.5 overflow-hidden"><div className="h-full rounded-full" style={{width:`${s.progress_percent}%`,background:color,transition:"width 0.6s ease"}}/></div></div>
           </div>
           {isExp && (
