@@ -1,4 +1,8 @@
-export const API = "https://stairs-production.up.railway.app";
+// Build-time, so a deployment can be pointed at a different backend without a
+// code change. The default is the current production API, so nothing moves
+// today — but preview deployments are no longer nailed to production data, and
+// can be repointed at a staging backend as soon as one exists.
+export const API = import.meta.env.VITE_API_URL || "https://stairs-production.up.railway.app";
 
 export const GOLD = "#B8904A";
 export const GOLD_L = "#e8b94a";

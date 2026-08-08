@@ -22,7 +22,7 @@ from app.helpers import (
     jwt_secret_problem, require_jwt_secret, AuthContext, get_auth,
     DEFAULT_ORG_ID, DEFAULT_USER_ID, MIN_JWT_SECRET_LENGTH,
 )
-from app.main import app, _is_origin_allowed
+from app.main import app, _is_origin_allowed, VERCEL_PREVIEW_RE, PRODUCTION_ORIGINS
 
 
 ORG_A = "a0000000-0000-0000-0000-00000000000a"
@@ -121,6 +121,52 @@ class TestCorsOrigins:
 
     def test_empty_origin_is_rejected(self):
         assert _is_origin_allowed("") is False
+
+    # Real deployment URLs, taken from the Vercel bot comments on PRs #58, #60
+    # and #61 — both front-end projects. Vercel emits
+    #   <project>-git-<branch-slug>[-<6 hex>]-<team-slug>.vercel.app
+    # where the hash appears only when the label would exceed 63 characters,
+    # so it cannot be required by the pattern.
+    @pytest.mark.parametrize("origin", [
+        "https://st-a-irs-git-claude-stairs-retired-d0d223-tamermomtazs-projects.vercel.app",
+        "https://st-a-irs-git-claude-content-persis-7ed966-tamermomtazs-projects.vercel.app",
+        "https://st-a-irs-git-claude-tenancy-hardening-tamermomtazs-projects.vercel.app",
+        "https://st-a-irs-coh3-git-claude-stairs-re-f345e9-tamermomtazs-projects.vercel.app",
+        "https://st-a-irs-coh3-git-claude-content-p-6b96c2-tamermomtazs-projects.vercel.app",
+        "https://st-a-irs-coh3-git-claude-tenancy-h-7a19ba-tamermomtazs-projects.vercel.app",
+    ])
+    def test_real_preview_urls_are_allowed(self, origin):
+        assert _is_origin_allowed(origin) is True, origin
+
+    @pytest.mark.parametrize("origin", [
+        # The old pattern, `https://.*\.vercel\.app`, allowed every one of these
+        # with allow_credentials on.
+        "https://attacker.vercel.app",
+        "https://phishing.vercel.app",
+        "https://st-a-irs.attacker.vercel.app",
+        # Project prefix but no team slug — anyone can name a project this.
+        "https://st-a-irs-attacker.vercel.app",
+        "https://st-a-irs-git-evil-someone-elses-projects.vercel.app",
+        # Right team slug, wrong project family.
+        "https://unrelated-project-tamermomtazs-projects.vercel.app",
+        # Suffix games.
+        "https://st-a-irs-git-x-tamermomtazs-projects.vercel.app.evil.com",
+        "https://evil.com/st-a-irs-git-x-tamermomtazs-projects.vercel.app",
+    ])
+    def test_everything_else_on_vercel_is_now_rejected(self, origin):
+        assert _is_origin_allowed(origin) is False, origin
+
+    @pytest.mark.parametrize("origin", PRODUCTION_ORIGINS)
+    def test_every_pinned_production_origin_is_allowed(self, origin):
+        """Pinned exactly, not by pattern — stairs-app-orcin and the bare
+        project aliases do not match the preview regex at all."""
+        assert _is_origin_allowed(origin) is True, origin
+
+    def test_the_coh3_alias_is_pinned(self):
+        assert "https://st-a-irs-coh3.vercel.app" in PRODUCTION_ORIGINS
+
+    def test_the_pattern_is_anchored_at_both_ends(self):
+        assert VERCEL_PREVIEW_RE.startswith("^") and VERCEL_PREVIEW_RE.endswith("$")
 
 
 # ─── 3. SOURCES: cross-org write was live ───

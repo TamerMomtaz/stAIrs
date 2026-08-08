@@ -780,7 +780,22 @@ PRODUCTION_ORIGINS = [
     "https://stairs.devoneerstechnology.ai",
     "https://stairs-app-orcin.vercel.app",
     "https://st-a-irs.vercel.app",
+    "https://st-a-irs-coh3.vercel.app",
 ]
+
+# Vercel preview and per-deployment URLs for the two front-end projects, in the
+# shape Vercel actually emits:
+#     <project>-git-<branch-slug>[-<6 hex>]-<team-slug>.vercel.app
+# The hash appears only when the label would exceed the 63-character DNS limit,
+# so it cannot be required. The team slug is the anchor that makes this safe:
+# the previous pattern was `https://.*\.vercel\.app`, which matched every site
+# on vercel.app — including one an attacker deploys — with allow_credentials on.
+#
+# Note this is still weaker than the exact origins above, because *.vercel.app
+# is a namespace shared with every other Vercel account. The durable fix is to
+# stop preview deployments talking to the production API at all (VITE_API_URL
+# now makes that possible), not a tighter pattern.
+VERCEL_PREVIEW_RE = r'^https://st-a-irs(-coh3)?-[a-z0-9-]+-tamermomtazs-projects\.vercel\.app$'
 _cors_origins = [
     "http://localhost:5173",
     "http://localhost:3000",
@@ -794,7 +809,7 @@ if ALLOWED_ORIGINS_ENV and ALLOWED_ORIGINS_ENV != "*":
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
-    allow_origin_regex=r'https://.*\.vercel\.app',
+    allow_origin_regex=VERCEL_PREVIEW_RE,
     allow_credentials=True,
     allow_methods=['*'],
     allow_headers=['*'],
@@ -817,7 +832,7 @@ def _is_origin_allowed(origin: str) -> bool:
         return False
     if origin in PRODUCTION_ORIGINS:
         return True
-    if re_module.match(r'https://.*\.vercel\.app$', origin):
+    if re_module.match(VERCEL_PREVIEW_RE, origin):
         return True
     if origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1"):
         return True
