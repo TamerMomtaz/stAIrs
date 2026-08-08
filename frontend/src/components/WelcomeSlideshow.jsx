@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { GOLD, GOLD_L, BORDER } from "../constants";
+import { GOLD, GOLD_L, BORDER, FONT_DISPLAY } from "../constants";
 
 const BG = "#0a0e1a";
 const ACCENT = "#f5b731";
@@ -420,7 +420,7 @@ const slideConfigs = [
           style={{ opacity: animate ? 0 : 1, animationDelay: "300ms", animationFillMode: "forwards" }}
         >
           <span style={{
-            fontSize: "56px", fontWeight: "800", fontFamily: "'Instrument Serif', Georgia, serif",
+            fontSize: "56px", fontWeight: "800", fontFamily: FONT_DISPLAY,
             background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_L})`,
             WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
           }}>Stairs</span>
@@ -557,7 +557,7 @@ const slideConfigs = [
           style={{ opacity: animate ? 0 : 1, animationDelay: "300ms", animationFillMode: "forwards" }}
         >
           <span style={{
-            fontSize: "48px", fontWeight: "800", fontFamily: "'Instrument Serif', Georgia, serif",
+            fontSize: "48px", fontWeight: "800", fontFamily: FONT_DISPLAY,
             background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_L})`,
             WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
           }}>Stairs</span>

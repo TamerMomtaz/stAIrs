@@ -3,7 +3,7 @@ import { glass, GOLD, GOLD_L, BORDER } from "../constants";
 import { HealthBadge, ProgressRing } from "./SharedUI";
 import { MATRIX_FRAMEWORKS } from "./StrategyMatrixToolkit";
 import { buildHeader, openExportWindow } from "../exportUtils";
-import { AdminAPI, DataQaAPI } from "../api";
+import { AdminAPI, DataQaAPI, canSeeAgentTelemetry } from "../api";
 
 const AGENT_ICONS = {
   strategy_advisor: "\uD83D\uDCCA",
@@ -165,7 +165,7 @@ export const DashboardView = ({ data, lang, matrixResults, onMatrixClick, strate
         </div>
       </div>}
       <DataHealthSummary strategyContext={strategyContext} isAr={isAr} />
-      <AgentActivityLog isAr={isAr} />
+      {canSeeAgentTelemetry() && <AgentActivityLog isAr={isAr} />}
     </div>
   );
 };

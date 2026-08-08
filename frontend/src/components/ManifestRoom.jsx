@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { ActionPlansAPI, ManifestStore, SourcesAPI, ArtifactsAPI, ARTIFACT } from "../api";
 import { GOLD, GOLD_L, DEEP, BORDER, glass, typeColors, typeIcons } from "../constants";
 import { Markdown } from "./Markdown";
-import { DEVONEERS_LOGO_URI } from "../exportUtils";
+import { logoUrl, printDocument } from "../exportUtils";
 
 // ═══ PDF HELPERS ═══
 const pdfStyles = `@page{margin:20mm 15mm}*{box-sizing:border-box;margin:0;padding:0}html,body{background:#fff}body{color:#1e293b;font-family:'Segoe UI',system-ui,sans-serif;line-height:1.5}.section{margin-top:24px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;color:#B8904A;font-size:16px;font-weight:700}.footer{text-align:center;margin-top:40px;padding-top:20px;border-top:2px solid #B8904A}.brand{color:#B8904A;font-weight:700;letter-spacing:2px}.header{padding-bottom:16px;border-bottom:3px solid #B8904A;margin-bottom:20px}.manifest-card{margin-top:16px;padding:16px;border:1px solid #e2e8f0;border-radius:8px;page-break-inside:avoid}.toc-item{padding:4px 0;font-size:13px;color:#475569}.toc-num{color:#B8904A;font-weight:600;margin-right:8px}.page-break{page-break-before:always}.sec{margin-bottom:12px;padding:10px 14px;border-radius:6px;background:#f8fafc;border:1px solid #e5e7eb;border-left:4px solid #cbd5e1}.sec-explain{border-left-color:#0d9488}.sec-assess{border-left-color:#2563eb}.sec-custom{border-left-color:#B8904A}.sec-impl{border-left-color:#059669}.sec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}.sec-body{font-size:12px;color:#334155;white-space:pre-wrap}.step{display:flex;align-items:flex-start;gap:8px;padding:4px 0;font-size:12px;color:#334155}.cbox{display:inline-block;width:13px;height:13px;border:1.5px solid #94a3b8;border-radius:3px;flex-shrink:0;margin-top:1px;text-align:center;line-height:11px;font-size:10px;font-weight:700;color:#fff}.cbox-done{background:#059669;border-color:#059669}.step-done{color:#94a3b8;text-decoration:line-through}.step-num{font-weight:700;margin-right:2px}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.manifest-card{page-break-inside:avoid}.page-break{page-break-before:always}.no-print{display:none}}`;
@@ -63,9 +63,7 @@ const buildManifestHtml = (manifest, taskInfo, index) => {
 const openPrintWindow = (title, bodyContent) => {
   const w = window.open("", "_blank");
   if (!w) return;
-  w.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>${pdfStyles}</style></head><body>${bodyContent}<div class="footer"><div class="brand" style="font-size:14px;letter-spacing:3px">BY DEVONEERS &middot; ST.AIRS v3.7.0 &middot; Human IS the Loop &middot; 2026</div></div></body></html>`);
-  w.document.close();
-  w.print();
+  printDocument(w, `<!DOCTYPE html><html><head><title>${title}</title><style>${pdfStyles}</style></head><body>${bodyContent}<div class="footer"><div class="brand" style="font-size:14px;letter-spacing:3px">BY DEVONEERS &middot; ST.AIRS v3.7.0 &middot; Human IS the Loop &middot; 2026</div></div></body></html>`);
 };
 
 
@@ -254,7 +252,7 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
     const header = `
       <div class="header">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-          <img src="${DEVONEERS_LOGO_URI}" style="height:32px" alt="DEVONEERS" />
+          <img src="${logoUrl()}" style="height:32px" alt="DEVONEERS" />
           <div>
             <div class="brand" style="font-size:14px;margin-bottom:4px">ST.AIRS <span style="color:#64748b;font-weight:400;font-size:12px;letter-spacing:1px">&nbsp;|&nbsp; BY DEVONEERS &nbsp;|&nbsp; ${new Date().toLocaleDateString()}</span></div>
             <h1 style="font-size:24px;font-weight:700;margin:0">${strategyContext?.name || "Strategy"}</h1>
@@ -303,7 +301,7 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
     const header = `
       <div class="header">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-          <img src="${DEVONEERS_LOGO_URI}" style="height:32px" alt="DEVONEERS" />
+          <img src="${logoUrl()}" style="height:32px" alt="DEVONEERS" />
           <div>
             <div class="brand" style="font-size:14px;margin-bottom:4px">ST.AIRS <span style="color:#64748b;font-weight:400;font-size:12px;letter-spacing:1px">&nbsp;|&nbsp; BY DEVONEERS &nbsp;|&nbsp; ${new Date().toLocaleDateString()}</span></div>
             <h1 style="font-size:24px;font-weight:700;margin:0">${strategyContext?.name || "Strategy"}</h1>

@@ -11,6 +11,17 @@ export const CHAMPAGNE = "#F7E7CE";
 export const DEEP = "#0a1628";
 export const BORDER = "rgba(30, 58, 95, 0.5)";
 
+// The two type stacks, in one place. Each names its metric-matched fallback
+// (declared in fonts.css) so the frame before the webfont lands occupies the
+// same space as the real face and nothing reflows. The Arabic stack keeps
+// DM Sans behind Noto Kufi Arabic, because Noto Kufi ships only the Arabic
+// subset — Latin inside an Arabic screen (element codes, numerals, product
+// names) stays in the UI face instead of dropping to a generic sans.
+export const FONT_UI = "'DM Sans', 'DM Sans Fallback', system-ui, -apple-system, sans-serif";
+export const FONT_UI_AR = "'Noto Kufi Arabic', 'DM Sans', 'DM Sans Fallback', system-ui, sans-serif";
+export const FONT_DISPLAY = "'Instrument Serif', 'Instrument Serif Fallback', Georgia, serif";
+export const fontStack = (isAr) => (isAr ? FONT_UI_AR : FONT_UI);
+
 export const typeColors = { vision: GOLD, objective: "#60a5fa", key_result: "#34d399", initiative: "#a78bfa", task: "#94a3b8", perspective: "#f472b6", strategic_objective: "#38bdf8", measure: "#fb923c", kpi: "#22d3ee", goal: "#a3e635", strategy: GOLD };
 export const typeIcons = { vision: "◆", objective: "▣", key_result: "◎", initiative: "▶", task: "•", perspective: "◈", strategic_objective: "▢", measure: "◉", kpi: "◎", goal: "▣", strategy: "◆" };
 export const typeLabels = { vision: "Vision", objective: "Objective", key_result: "Key Result", initiative: "Initiative", task: "Task" };

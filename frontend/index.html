@@ -5,9 +5,45 @@
     <link rel="icon" type="image/svg+xml" href="/stairs.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Stairs — Climb Your Strategy</title>
+
+    <!-- Start the two first-paint faces downloading with the first bytes of the
+         document, rather than waiting for the CSS to be fetched and parsed.
+         This is what closes the swap window to nothing on a warm connection. -->
+    <link rel="preload" href="/fonts/dm-sans-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/instrument-serif-latin.woff2" as="font" type="font/woff2" crossorigin />
+
+    <script>
+      // The Arabic face is 124 KB and most sessions never render an Arabic
+      // glyph, so it is not preloaded unconditionally — unicode-range already
+      // keeps it off the wire. For a session that has chosen Arabic, preload it
+      // too, and set the document language so font selection, hyphenation and
+      // screen readers all agree with what is about to render.
+      try {
+        if (localStorage.getItem("stairs_lang") === "ar") {
+          document.documentElement.lang = "ar";
+          var l = document.createElement("link");
+          l.rel = "preload";
+          l.href = "/fonts/noto-kufi-arabic.woff2";
+          l.as = "font";
+          l.type = "font/woff2";
+          l.crossOrigin = "anonymous";
+          document.head.appendChild(l);
+        }
+      } catch (e) {}
+    </script>
+
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { background: #020617; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; }
+      /* Same stack the app uses, so the pre-mount paint is already in the right
+         typeface instead of switching once React takes over. */
+      body {
+        background: #020617;
+        color: #e2e8f0;
+        font-family: "DM Sans", "DM Sans Fallback", system-ui, -apple-system, sans-serif;
+      }
+      html[lang="ar"] body {
+        font-family: "Noto Kufi Arabic", "DM Sans", "DM Sans Fallback", system-ui, sans-serif;
+      }
       #root { min-height: 100vh; }
     </style>
   </head>
