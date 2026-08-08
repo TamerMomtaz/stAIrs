@@ -367,7 +367,7 @@ export default function App() {
           <button onClick={() => { setActiveStrat(null); if (stratApiRef.current) stratApiRef.current.setActive(null); }} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition group" title="Back to Strategies">
             <span className="text-lg group-hover:-translate-x-0.5 transition-transform">←</span>
             <img src="/devoneers-logo.png" alt="DEVONEERS" style={{ height: "40px" }} />
-            <span className="text-xl font-bold" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: FONT_DISPLAY }}>Stairs</span>
+            <span className="text-xl font-normal" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: FONT_DISPLAY }}>Stairs</span>
           </button>
           <span className="text-[10px] text-gray-600 uppercase tracking-widest">v3.7.0</span>
           <span className="text-gray-600">|</span>

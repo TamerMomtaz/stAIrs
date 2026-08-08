@@ -20,7 +20,7 @@ export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, user
     <div className="min-h-screen text-white" dir={isAr ? "rtl" : "ltr"} style={{ background: `linear-gradient(180deg, ${DEEP} 0%, #0f1f3a 50%, ${DEEP} 100%)`, fontFamily: fontStack(isAr) }}>
       <header className="flex items-center justify-between px-6 py-4">
         <div className="flex items-center gap-2">
-          <span className="text-2xl font-bold" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: FONT_DISPLAY }}>Stairs</span>
+          <span className="text-2xl font-normal" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: FONT_DISPLAY }}>Stairs</span>
           <span className="text-[10px] text-gray-600 uppercase tracking-widest">v3.7.0</span>
         </div>
         <div className="flex items-center gap-3">
@@ -53,7 +53,7 @@ export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, user
         </div>
       </header>
       <div className="max-w-5xl mx-auto px-6 pt-16 pb-8 text-center" data-tutorial="strategy-landing">
-        <h1 className="text-3xl font-bold text-white mb-3 flex items-center justify-center gap-3" style={{ fontFamily: FONT_DISPLAY }}><img src="/devoneers-logo.png" alt="DEVONEERS" style={{ height: "32px" }} />{isAr ? "استراتيجياتك" : "Your Strategies"}</h1>
+        <h1 className="text-3xl font-normal text-white mb-3 flex items-center justify-center gap-3" style={{ fontFamily: FONT_DISPLAY }}><img src="/devoneers-logo.png" alt="DEVONEERS" style={{ height: "32px" }} />{isAr ? "استراتيجياتك" : "Your Strategies"}</h1>
         <p className="text-gray-500 text-sm max-w-lg mx-auto">{isAr ? "كل استراتيجية هي سلم مستقل." : "Each strategy is an independent staircase for a company, product, or project."}</p>
       </div>
       <div className="max-w-5xl mx-auto px-6 pb-12">

@@ -93,26 +93,38 @@ much between platforms for a single override set to help, and there is no
 metric-compatible clone to measure against. It relies on the conditional
 preload instead.
 
-## Known issue: synthetic bold on the wordmark
+## The wordmark renders at 400, deliberately
 
-Instrument Serif ships **400 only**. Several places ask for a heavier weight:
+Instrument Serif ships **400 only**. Six places used to ask for a heavier
+weight, and the browser synthesised those by smearing the 400 outlines — which
+on a high-contrast display serif flattens the thick/thin modulation the face
+exists for. It was invisible until the font actually loaded, because Georgia,
+which does have a real bold, was drawing the wordmark instead.
 
-- `LoginScreen.jsx` — `fontWeight: "bold"` on the 52px wordmark
-- `StairsApp.jsx`, `StrategyLanding.jsx` — `font-bold` on the header wordmark
-- `WelcomeSlideshow.jsx` — `fontWeight: "800"` on two display headings
+All six now say 400 explicitly rather than leaving the weight unset, so the
+intent is legible and a stray `font-bold` does not creep back:
 
-The browser synthesises those by smearing the 400 outlines, which on a delicate
-display serif reads as slightly muddy. This was invisible before, because the
-face was never loading and Georgia — which does have a real bold — was drawing
-the wordmark instead.
+| Site | Now |
+|---|---|
+| `LoginScreen.jsx` 52px wordmark | `fontWeight: 400` |
+| `StairsApp.jsx` header wordmark | `font-normal` |
+| `StrategyLanding.jsx` header wordmark | `font-normal` |
+| `StrategyLanding.jsx` page heading | `font-normal` |
+| `WelcomeSlideshow.jsx` 56px and 48px headings | `fontWeight: 400` |
 
-Two ways out, both a design call rather than a load-time fix:
+**Do not reach for a heavier weight here.** Instrument Serif has none, so any
+value above 400 is synthetic. If the wordmark ever needs more presence, the
+levers are size, letter-spacing and colour — not weight. Note that
+`LoginScreen`'s `letterSpacing: "-1px"` was tuned against the old synthetic
+bold and may want revisiting now the letterforms are narrower.
 
-- drop the weight declarations and let Instrument Serif render at its intended
-  400, which is already display-heavy; or
-- add a second display face that has a real bold.
+## Arabic in the display stack
 
-Left as-is here so that loading the fonts does not quietly restyle the brand.
+`FONT_DISPLAY` carries `'Noto Kufi Arabic'` after the Latin display faces.
+Instrument Serif has no Arabic glyphs, so without it an Arabic heading — such
+as StrategyLanding's `استراتيجياتك` — falls past both Latin faces to a generic
+serif, which is the wrong typeface entirely. Latin is unaffected: Instrument
+Serif matches first and the browser only falls through per-glyph.
 
 ## Updating a font file
 
