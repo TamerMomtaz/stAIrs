@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { GOLD, BORDER } from "../constants";
+import { canSeeAgentTelemetry } from "../api";
 
 // ═══ HEALTH BADGE ═══
 export const HealthBadge = ({ health, size = "sm" }) => {
@@ -86,7 +87,7 @@ export const ConfidenceBadge = ({ validation, agentsUsed }) => {
             <span className={`font-semibold ${s.text}`}>{s.icon} {s.label} ({score}%)</span>
             <button onClick={() => setShowTooltip(false)} className="text-gray-500 hover:text-white text-xs">\u2715</button>
           </div>
-          {agentsUsed && agentsUsed.length > 0 && (
+          {canSeeAgentTelemetry() && agentsUsed && agentsUsed.length > 0 && (
             <div className="mb-2">
               <div className="text-gray-500 uppercase tracking-wider text-[9px] mb-1">Agents involved</div>
               {agentsUsed.map((a, i) => (
@@ -154,14 +155,24 @@ export const ValidationWarnings = ({ validation }) => {
 };
 
 // ═══ AGENT ACTIVITY INDICATOR ═══
+// Two vocabularies for the same three beats of work. Clients get what is
+// happening to their strategy; admins get which agent is doing it, because
+// that is the version worth reading when something is stuck.
 const AGENT_STEPS = [
+  { key: "document", icon: "\uD83D\uDCC4", label: "Reading your sources..." },
+  { key: "strategy", icon: "\uD83D\uDCCA", label: "Working through your strategy..." },
+  { key: "validation", icon: "\u26A0\uFE0F", label: "Checking the answer..." },
+];
+
+const AGENT_STEPS_ADMIN = [
   { key: "document", icon: "\uD83D\uDCC4", label: "Document Analyst working..." },
   { key: "strategy", icon: "\uD83D\uDCCA", label: "Strategy Analyst analyzing..." },
   { key: "validation", icon: "\u26A0\uFE0F", label: "Validation Agent reviewing..." },
 ];
 
 export const AgentActivityIndicator = ({ agentStep }) => {
-  const step = AGENT_STEPS[agentStep % AGENT_STEPS.length] || AGENT_STEPS[0];
+  const steps = canSeeAgentTelemetry() ? AGENT_STEPS_ADMIN : AGENT_STEPS;
+  const step = steps[agentStep % steps.length] || steps[0];
   return (
     <div className="flex items-center gap-2 px-4 py-2" data-testid="agent-activity-indicator">
       <div className="flex gap-1">

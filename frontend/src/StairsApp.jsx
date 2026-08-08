@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { api, StrategyAPI, NotesStore, MatrixResultsStore, SourcesAPI, ArtifactsAPI, ARTIFACT, matrixScope, NotesAPI, syncLocalNotes } from "./api";
-import { GOLD, GOLD_L, DEEP, BORDER, typeIcons } from "./constants";
-import { DEVONEERS_LOGO_URI } from "./exportUtils";
+import { api, StrategyAPI, NotesStore, MatrixResultsStore, SourcesAPI, ArtifactsAPI, ARTIFACT, matrixScope, NotesAPI, syncLocalNotes, canSeeAgentTelemetry } from "./api";
+import { GOLD, GOLD_L, DEEP, BORDER, typeIcons, fontStack, FONT_DISPLAY } from "./constants";
+import { logoUrl, printDocument } from "./exportUtils";
 
 // Components
 import { LoginScreen } from "./components/LoginScreen";
@@ -103,6 +103,11 @@ export default function App() {
     }
   };
   const isAr = lang === "ar";
+
+  // Keep the document language in step with the toggle. index.html sets it on
+  // boot from localStorage; this covers the switch mid-session, so font
+  // selection and assistive technology follow the language actually on screen.
+  useEffect(() => { document.documentElement.lang = lang; }, [lang]);
 
   useEffect(() => {
     api.setOnAuthExpired(() => {
@@ -321,13 +326,11 @@ export default function App() {
       </tr>`;
     }).join("");
     const stats = { total: flatItems.length, onTrack: flatItems.filter(s => s.health === "on_track").length, atRisk: flatItems.filter(s => s.health === "at_risk").length, offTrack: flatItems.filter(s => s.health === "off_track").length, avgProgress: flatItems.length ? Math.round(flatItems.reduce((a,s) => a + (s.progress_percent||0), 0) / flatItems.length) : 0 };
-    w.document.write(`<!DOCTYPE html><html><head><title>Stairs Export - ${activeStrat?.name||"Strategy"}</title><style>@page{margin:20mm 15mm}*{box-sizing:border-box;margin:0;padding:0}body{background:#fff;color:#1e293b;font-family:'Segoe UI',system-ui,sans-serif;line-height:1.5}.header{display:flex;align-items:center;gap:16px;padding-bottom:16px;border-bottom:2px solid #B8904A;margin-bottom:20px}.header h1{font-size:28px;font-weight:700}.stats-bar{display:flex;gap:12px;margin-bottom:24px}.stat-box{flex:1;padding:12px;border-radius:8px;text-align:center;border:1px solid #e5e7eb}.stat-box .num{font-size:22px;font-weight:700}.stat-box .lbl{font-size:10px;color:#64748b;text-transform:uppercase}table{width:100%;border-collapse:collapse}thead th{text-align:left;padding:10px 8px;border-bottom:2px solid #B8904A;color:#B8904A;font-size:11px;text-transform:uppercase;font-weight:600}.footer{text-align:center;margin-top:30px;padding-top:16px;border-top:1px solid #e5e7eb;color:#94a3b8;font-size:10px}</style></head><body>
-    <div class="header"><img src="${DEVONEERS_LOGO_URI}" style="height:32px;vertical-align:middle;margin-right:8px" alt="DEVONEERS" /><div><div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:2px;margin-bottom:4px">Stairs <span style="color:#64748b;font-weight:400;font-size:12px;letter-spacing:1px">&nbsp;|&nbsp; ${activeStrat?.name||"Strategy"} &nbsp;|&nbsp; ${new Date().toLocaleDateString()}</span></div><h1>${activeStrat?.name||"Strategy"}</h1><div style="font-size:12px;color:#64748b">${activeStrat?.company||""} · Staircase Export · ${new Date().toLocaleDateString()}</div></div></div>
+    printDocument(w, `<!DOCTYPE html><html><head><title>Stairs Export - ${activeStrat?.name||"Strategy"}</title><style>@page{margin:20mm 15mm}*{box-sizing:border-box;margin:0;padding:0}body{background:#fff;color:#1e293b;font-family:'Segoe UI',system-ui,sans-serif;line-height:1.5}.header{display:flex;align-items:center;gap:16px;padding-bottom:16px;border-bottom:2px solid #B8904A;margin-bottom:20px}.header h1{font-size:28px;font-weight:700}.stats-bar{display:flex;gap:12px;margin-bottom:24px}.stat-box{flex:1;padding:12px;border-radius:8px;text-align:center;border:1px solid #e5e7eb}.stat-box .num{font-size:22px;font-weight:700}.stat-box .lbl{font-size:10px;color:#64748b;text-transform:uppercase}table{width:100%;border-collapse:collapse}thead th{text-align:left;padding:10px 8px;border-bottom:2px solid #B8904A;color:#B8904A;font-size:11px;text-transform:uppercase;font-weight:600}.footer{text-align:center;margin-top:30px;padding-top:16px;border-top:1px solid #e5e7eb;color:#94a3b8;font-size:10px}</style></head><body>
+    <div class="header"><img src="${logoUrl()}" style="height:32px;vertical-align:middle;margin-right:8px" alt="DEVONEERS" /><div><div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:2px;margin-bottom:4px">Stairs <span style="color:#64748b;font-weight:400;font-size:12px;letter-spacing:1px">&nbsp;|&nbsp; ${activeStrat?.name||"Strategy"} &nbsp;|&nbsp; ${new Date().toLocaleDateString()}</span></div><h1>${activeStrat?.name||"Strategy"}</h1><div style="font-size:12px;color:#64748b">${activeStrat?.company||""} · Staircase Export · ${new Date().toLocaleDateString()}</div></div></div>
     <div class="stats-bar"><div class="stat-box"><div class="num" style="color:#2563eb">${stats.total}</div><div class="lbl">Elements</div></div><div class="stat-box"><div class="num" style="color:#059669">${stats.onTrack}</div><div class="lbl">On Track</div></div><div class="stat-box"><div class="num" style="color:#d97706">${stats.atRisk}</div><div class="lbl">At Risk</div></div><div class="stat-box"><div class="num" style="color:#dc2626">${stats.offTrack}</div><div class="lbl">Off Track</div></div><div class="stat-box"><div class="num" style="color:#7c3aed">${stats.avgProgress}%</div><div class="lbl">Avg Progress</div></div></div>
     <table><thead><tr><th style="width:60%">Element</th><th style="text-align:center">Health</th><th style="text-align:center;width:120px">Progress</th></tr></thead><tbody>${rows}</tbody></table>
     <div class="footer" style="text-align:center;margin-top:40px;padding-top:20px;border-top:2px solid #B8904A"><div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:3px;margin-bottom:4px">BY DEVONEERS &bull; Stairs &bull; HUMAN IS THE LOOP &bull; ${new Date().getFullYear()}</div></div></body></html>`);
-    w.document.close();
-    w.print();
     fireGuidance("export_ready");
   };
 
@@ -357,21 +360,21 @@ export default function App() {
   const goToView = (key) => { setView(key); trackFeature(key); setMobileNavOpen(false); };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden text-white" dir={isAr ? "rtl" : "ltr"} style={{ background: `linear-gradient(180deg, ${DEEP} 0%, #0f1f3a 50%, ${DEEP} 100%)`, fontFamily: isAr ? "'Noto Kufi Arabic', sans-serif" : "'DM Sans', system-ui, sans-serif" }}>
+    <div className="h-screen flex flex-col overflow-hidden text-white" dir={isAr ? "rtl" : "ltr"} style={{ background: `linear-gradient(180deg, ${DEEP} 0%, #0f1f3a 50%, ${DEEP} 100%)`, fontFamily: fontStack(isAr) }}>
       <header className="flex items-center justify-between px-6 py-3 shrink-0" style={{ borderBottom: `1px solid ${BORDER}` }}>
         <div className="flex items-center gap-3">
           <button onClick={() => setMobileNavOpen(v => !v)} className="md:hidden p-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition text-lg" title="Menu" aria-label="Toggle navigation">☰</button>
           <button onClick={() => { setActiveStrat(null); if (stratApiRef.current) stratApiRef.current.setActive(null); }} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition group" title="Back to Strategies">
             <span className="text-lg group-hover:-translate-x-0.5 transition-transform">←</span>
             <img src="/devoneers-logo.png" alt="DEVONEERS" style={{ height: "40px" }} />
-            <span className="text-xl font-bold" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "'Instrument Serif', Georgia, serif" }}>Stairs</span>
+            <span className="text-xl font-bold" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: FONT_DISPLAY }}>Stairs</span>
           </button>
           <span className="text-[10px] text-gray-600 uppercase tracking-widest">v3.7.0</span>
           <span className="text-gray-600">|</span>
           <span className="text-sm text-white font-medium">{activeStrat.icon} {isAr && activeStrat.name_ar ? activeStrat.name_ar : activeStrat.name}</span>
         </div>
         <div className="flex items-center gap-3">
-          {aiProvider && <span className="text-[10px] text-gray-500 flex items-center gap-1 px-2 py-1 rounded-md border border-gray-700/50 bg-gray-800/30" title={`AI powered by ${aiProvider.provider_display}`}>⚡ {aiProvider.provider_display}</span>}
+          {aiProvider && canSeeAgentTelemetry() && <span className="text-[10px] text-gray-500 flex items-center gap-1 px-2 py-1 rounded-md border border-gray-700/50 bg-gray-800/30" title={`AI powered by ${aiProvider.provider_display}`}>⚡ {aiProvider.provider_display}</span>}
           <button onClick={() => setShowWelcomeSlideshow(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition uppercase tracking-wider" title="Watch the Stairs introduction" data-testid="watch-intro-btn">
             <span className="text-sm">🎬</span> <span className="hidden sm:inline">{isAr ? "مقدمة" : "Watch Intro"}</span>
           </button>

@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { api, ActionPlansAPI, SourcesAPI, ManifestStore, ArtifactsAPI, ARTIFACT, stairScope, taskScope } from "../api";
+import { api, ActionPlansAPI, SourcesAPI, ManifestStore, ArtifactsAPI, ARTIFACT, stairScope, taskScope, canSeeAgentTelemetry } from "../api";
 import { GOLD, GOLD_L, TEAL, DEEP, BORDER, glass, typeColors, typeIcons } from "../constants";
 import { HealthBadge, ConfidenceBadge, ValidationWarnings, AgentActivityIndicator } from "./SharedUI";
 import { Markdown } from "./Markdown";
-import { DEVONEERS_LOGO_URI } from "../exportUtils";
+import { logoUrl, printDocument } from "../exportUtils";
 import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
 import { fireGuidance } from "../guidanceConfig";
 import { normalizeAiResult } from "../lib/aiResilience";
@@ -1016,10 +1016,10 @@ User question: ${msg}`;
         ${chatInsights ? `<div class="section">Chat Insights</div>${chatInsights}` : ""}`;
     }
 
-    w.document.write(`<!DOCTYPE html><html><head><title>${titleMap[mode]} - ${stair.title}</title>
+    printDocument(w, `<!DOCTYPE html><html><head><title>${titleMap[mode]} - ${stair.title}</title>
       <style>@page{margin:20mm 15mm${mode === "both" ? ";size:landscape" : ""}}*{box-sizing:border-box;margin:0;padding:0}body{background:#fff;color:#1e293b;font-family:'Segoe UI',system-ui,sans-serif;line-height:1.5}.header{padding-bottom:16px;border-bottom:2px solid #B8904A;margin-bottom:20px}table{width:100%;border-collapse:collapse}thead th{text-align:left;padding:10px 8px;border-bottom:2px solid #B8904A;color:#B8904A;font-size:11px;text-transform:uppercase;font-weight:600}.section{margin-top:24px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;color:#B8904A;font-size:16px;font-weight:700}.footer{text-align:center;margin-top:30px;padding-top:16px;border-top:1px solid #e5e7eb;color:#94a3b8;font-size:10px}</style></head><body>
       <div class="header">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px"><img src="${DEVONEERS_LOGO_URI}" style="height:32px" alt="DEVONEERS" /><div><div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:2px;margin-bottom:4px">Stairs <span style="color:#64748b;font-weight:400;font-size:12px;letter-spacing:1px">&nbsp;|&nbsp; ${strategyContext?.name || "Strategy"} &nbsp;|&nbsp; ${new Date().toLocaleDateString()}</span></div><h1 style="font-size:24px;font-weight:700;margin:0">${strategyContext?.name || "Strategy"}</h1><div style="font-size:12px;color:#64748b">${strategyContext?.company || ""} &middot; Execution Room Export &middot; ${new Date().toLocaleDateString()}</div></div></div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px"><img src="${logoUrl()}" style="height:32px" alt="DEVONEERS" /><div><div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:2px;margin-bottom:4px">Stairs <span style="color:#64748b;font-weight:400;font-size:12px;letter-spacing:1px">&nbsp;|&nbsp; ${strategyContext?.name || "Strategy"} &nbsp;|&nbsp; ${new Date().toLocaleDateString()}</span></div><h1 style="font-size:24px;font-weight:700;margin:0">${strategyContext?.name || "Strategy"}</h1><div style="font-size:12px;color:#64748b">${strategyContext?.company || ""} &middot; Execution Room Export &middot; ${new Date().toLocaleDateString()}</div></div></div>
         <div style="margin-top:12px;padding:12px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0">
           <div style="font-size:11px;color:#B8904A;text-transform:uppercase;font-weight:600;margin-bottom:4px">Execution Room: ${stair.element_type?.replace("_", " ")}</div>
           <div style="font-size:16px;font-weight:700;color:#1e293b">${stair.code ? `<span style="color:#94a3b8;font-family:monospace;font-size:12px">${stair.code}</span> ` : ""}${stair.title}</div>
@@ -1029,8 +1029,6 @@ User question: ${msg}`;
       </div>
       ${bodyContent}
       <div class="footer" style="text-align:center;margin-top:40px;padding-top:20px;border-top:2px solid #B8904A"><div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:3px;margin-bottom:4px">BY DEVONEERS &bull; Stairs &bull; HUMAN IS THE LOOP &bull; ${new Date().getFullYear()}</div></div></body></html>`);
-    w.document.close();
-    w.print();
   };
 
   const LoadingDots = ({ label }) => (
@@ -1767,7 +1765,7 @@ User question: ${msg}`;
                     {m.role === "ai" ? <><Markdown text={m.text} onMatrixClick={onMatrixClick} /><LoadMatrixButtons text={m.text} onLoadMatrix={onMatrixClick} /></> : <div className="whitespace-pre-wrap">{m.text}</div>}
                     {m.role === "ai" && !m.error && (
                       <div className="flex items-center gap-2 mt-2">
-                        {m.tokens > 0 && <span className="text-[10px] text-gray-600">{m.tokens} tokens</span>}
+                        {canSeeAgentTelemetry() && m.tokens > 0 && <span className="text-[10px] text-gray-600">{m.tokens} tokens</span>}
                         <div className="flex-1" />
                         {onSaveNote && <button onClick={() => onSaveNote(m.text.slice(0, 60), m.text, "execution_chat")} className="opacity-0 group-hover/msg:opacity-100 text-[10px] text-gray-600 hover:text-amber-400 transition px-1.5 py-0.5 rounded hover:bg-amber-500/10" title="Save to Notes">📌 Save</button>}
                       </div>

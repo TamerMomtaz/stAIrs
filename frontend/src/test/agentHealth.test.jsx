@@ -6,11 +6,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, waitFor } from "@testing-library/react";
 
 const getAgentStats = vi.fn();
+// The strip is admin-only now. Default the role to admin so the cases below
+// keep testing what they were written to test — that failure_rate reaches the
+// panel — and flip it explicitly in the visibility case at the bottom.
+let isAdmin = true;
 vi.mock("../api", () => ({
   AdminAPI: { getAgentStats: (...a) => getAgentStats(...a) },
   DataQaAPI: { getDataHealth: vi.fn(() => Promise.resolve(null)) },
   SourcesAPI: { count: vi.fn(() => Promise.resolve({ count: 0 })) },
   api: { get: vi.fn(() => Promise.resolve({})) },
+  canSeeAgentTelemetry: () => isAdmin,
 }));
 
 import { DashboardView } from "../components/DashboardView";
@@ -28,7 +33,7 @@ const payload = (over = {}) => ({
   ...over,
 });
 
-beforeEach(() => getAgentStats.mockReset());
+beforeEach(() => { getAgentStats.mockReset(); isAdmin = true; });
 afterEach(cleanup);
 
 describe("agent health strip", () => {
@@ -96,5 +101,28 @@ describe("agent health strip", () => {
     render(<DashboardView data={DATA} lang="en" />);
     await screen.findByTestId("agent-activity-log");
     expect(screen.queryByTestId("agent-health")).toBeNull();
+  });
+});
+
+describe("who the strip is for", () => {
+  it("shows a client none of it, and never asks the endpoint", async () => {
+    isAdmin = false;
+    getAgentStats.mockResolvedValue(payload({ failed_calls: 4, failure_rate: 40 }));
+    render(<DashboardView data={DATA} lang="en" />);
+    // The dashboard itself still renders.
+    expect(await screen.findByText("Total Elements")).toBeInTheDocument();
+    expect(screen.queryByTestId("agent-activity-log")).toBeNull();
+    expect(screen.queryByTestId("agent-health")).toBeNull();
+    // Gated at the mount, so a client's dashboard doesn't even call an
+    // endpoint that would 403 on them.
+    expect(getAgentStats).not.toHaveBeenCalled();
+  });
+
+  it("shows an admin the failure rate and the model column", async () => {
+    isAdmin = true;
+    getAgentStats.mockResolvedValue(payload({ failed_calls: 4, failure_rate: 40 }));
+    render(<DashboardView data={DATA} lang="en" />);
+    expect((await screen.findByTestId("agent-health")).textContent).toContain("40%");
+    expect(screen.getByText("Claude")).toBeInTheDocument();
   });
 });

@@ -89,6 +89,13 @@ class StairsAPI {
 
 export const api = new StairsAPI();
 
+// Who may see engineering telemetry: provider and model names, token counts,
+// agent names, failure rates. A client should never learn which model answered
+// them or how often it fails — those numbers exist to debug the product, not
+// to describe their strategy. Mirrors the backend's own admin check
+// (`auth.role not in ("admin", "owner")`), so one rule governs both sides.
+export const canSeeAgentTelemetry = () => ["admin", "owner"].includes(api.user?.role);
+
 
 // ═══ DOCUMENT TEXT EXTRACTION (Wizard) ═══
 export async function extractDocumentText(files) {
