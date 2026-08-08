@@ -22,8 +22,11 @@ class StairsAPI {
     localStorage.setItem("stairs_user", JSON.stringify(d.user));
     return d;
   }
-  async signup(name, email, password, confirmPassword) {
-    const r = await fetch(`${API}/api/v1/auth/signup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, password, confirm_password: confirmPassword }) });
+  async signup(name, email, password, confirmPassword, { orgName, inviteToken } = {}) {
+    const body = { name, email, password, confirm_password: confirmPassword };
+    if (inviteToken) body.invite_token = inviteToken;
+    else if (orgName) body.org_name = orgName;
+    const r = await fetch(`${API}/api/v1/auth/signup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (!r.ok) { const err = await r.json().catch(() => ({})); throw new Error(err.detail || "Signup failed"); }
     const d = await r.json(); this.token = d.access_token; this.user = d.user;
     localStorage.setItem("stairs_token", d.access_token);
@@ -36,8 +39,19 @@ class StairsAPI {
     if (this._onAuthExpired) this._onAuthExpired();
     throw new Error("Session expired");
   }
-  async get(p) { const r = await fetch(`${API}${p}`, { headers: this.headers() }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw new Error(`GET ${p} → ${r.status}`); return r.json(); }
-  async post(p, b) { const r = await fetch(`${API}${p}`, { method: "POST", headers: this.headers(), body: JSON.stringify(b) }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw new Error(`POST ${p} → ${r.status}`); return r.json(); }
+  // Prefer the server's own message. Several flows — invitations above all —
+  // depend on the client being able to say *why* something was refused, not
+  // just that it was.
+  async _fail(r, method, p) {
+    const body = await r.json().catch(() => ({}));
+    const detail = typeof body.detail === "string" ? body.detail : null;
+    const e = new Error(detail || `${method} ${p} → ${r.status}`);
+    e.status = r.status;
+    e.detail = detail;
+    return e;
+  }
+  async get(p) { const r = await fetch(`${API}${p}`, { headers: this.headers() }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw await this._fail(r, "GET", p); return r.json(); }
+  async post(p, b) { const r = await fetch(`${API}${p}`, { method: "POST", headers: this.headers(), body: JSON.stringify(b) }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw await this._fail(r, "POST", p); return r.json(); }
   // Every outbound AI call goes through here and is logged with the `trigger`
   // that caused it, so the app can be walked and audited for stray calls.
   //
@@ -53,9 +67,9 @@ class StairsAPI {
     if (!r.ok) throw new Error(`POST ${p} → ${r.status}`);
     return r.json();
   }
-  async put(p, b) { const r = await fetch(`${API}${p}`, { method: "PUT", headers: this.headers(), body: JSON.stringify(b) }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw new Error(`PUT ${p} → ${r.status}`); return r.json(); }
-  async patch(p, b) { const r = await fetch(`${API}${p}`, { method: "PATCH", headers: this.headers(), body: JSON.stringify(b) }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw new Error(`PATCH ${p} → ${r.status}`); return r.json(); }
-  async del(p) { const r = await fetch(`${API}${p}`, { method: "DELETE", headers: this.headers() }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw new Error(`DELETE ${p} → ${r.status}`); return r.status === 204 ? null : r.json(); }
+  async put(p, b) { const r = await fetch(`${API}${p}`, { method: "PUT", headers: this.headers(), body: JSON.stringify(b) }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw await this._fail(r, "PUT", p); return r.json(); }
+  async patch(p, b) { const r = await fetch(`${API}${p}`, { method: "PATCH", headers: this.headers(), body: JSON.stringify(b) }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw await this._fail(r, "PATCH", p); return r.json(); }
+  async del(p) { const r = await fetch(`${API}${p}`, { method: "DELETE", headers: this.headers() }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw await this._fail(r, "DELETE", p); return r.status === 204 ? null : r.json(); }
   async uploadFile(p, file, onProgress) {
     const formData = new FormData();
     formData.append("file", file);
@@ -170,6 +184,27 @@ export const ArtifactsAPI = {
     }
     return out;
   },
+};
+
+
+// ═══ ORGANIZATION INVITES API ═══
+// The only supported route into an existing organization.
+export const InvitesAPI = {
+  // Unauthenticated: whoever follows an invite link has no account yet.
+  async preview(token) {
+    const r = await fetch(`${API}/api/v1/auth/invites/preview/${encodeURIComponent(token)}`);
+    if (!r.ok) return { valid: false, reason: "This invitation link couldn't be checked. Try again in a moment." };
+    return r.json();
+  },
+  async list() { return api.get("/api/v1/auth/invites"); },
+  async create({ email, role, expiresInHours }) {
+    return api.post("/api/v1/auth/invites", {
+      email: email || null,
+      role: role || "member",
+      expires_in_hours: expiresInHours || 168,
+    });
+  },
+  async revoke(id) { return api.del(`/api/v1/auth/invites/${id}`); },
 };
 
 

@@ -203,6 +203,9 @@ CREATE INDEX idx_stairs_search_en ON stairs USING GIN(
 -- ─── 6. STAIR RELATIONSHIPS (DAG) ───
 CREATE TABLE stair_relationships (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    -- Own tenancy column, not a join: an edge is only visible to, and only
+    -- creatable by, the organization that owns both of its stairs.
+    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
     source_stair_id UUID REFERENCES stairs(id) ON DELETE CASCADE NOT NULL,
     target_stair_id UUID REFERENCES stairs(id) ON DELETE CASCADE NOT NULL,
     relationship_type VARCHAR(50) NOT NULL,
@@ -217,6 +220,7 @@ CREATE TABLE stair_relationships (
 );
 
 CREATE INDEX idx_rel_source ON stair_relationships(source_stair_id);
+CREATE INDEX idx_stair_relationships_org ON stair_relationships(organization_id);
 CREATE INDEX idx_rel_target ON stair_relationships(target_stair_id);
 
 -- ─── 7. CLOSURE TABLE (efficient ancestor/descendant queries) ───
@@ -410,6 +414,7 @@ CREATE TRIGGER trg_ai_conv_updated_at BEFORE UPDATE ON ai_conversations FOR EACH
 -- ─── 17. STRATEGY SOURCES (Source of Truth — Input Traceability) ───
 CREATE TABLE strategy_sources (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
     strategy_id UUID NOT NULL,
     source_type VARCHAR(50) NOT NULL,  -- questionnaire, ai_chat, feedback, manual_entry
     content TEXT NOT NULL,
@@ -420,6 +425,7 @@ CREATE TABLE strategy_sources (
 );
 
 CREATE INDEX idx_strategy_sources_strategy ON strategy_sources(strategy_id, created_at DESC);
+CREATE INDEX idx_strategy_sources_org ON strategy_sources(organization_id);
 CREATE INDEX idx_strategy_sources_type ON strategy_sources(strategy_id, source_type);
 CREATE INDEX idx_strategy_sources_search ON strategy_sources USING GIN(
     to_tsvector('english', coalesce(content, ''))
@@ -431,6 +437,7 @@ CREATE TRIGGER trg_strategy_sources_updated_at BEFORE UPDATE ON strategy_sources
 -- ─── 18. AGENT LOGS (Multi-Agent Ensemble Traceability) ───
 CREATE TABLE agent_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
     strategy_id UUID,
     agent_name VARCHAR(50) NOT NULL,
     task_type VARCHAR(100) NOT NULL,
@@ -444,6 +451,7 @@ CREATE TABLE agent_logs (
 );
 
 CREATE INDEX idx_agent_logs_strategy ON agent_logs(strategy_id, created_at DESC);
+CREATE INDEX idx_agent_logs_org ON agent_logs(organization_id);
 CREATE INDEX idx_agent_logs_agent ON agent_logs(agent_name, created_at DESC);
 
 
@@ -471,6 +479,28 @@ CREATE TABLE generated_artifacts (
 
 CREATE INDEX idx_generated_artifacts_stair ON generated_artifacts(stair_id, artifact_type);
 CREATE INDEX idx_generated_artifacts_strategy ON generated_artifacts(strategy_id, artifact_type);
+
+
+-- ─── 20. ORGANIZATION INVITES ───
+-- The only supported route into an existing organization. Registration
+-- creates a new organization per signup; joining someone else's requires a
+-- token an admin of that organization minted deliberately.
+CREATE TABLE organization_invites (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE NOT NULL,
+    email VARCHAR(255),
+    role VARCHAR(50) NOT NULL DEFAULT 'member',
+    token VARCHAR(128) UNIQUE NOT NULL,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL,
+    accepted_at TIMESTAMPTZ,
+    accepted_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    revoked_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_org_invites_org ON organization_invites(organization_id, created_at DESC);
+CREATE INDEX idx_org_invites_token ON organization_invites(token) WHERE accepted_at IS NULL AND revoked_at IS NULL;
 
 
 -- ═══════════════════════════════════════════════════════════

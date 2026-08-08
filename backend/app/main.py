@@ -41,7 +41,7 @@ from contextlib import asynccontextmanager
 
 from app.db.connection import get_pool, init_db, close_pool
 from app.helpers import (
-    hash_password, DEFAULT_USER_ID, JWT_SECRET,
+    hash_password, DEFAULT_USER_ID, JWT_SECRET, require_jwt_secret,
 )
 from app import ai_client
 
@@ -514,6 +514,113 @@ async def ensure_agent_logs_table():
         await conn.execute("ALTER TABLE agent_logs ADD COLUMN IF NOT EXISTS ok BOOLEAN")
 
 
+async def ensure_organization_invites_table():
+    """Invitations are the only supported way into an existing organization.
+
+    Registration now creates a new organization per signup, so without this
+    there would be no way to add a colleague to your own tenant.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        exists = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'organization_invites')"
+        )
+        if not exists:
+            print("  → Creating organization_invites table...")
+            await conn.execute("""
+                CREATE TABLE organization_invites (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE NOT NULL,
+                    email VARCHAR(255),
+                    role VARCHAR(50) NOT NULL DEFAULT 'member',
+                    token VARCHAR(128) UNIQUE NOT NULL,
+                    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    expires_at TIMESTAMPTZ NOT NULL,
+                    accepted_at TIMESTAMPTZ,
+                    accepted_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                    revoked_at TIMESTAMPTZ
+                )
+            """)
+            await conn.execute("CREATE INDEX idx_org_invites_org ON organization_invites(organization_id, created_at DESC)")
+            await conn.execute("CREATE INDEX idx_org_invites_token ON organization_invites(token) WHERE accepted_at IS NULL AND revoked_at IS NULL")
+            print("  ✅ organization_invites table created")
+
+
+async def ensure_tenancy_columns():
+    """Give every tenant-owned table its own organization_id.
+
+    Three tables carried no tenancy column and were reachable only through a
+    join the handler had to remember to write:
+
+      stair_relationships — no column and no filter anywhere, so any
+        authenticated caller could read another organization's dependency
+        graph and write edges into it.
+      strategy_sources    — tenancy came from the parent strategy, and four
+        handlers filtered on (source_id, strategy_id) without checking who
+        owned the strategy, allowing cross-organization overwrite and delete.
+      agent_logs          — strategy_id with no foreign key, so a deleted
+        strategy leaves rows with no owner at all.
+
+    A column the query planner can filter on directly is harder to forget than
+    a join, and it survives the parent row being deleted. Backfilled from the
+    parent; rows whose parent is already gone keep NULL and are excluded by
+    every org filter, which fails closed.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        for table, backfill_sql, parent in [
+            ("stair_relationships", """
+                UPDATE stair_relationships r SET organization_id = s.organization_id
+                FROM stairs s WHERE s.id = r.source_stair_id AND r.organization_id IS NULL
+            """, "source stair"),
+            ("strategy_sources", """
+                UPDATE strategy_sources ss SET organization_id = s.organization_id
+                FROM strategies s WHERE s.id = ss.strategy_id AND ss.organization_id IS NULL
+            """, "strategy"),
+            ("agent_logs", """
+                UPDATE agent_logs al SET organization_id = s.organization_id
+                FROM strategies s WHERE s.id = al.strategy_id AND al.organization_id IS NULL
+            """, "strategy"),
+        ]:
+            has_col = await conn.fetchval("""
+                SELECT EXISTS(SELECT 1 FROM information_schema.columns
+                WHERE table_name = $1 AND column_name = 'organization_id')
+            """, table)
+            if has_col:
+                continue
+            print(f"  → Adding organization_id to {table}...")
+            await conn.execute(
+                f"ALTER TABLE {table} ADD COLUMN organization_id UUID "
+                f"REFERENCES organizations(id) ON DELETE CASCADE")
+            await conn.execute(backfill_sql)
+            await conn.execute(
+                f"CREATE INDEX IF NOT EXISTS idx_{table}_org ON {table}(organization_id)")
+            orphaned = await conn.fetchval(
+                f"SELECT COUNT(*) FROM {table} WHERE organization_id IS NULL")
+            if orphaned:
+                print(f"     ⚠️ {orphaned} row(s) in {table} have no {parent} to inherit from — "
+                      f"left NULL, so org-filtered queries exclude them")
+            print(f"  ✅ {table}.organization_id added and backfilled")
+
+        # An edge must not span two organizations. Enforced in the handler; this
+        # reports any pre-existing violation so it can't hide behind the check.
+        has_rel_org = await conn.fetchval("""
+            SELECT EXISTS(SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'stair_relationships' AND column_name = 'organization_id')
+        """)
+        if has_rel_org:
+            crossing = await conn.fetchval("""
+                SELECT COUNT(*) FROM stair_relationships r
+                JOIN stairs a ON a.id = r.source_stair_id
+                JOIN stairs b ON b.id = r.target_stair_id
+                WHERE a.organization_id IS DISTINCT FROM b.organization_id
+            """)
+            if crossing:
+                print(f"  ⚠️ {crossing} relationship(s) join stairs in different organizations — "
+                      f"pre-existing, review before trusting the graph")
+
+
 async def ensure_generated_artifacts_table():
     """Home for generated/created content that used to live only in React state
     or localStorage — Execution Room solutions, explanations, implementation
@@ -578,6 +685,15 @@ async def ensure_ai_usage_logs_table():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("🪜 Stairs v3.7.1 Starting up — Modular Router Edition...")
+    # Before anything else. Every org filter in this codebase trusts the "org"
+    # claim in a JWT; a guessable signing key makes all of them decorative.
+    require_jwt_secret()
+    print("  ✅ JWT signing key present and passes strength checks")
+    if ALLOWED_ORIGINS_ENV == "*":
+        print("  ⚠️ ALLOWED_ORIGINS is '*' — ignored, because this API sends "
+              "credentials and wildcard-with-credentials is invalid per the CORS "
+              "spec. Only localhost and *.vercel.app are accepted. Set "
+              "ALLOWED_ORIGINS to your actual domain(s), comma-separated.")
     await init_db()
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -623,6 +739,14 @@ async def lifespan(app: FastAPI):
         await ensure_generated_artifacts_table()
     except Exception as e:
         print(f"  ⚠️ Generated artifacts migration: {e}")
+    try:
+        await ensure_organization_invites_table()
+    except Exception as e:
+        print(f"  ⚠️ Organization invites migration: {e}")
+    try:
+        await ensure_tenancy_columns()
+    except Exception as e:
+        print(f"  ⚠️ Tenancy columns migration: {e}")
     # Resolve a live Claude model now, so a bad key or a retired CLAUDE_MODEL
     # shows up in this boot log instead of in front of a client.
     try:
@@ -649,11 +773,20 @@ app = FastAPI(
 
 # ─── CORS ───
 ALLOWED_ORIGINS_ENV = os.getenv("ALLOWED_ORIGINS", "")
+# The live front ends, pinned here rather than in an environment variable so a
+# deploy can't lose them. ALLOWED_ORIGINS still adds to this list; it never
+# replaces it.
+PRODUCTION_ORIGINS = [
+    "https://stairs.devoneerstechnology.ai",
+    "https://stairs-app-orcin.vercel.app",
+    "https://st-a-irs.vercel.app",
+]
 _cors_origins = [
     "http://localhost:5173",
     "http://localhost:3000",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:3000",
+    *PRODUCTION_ORIGINS,
 ]
 if ALLOWED_ORIGINS_ENV and ALLOWED_ORIGINS_ENV != "*":
     _cors_origins.extend(o.strip() for o in ALLOWED_ORIGINS_ENV.split(",") if o.strip())
@@ -670,16 +803,25 @@ app.add_middleware(
 
 
 def _is_origin_allowed(origin: str) -> bool:
-    """Check if a request origin is allowed for CORS."""
+    """Check if a request origin is allowed for CORS.
+
+    Must agree with the CORSMiddleware configuration above. That middleware is
+    never given "*" — the wildcard is dropped when building _cors_origins —
+    so this must not honour it either. It previously did, which meant a 500
+    response echoed Access-Control-Allow-Origin for *any* origin alongside
+    Allow-Credentials: true, letting an attacker's page read error bodies
+    with the victim's cookies. Wildcard-with-credentials is also invalid per
+    the CORS spec.
+    """
     if not origin:
         return False
+    if origin in PRODUCTION_ORIGINS:
+        return True
     if re_module.match(r'https://.*\.vercel\.app$', origin):
         return True
     if origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1"):
         return True
-    if ALLOWED_ORIGINS_ENV == "*":
-        return True
-    if ALLOWED_ORIGINS_ENV:
+    if ALLOWED_ORIGINS_ENV and ALLOWED_ORIGINS_ENV != "*":
         for o in ALLOWED_ORIGINS_ENV.split(","):
             if origin == o.strip():
                 return True
@@ -738,13 +880,9 @@ async def rate_limit_middleware(request: Request, call_next):
     return response
 
 
-# ─── JWT SECRET WARNING ───
-if JWT_SECRET == "stairs-dev-secret-change-in-production-2026":
-    import warnings
-    warnings.warn(
-        "JWT_SECRET is using the default value. Set a strong random secret via the JWT_SECRET environment variable.",
-        stacklevel=1,
-    )
+# JWT_SECRET is validated fatally in lifespan() — a warning here was never
+# enough, since a warning still leaves the server running and signing tokens
+# with a key published in this repository.
 
 
 # ─── REGISTER ROUTERS ───

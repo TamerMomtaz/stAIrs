@@ -23,6 +23,27 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/strategies", tags=["sources"])
 
 
+async def require_strategy(conn, strategy_id: str, org_id: str):
+    """Assert the strategy exists and belongs to the caller's organization.
+
+    strategy_sources has no organization_id of its own — its tenancy comes
+    entirely from its parent strategy. Filtering on (source_id, strategy_id)
+    alone proves only that the caller guessed a matching pair, not that the
+    pair is theirs, so four handlers here allowed cross-organization reads,
+    overwrites and deletes. Every handler that touches a source goes through
+    this first.
+    """
+    row = await conn.fetchrow(
+        "SELECT id FROM strategies WHERE id = $1 AND organization_id = $2",
+        strategy_id, org_id,
+    )
+    if not row:
+        # 404 rather than 403: a caller who isn't entitled to the strategy
+        # shouldn't learn whether the id exists.
+        raise HTTPException(404, "Strategy not found")
+    return row
+
+
 @router.get("/{strategy_id}/sources")
 async def list_sources(
     strategy_id: str,
@@ -128,6 +149,7 @@ async def update_source(
 ):
     pool = await get_pool()
     async with pool.acquire() as conn:
+        await require_strategy(conn, strategy_id, auth.org_id)
         existing = await conn.fetchrow(
             "SELECT * FROM strategy_sources WHERE id = $1 AND strategy_id = $2",
             source_id, strategy_id,
@@ -167,6 +189,7 @@ async def delete_source(
 ):
     pool = await get_pool()
     async with pool.acquire() as conn:
+        await require_strategy(conn, strategy_id, auth.org_id)
         result = await conn.execute(
             "DELETE FROM strategy_sources WHERE id = $1 AND strategy_id = $2",
             source_id, strategy_id,
@@ -266,6 +289,7 @@ async def get_document_download_url(
 ):
     pool = await get_pool()
     async with pool.acquire() as conn:
+        await require_strategy(conn, strategy_id, auth.org_id)
         row = await conn.fetchrow(
             "SELECT * FROM strategy_sources WHERE id = $1 AND strategy_id = $2",
             source_id, strategy_id,
@@ -292,6 +316,7 @@ async def delete_source_with_file(
 ):
     pool = await get_pool()
     async with pool.acquire() as conn:
+        await require_strategy(conn, strategy_id, auth.org_id)
         row = await conn.fetchrow(
             "SELECT * FROM strategy_sources WHERE id = $1 AND strategy_id = $2",
             source_id, strategy_id,

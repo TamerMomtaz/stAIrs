@@ -74,7 +74,7 @@ npm run build                          # Production build to dist/
 ```bash
 cd backend
 # Requires: POSTGRES_PASSWORD and JWT_SECRET env vars
-POSTGRES_PASSWORD=secret JWT_SECRET=changeme docker compose up
+POSTGRES_PASSWORD=secret JWT_SECRET=$(python -c "import secrets; print(secrets.token_urlsafe(48))") docker compose up
 ```
 
 ## Environment Variables
@@ -84,10 +84,10 @@ Copy `.env.example` to `.env` at the repo root. Key variables:
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `DATABASE_URL` | Yes (prod) | `postgresql://stairs@localhost:5432/stairs` | PostgreSQL connection string |
-| `JWT_SECRET` | Yes (prod) | dev fallback (warns at startup) | Auth token signing secret |
+| `JWT_SECRET` | **Yes, always** | none — startup fails without it | Auth token signing secret. Every org filter trusts the `org` claim in this token, so a guessable key is a master key. Generate: `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Verify without revealing it: `python backend/scripts/check_jwt_secret.py` |
 | `ANTHROPIC_API_KEY` | No | empty (AI features return mock data) | Claude API key |
 | `CLAUDE_MODEL` | No | `claude-sonnet-4-20250514` | Anthropic model ID |
-| `ALLOWED_ORIGINS` | No | `*` (warns at startup) | CORS origins, comma-separated |
+| `ALLOWED_ORIGINS` | No | localhost + `*.vercel.app` | CORS origins, comma-separated. `*` is **not** honoured — this API sends credentials, and wildcard-with-credentials is invalid per the CORS spec |
 | `RATE_LIMIT_WINDOW` | No | `60` | Rate limit window in seconds |
 | `RATE_LIMIT_MAX` | No | `100` | Max requests per window per IP |
 | `PORT` | No | `8000` | Backend server port |
@@ -95,7 +95,8 @@ Copy `.env.example` to `.env` at the repo root. Key variables:
 ## Architecture Notes
 
 - **Database**: PostgreSQL via asyncpg connection pool. Schema auto-initializes from `schema.sql` on first startup if tables don't exist. Railway auto-injects `DATABASE_URL`.
-- **Auth**: JWT tokens (python-jose) with bcrypt password hashing. `get_auth` requires a `Bearer` token and raises 401 without one — there is no unauthenticated fallback. The `DEFAULT_ORG_ID`/`DEFAULT_USER_ID` constants are used only by registration and the seed data, never as a request-time default.
+- **Auth**: JWT tokens (python-jose) with bcrypt password hashing. `get_auth` requires a `Bearer` token and raises 401 without one — there is no unauthenticated fallback. `DEFAULT_ORG_ID`/`DEFAULT_USER_ID` belong to the seed data only, never to a request path.
+- **Tenancy**: every tenant-owned table carries its own `organization_id` and every query filters on it. Registration creates a **new organization per signup** with the registrant as its admin; joining an existing organization requires an invitation token minted by an admin of that organization (`POST /api/v1/auth/invites`). Cross-organization access returns 404, not 403, so an unauthorised caller learns nothing about whether an id exists.
 - **AI**: Anthropic Claude API via httpx. Knowledge engine caches strategy frameworks, failure patterns, measurement tools into system prompts. Falls back gracefully when `ANTHROPIC_API_KEY` is unset.
 - **WebSocket**: Connection manager with per-org broadcast at `/ws/{org_id}/{user_id}`.
 - **Frontend state**: All state lives in `StairsApp.jsx`. No external state management library. API classes in `api.js` wrap fetch calls. `ConvStore` and `NotesStore` persist to localStorage.

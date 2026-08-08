@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { api } from "../api";
+import { useState, useEffect } from "react";
+import { api, InvitesAPI } from "../api";
 import { GOLD, GOLD_L, CHAMPAGNE, DEEP, inputCls } from "../constants";
 
 export const LoginScreen = ({ onLogin }) => {
@@ -8,11 +8,47 @@ export const LoginScreen = ({ onLogin }) => {
   const [pass, setPass] = useState("");
   const [name, setName] = useState("");
   const [confirmPass, setConfirmPass] = useState("");
+  const [orgName, setOrgName] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
+  // ── Invitation state ──
+  // An invite decides which organisation the account joins, so it is resolved
+  // before the form is usable rather than discovered on submit.
+  const [inviteToken, setInviteToken] = useState("");
+  const [invite, setInvite] = useState(null);      // { valid, reason, organization_name, role, email }
+  const [checkingInvite, setCheckingInvite] = useState(false);
+  const [showInviteField, setShowInviteField] = useState(false);
 
   const validateEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+
+  const checkInvite = async (token) => {
+    const t = (token || "").trim();
+    if (!t) { setInvite(null); return; }
+    setCheckingInvite(true);
+    const res = await InvitesAPI.preview(t);
+    setInvite(res);
+    setCheckingInvite(false);
+    // An invitation addressed to someone specific fills their address in, so
+    // they can't fail the email check by typing a different one.
+    if (res?.valid && res.email) setEmail(prev => prev || res.email);
+    return res;
+  };
+
+  // ?invite=<token> — the link an admin sends. Land straight on the join form.
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get("invite");
+    if (!token) return;
+    setInviteToken(token);
+    setMode("signup");
+    setShowInviteField(true);
+    checkInvite(token);
+  }, []);
+
+  // Joining is only offered when the invitation actually checks out. A broken
+  // token must never quietly fall through to creating a new organisation —
+  // that is how an invited colleague lands alone in an empty workspace.
+  const joining = !!(inviteToken.trim() && invite?.valid);
 
   const handleLogin = async (e) => {
     e.preventDefault(); setBusy(true); setErr("");
@@ -26,11 +62,25 @@ export const LoginScreen = ({ onLogin }) => {
     if (!validateEmail(email)) { setErr("Please enter a valid email address"); setBusy(false); return; }
     if (pass.length < 8) { setErr("Password must be at least 8 characters"); setBusy(false); return; }
     if (pass !== confirmPass) { setErr("Passwords do not match"); setBusy(false); return; }
-    try { await api.signup(name.trim(), email, pass, confirmPass); onLogin(api.user); } catch (ex) { setErr(ex.message || "Signup failed"); }
+    // A token that was typed but hasn't checked out stops the submit outright.
+    // Falling back to "create a new organisation" would silently put them
+    // somewhere other than where they were invited.
+    if (inviteToken.trim() && !invite?.valid) {
+      setErr(invite?.reason || "That invitation code couldn't be verified. Check it and try again.");
+      setBusy(false); return;
+    }
+    if (!joining && !orgName.trim()) { setErr("Organisation name is required"); setBusy(false); return; }
+    try {
+      await api.signup(name.trim(), email, pass, confirmPass,
+        joining ? { inviteToken: inviteToken.trim() } : { orgName: orgName.trim() });
+      onLogin(api.user);
+    } catch (ex) { setErr(ex.message || "Signup failed"); }
     setBusy(false);
   };
 
   const switchMode = (m) => { setMode(m); setErr(""); };
+
+  const inviteStyle = { padding: "14px 18px", fontSize: "15px", height: "48px" };
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", background: `linear-gradient(135deg, ${DEEP} 0%, #162544 40%, #1a3055 70%, #0f1f3a 100%)` }}>
@@ -60,15 +110,61 @@ export const LoginScreen = ({ onLogin }) => {
             </div>
           </form>
         ) : (
-          <form onSubmit={handleSignup}>
+          <form onSubmit={handleSignup} noValidate>
+            {/* Invitation banner — what this account is about to join, decided
+                before anything is typed rather than discovered on submit. */}
+            {checkingInvite && (
+              <div style={{ marginBottom: "16px", padding: "12px 14px", borderRadius: "10px", background: "rgba(148,163,184,0.08)", border: "1px solid rgba(148,163,184,0.2)", color: "#9ca3af", fontSize: "13px" }} data-testid="invite-checking">
+                Checking your invitation…
+              </div>
+            )}
+            {!checkingInvite && invite?.valid && (
+              <div style={{ marginBottom: "16px", padding: "12px 14px", borderRadius: "10px", background: "rgba(16,185,129,0.10)", border: "1px solid rgba(16,185,129,0.30)", color: "#6ee7b7", fontSize: "13px" }} data-testid="invite-valid">
+                <strong style={{ color: "#a7f3d0" }}>You've been invited to join {invite.organization_name}</strong>
+                <div style={{ marginTop: "4px", color: "#9ca3af" }}>
+                  You'll join as a {invite.role}. Your account will use this organisation's existing workspace.
+                </div>
+              </div>
+            )}
+            {!checkingInvite && inviteToken.trim() && invite && !invite.valid && (
+              <div style={{ marginBottom: "16px", padding: "12px 14px", borderRadius: "10px", background: "rgba(248,113,113,0.10)", border: "1px solid rgba(248,113,113,0.35)", color: "#fca5a5", fontSize: "13px" }} data-testid="invite-invalid">
+                <strong>This invitation can't be used</strong>
+                <div style={{ marginTop: "4px" }}>{invite.reason}</div>
+                <div style={{ marginTop: "8px", color: "#9ca3af" }}>
+                  Clear the code below to create a new organisation instead — but if you were invited to an existing
+                  team, ask for a fresh link rather than signing up separately.
+                </div>
+              </div>
+            )}
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Full Name" required className={inputCls} style={{ padding: "14px 18px", fontSize: "15px", height: "48px" }} />
+              {!joining && (
+                <input type="text" value={orgName} onChange={e => setOrgName(e.target.value)} placeholder="Organisation Name" required className={inputCls} style={inviteStyle} data-testid="org-name-input" />
+              )}
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" required className={inputCls} style={{ padding: "14px 18px", fontSize: "15px", height: "48px" }} />
               <input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Password (min 8 characters)" required className={inputCls} style={{ padding: "14px 18px", fontSize: "15px", height: "48px" }} />
               <input type="password" value={confirmPass} onChange={e => setConfirmPass(e.target.value)} placeholder="Confirm Password" required className={inputCls} style={{ padding: "14px 18px", fontSize: "15px", height: "48px" }} />
+              {showInviteField ? (
+                <input
+                  type="text"
+                  value={inviteToken}
+                  onChange={e => { setInviteToken(e.target.value); setInvite(null); }}
+                  onBlur={e => checkInvite(e.target.value)}
+                  placeholder="Invitation code"
+                  className={inputCls}
+                  style={inviteStyle}
+                  data-testid="invite-input"
+                />
+              ) : (
+                <button type="button" onClick={() => setShowInviteField(true)} style={{ background: "none", border: "none", color: "#6b7280", fontSize: "13px", cursor: "pointer", textDecoration: "underline", padding: 0, textAlign: "left" }} data-testid="have-invite-btn">
+                  Have an invitation code?
+                </button>
+              )}
             </div>
-            {err && <div style={{ marginTop: "12px", color: "#f87171", fontSize: "14px", textAlign: "center" }}>{err}</div>}
-            <button type="submit" disabled={busy} style={{ width: "100%", marginTop: "24px", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "16px", color: "#0a1628", border: "none", cursor: "pointer", background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, opacity: busy ? 0.5 : 1, transition: "transform 0.2s" }}>{busy ? "..." : "Create Account"}</button>
+            {err && <div style={{ marginTop: "12px", color: "#f87171", fontSize: "14px", textAlign: "center" }} data-testid="signup-error">{err}</div>}
+            <button type="submit" data-testid="signup-submit" disabled={busy || checkingInvite} style={{ width: "100%", marginTop: "24px", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "16px", color: "#0a1628", border: "none", cursor: "pointer", background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, opacity: (busy || checkingInvite) ? 0.5 : 1, transition: "transform 0.2s" }}>
+              {busy ? "..." : joining ? `Join ${invite.organization_name}` : "Create Account"}
+            </button>
           </form>
         )}
 
