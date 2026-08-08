@@ -41,7 +41,7 @@ from contextlib import asynccontextmanager
 
 from app.db.connection import get_pool, init_db, close_pool
 from app.helpers import (
-    hash_password, DEFAULT_USER_ID, JWT_SECRET, require_jwt_secret,
+    JWT_SECRET, require_jwt_secret,
 )
 from app import ai_client
 
@@ -695,13 +695,13 @@ async def lifespan(app: FastAPI):
               "spec. Only localhost and *.vercel.app are accepted. Set "
               "ALLOWED_ORIGINS to your actual domain(s), comma-separated.")
     await init_db()
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        user = await conn.fetchrow("SELECT id, password_hash FROM users WHERE id = $1", DEFAULT_USER_ID)
-        if user and user["password_hash"] and not user["password_hash"].startswith("$2"):
-            hashed = hash_password("stairs2026")
-            await conn.execute("UPDATE users SET password_hash = $1 WHERE id = $2", hashed, DEFAULT_USER_ID)
-            print("  → Migrated seed user password to bcrypt")
+    # Startup used to reset the seed account's password to a string published in
+    # this repository whenever its hash wasn't bcrypt. The guard was narrow, but
+    # code that can set a live account to a publicly-known password is a
+    # backdoor regardless of how rarely it fires — and that account holds an
+    # admin role. Removed: an account with a legacy hash simply cannot log in,
+    # which is the correct outcome, and the fix is a deliberate password change
+    # rather than an automatic one nobody sees.
     try:
         await load_knowledge_cache()
     except Exception as e:

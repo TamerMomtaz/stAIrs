@@ -508,3 +508,29 @@ class TestInvitePreview:
         with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
             r = TestClient(app).get("/api/v1/auth/invites/preview/tok")
         assert "token" not in r.json()
+
+
+# ─── 7. NO SEED-PASSWORD BACKDOOR ───
+
+class TestNoSeedPasswordReset:
+    """Startup used to reset the seed account to a password published in this
+    repository. The guard was narrow — only when the stored hash wasn't bcrypt —
+    but that account holds an admin role, and code that can set a live account
+    to a publicly-known string is a backdoor however rarely it runs."""
+
+    def test_the_published_password_appears_nowhere_in_the_app(self):
+        import pathlib
+        app_dir = pathlib.Path(__file__).resolve().parent.parent / "app"
+        offenders = [
+            str(f.relative_to(app_dir.parent))
+            for f in app_dir.rglob("*.py")
+            if "stairs2026" in f.read_text()
+        ]
+        assert offenders == [], f"seed password is referenced in {offenders}"
+
+    def test_startup_never_writes_a_password_hash(self):
+        import pathlib, re
+        src = (pathlib.Path(__file__).resolve().parent.parent / "app" / "main.py").read_text()
+        code = re.sub(r'(?s)""".*?"""', "", src)
+        code = re.sub(r'#.*', "", code)
+        assert "password_hash" not in code, "startup must not write account passwords"
