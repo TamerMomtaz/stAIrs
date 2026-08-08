@@ -279,14 +279,27 @@ async def save_action_plan(stair_id: str, plan: ActionPlanCreate, auth: AuthCont
     async with pool.acquire() as conn:
         stair = await conn.fetchrow("SELECT id FROM stairs WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL", stair_id, auth.org_id)
         if not stair: raise HTTPException(404, "Stair not found")
+        # Upsert on (stair_id, plan_type), matching generated_artifacts. A plain
+        # INSERT accumulated a row per regeneration; reads take the newest, so
+        # the extra rows were invisible in the Execution Room but showed up as
+        # the same plan repeated in Action Plans and the Manifest Room.
+        # Plan comparison, if we want it, gets a deliberate versions table —
+        # not accidental duplicates.
         plan_id = str(uuid.uuid4())
-        await conn.execute("""INSERT INTO action_plans (id, stair_id, organization_id, plan_type, raw_text, tasks, feedback, created_by)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8)""",
-            plan_id, stair_id, auth.org_id, plan.plan_type, plan.raw_text,
+        row = await conn.fetchrow("""
+            INSERT INTO action_plans (id, stair_id, organization_id, plan_type, raw_text, tasks, feedback, created_by)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+            ON CONFLICT (stair_id, plan_type) DO UPDATE SET
+                raw_text = EXCLUDED.raw_text,
+                tasks = EXCLUDED.tasks,
+                feedback = EXCLUDED.feedback,
+                created_by = EXCLUDED.created_by,
+                created_at = NOW()
+            RETURNING *
+        """, plan_id, stair_id, auth.org_id, plan.plan_type, plan.raw_text,
             json.dumps(plan.tasks) if plan.tasks else "[]",
             json.dumps(plan.feedback) if plan.feedback else None,
             auth.user_id)
-        row = await conn.fetchrow("SELECT * FROM action_plans WHERE id = $1", plan_id)
         return row_to_dict(row)
 
 

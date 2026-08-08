@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { api, ActionPlansAPI, SourcesAPI, ManifestStore } from "../api";
+import { api, ActionPlansAPI, SourcesAPI, ManifestStore, ArtifactsAPI, ARTIFACT, stairScope, taskScope } from "../api";
 import { GOLD, GOLD_L, TEAL, DEEP, BORDER, glass, typeColors, typeIcons } from "../constants";
 import { HealthBadge, ConfidenceBadge, ValidationWarnings, AgentActivityIndicator } from "./SharedUI";
 import { Markdown } from "./Markdown";
@@ -10,7 +10,7 @@ import { normalizeAiResult } from "../lib/aiResilience";
 import AiUnavailable from "./AiUnavailable";
 
 // ═══ EXECUTION ROOM ═══
-export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote, onMatrixClick }) => {
+export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote, onMatrixClick, onOpenManifest }) => {
   const [actionPlan, setActionPlan] = useState(null);
   const [solutions, setSolutions] = useState(null);
   const [planLoading, setPlanLoading] = useState(false);
@@ -61,9 +61,65 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [wizardStep, setWizardStep] = useState(1);
   const [isNarrow, setIsNarrow] = useState(typeof window !== "undefined" && window.innerWidth < 900);
+  // ── Persistence state ──
+  // `loaded` gates every generate path: nothing may call the AI until the
+  // server read has finished and we know whether the answer already exists.
+  const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  // scope_key → ISO timestamp, so persisted content can say when it was made
+  // instead of just appearing.
+  const [generatedAt, setGeneratedAt] = useState({});
+  // Content that reached the screen but not the server. Never silent.
+  const [unsaved, setUnsaved] = useState([]);
+  // Operation keys currently in flight. A double-click, a remount, or React
+  // StrictMode's double-invoked effect all collapse to one request.
+  const inFlight = useRef(new Set());
+  // Flipped on unmount so a late response can't write into a dead tree or,
+  // worse, into the next stair's Execution Room.
+  const alive = useRef(true);
+
   const isAr = lang === "ar";
   const color = typeColors[stair.element_type] || "#94a3b8";
   const manifestStoreRef = useRef(strategyContext?.id ? new ManifestStore(strategyContext.id) : null);
+
+  const beginOp = (key) => {
+    if (inFlight.current.has(key)) return false;
+    inFlight.current.add(key);
+    return true;
+  };
+  const endOp = (key) => inFlight.current.delete(key);
+
+  const stampKey = (type, scope) => `${type}:${scope}`;
+
+  // Server first, localStorage second. A failed write is reported, not swallowed.
+  const persist = async ({ type, scope, content, payload, label }) => {
+    try {
+      const saved = await ArtifactsAPI.save({
+        artifactType: type,
+        scopeKey: scope,
+        strategyId: strategyContext?.id || null,
+        stairId: stair.id,
+        content: content ?? null,
+        payload: payload || {},
+      });
+      if (!alive.current) return saved;
+      setGeneratedAt(prev => ({ ...prev, [stampKey(type, scope)]: saved.generated_at || new Date().toISOString() }));
+      setUnsaved(prev => prev.filter(u => u.key !== stampKey(type, scope)));
+      return saved;
+    } catch (e) {
+      console.warn(`[stairs] failed to save ${type}:`, e.message);
+      if (alive.current) {
+        setUnsaved(prev => prev.some(u => u.key === stampKey(type, scope))
+          ? prev
+          : [...prev, { key: stampKey(type, scope), label: label || type }]);
+      }
+      return null;
+    }
+  };
+
+  // The manifest store is now a mirror of what the server already holds, kept
+  // so the Manifest Room stays readable offline. The server is the source of
+  // truth — this never decides what gets shown.
   const saveManifest = (taskId, updates) => {
     if (manifestStoreRef.current && stair?.id && taskId) {
       manifestStoreRef.current.set(stair.id, taskId, { ...updates, task_id: taskId });
@@ -110,62 +166,119 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
     return () => window.removeEventListener("storage", handleStorage);
   }, [strategyContext?.id, stair.id]);
 
+  // Read every persisted artefact for this stair before anything can be
+  // generated. This effect NEVER calls the AI: if a plan, a set of solutions,
+  // an explanation or an implementation guide already exists it is loaded; if
+  // it doesn't, the UI offers a Generate button and waits for the client.
   useEffect(() => {
-    const loadOrGenerate = async () => {
+    alive.current = true;
+    let cancelled = false;
+    const load = async () => {
+      setLoaded(false);
+      setLoadFailed(false);
       try {
-        const plans = await ActionPlansAPI.getForStair(stair.id);
-        if (plans && plans.length > 0) {
+        const [plans, artifacts] = await Promise.all([
+          ActionPlansAPI.getForStair(stair.id).catch(() => { throw new Error("plans"); }),
+          ArtifactsAPI.forStair(stair.id).catch(() => []),
+        ]);
+        if (cancelled) return;
+
+        // ── Action plans ──
+        const mapTasks = (list, planId, prefix) => (list || []).map((t, i) => ({
+          id: t.id || `${prefix}_${i}_${planId}`,
+          name: t.name || `Task ${i + 1}`,
+          owner: t.owner || "TBD",
+          timeline: t.timeline || "TBD",
+          priority: t.priority || "Medium",
+          details: t.details || "",
+          done: !!t.done,
+        }));
+        const recommended = (plans || []).find(p => p.plan_type === "recommended");
+        const customized = (plans || []).find(p => p.plan_type === "customized");
+        if (recommended) {
           setHasSavedPlan(true);
-          const recommended = plans.find(p => p.plan_type === "recommended");
-          const customized = plans.find(p => p.plan_type === "customized");
-          if (recommended) {
-            setActionPlan(recommended.raw_text);
-            const loadedTasks = (recommended.tasks || []).map((t, i) => ({
-              id: t.id || `task_${i}_${recommended.id}`,
-              name: t.name || `Task ${i + 1}`,
-              owner: t.owner || "TBD",
-              timeline: t.timeline || "TBD",
-              priority: t.priority || "Medium",
-              details: t.details || "",
-              done: !!t.done,
-            }));
-            setTasks(loadedTasks);
-            setSavedPlanId(recommended.id);
-          } else {
-            generateActionPlan();
-          }
-          if (customized) {
-            setCustomPlan(customized.raw_text);
-            const loadedCustomTasks = (customized.tasks || []).map((t, i) => ({
-              id: t.id || `ctask_${i}_${customized.id}`,
-              name: t.name || `Task ${i + 1}`,
-              owner: t.owner || "TBD",
-              timeline: t.timeline || "TBD",
-              priority: t.priority || "Medium",
-              details: t.details || "",
-              done: !!t.done,
-            }));
-            setCustomTasks(loadedCustomTasks);
-            setSavedCustomPlanId(customized.id);
-          }
-        } else {
-          generateActionPlan();
+          setActionPlan(recommended.raw_text);
+          setTasks(mapTasks(recommended.tasks, recommended.id, "task"));
+          setSavedPlanId(recommended.id);
+          setGeneratedAt(prev => ({ ...prev, [stampKey("action_plan", stair.id)]: recommended.created_at }));
         }
+        if (customized) {
+          setHasSavedPlan(true);
+          setCustomPlan(customized.raw_text);
+          setCustomTasks(mapTasks(customized.tasks, customized.id, "ctask"));
+          setSavedCustomPlanId(customized.id);
+          setGeneratedAt(prev => ({ ...prev, [stampKey("custom_plan", stair.id)]: customized.created_at }));
+        }
+
+        // ── Generated artifacts ──
+        const idx = ArtifactsAPI.index(artifacts);
+        const stamps = {};
+        for (const a of artifacts || []) stamps[stampKey(a.artifact_type, a.scope_key)] = a.generated_at;
+        setGeneratedAt(prev => ({ ...prev, ...stamps }));
+
+        const sol = idx[ARTIFACT.SOLUTIONS]?.[stairScope(stair.id)];
+        if (sol) setSolutions(sol.content);
+
+        const explains = idx[ARTIFACT.EXPLAIN] || {};
+        const explainChatsLoaded = {};
+        for (const [scope, a] of Object.entries(explains)) {
+          const taskId = scope.slice(scope.indexOf(":") + 1);
+          explainChatsLoaded[taskId] = [
+            { role: "ai", text: a.content, sources_used: a.payload?.sources_used || [], ts: a.generated_at },
+            ...(a.payload?.follow_ups || []),
+          ];
+        }
+        if (Object.keys(explainChatsLoaded).length) setExplainChats(explainChatsLoaded);
+
+        const assessments = idx[ARTIFACT.ASSESS_CHAT] || {};
+        const assessLoaded = {};
+        for (const [scope, a] of Object.entries(assessments)) {
+          const taskId = scope.slice(scope.indexOf(":") + 1);
+          if (a.payload?.messages?.length) assessLoaded[taskId] = a.payload.messages;
+        }
+        if (Object.keys(assessLoaded).length) setActionChats(assessLoaded);
+
+        const guides = idx[ARTIFACT.IMPL_GUIDE] || {};
+        const implLoaded = {};
+        for (const [scope, a] of Object.entries(guides)) {
+          const taskId = scope.slice(scope.indexOf(":") + 1);
+          implLoaded[taskId] = {
+            content: a.content,
+            task_name: a.payload?.task_name,
+            steps: a.payload?.steps || [],
+            sources_used: a.payload?.sources_used || [],
+            messages: a.payload?.messages || [],
+            ts: a.generated_at,
+          };
+        }
+        if (Object.keys(implLoaded).length) setImplRoomData(implLoaded);
+
+        const roomChat = idx[ARTIFACT.ROOM_CHAT]?.[stairScope(stair.id)];
+        setMessages(roomChat?.payload?.messages?.length
+          ? roomChat.payload.messages
+          : [{ role: "ai", text: `Welcome to the Execution Room for **${stair.title}**.\n\nI have full context of your strategy and this specific step. Ask me anything about execution, risks, resources, timelines, or alternative approaches.`, ts: new Date().toISOString() }]);
       } catch {
-        generateActionPlan();
+        if (cancelled) return;
+        // A failed read must not look like "nothing here yet" — that is exactly
+        // how a network blip used to turn into a regenerated plan and a
+        // duplicate row. Say so and let the client retry.
+        setLoadFailed(true);
       }
+      if (!cancelled) setLoaded(true);
     };
-    loadOrGenerate();
-    generateSolutions();
-    setMessages([{ role: "ai", text: `Welcome to the Execution Room for **${stair.title}**.\n\nI have full context of your strategy and this specific step. Ask me anything about execution, risks, resources, timelines, or alternative approaches.`, ts: new Date().toISOString() }]);
+    load();
+    return () => { cancelled = true; alive.current = false; };
   }, [stair.id]);
 
   const generateActionPlan = async () => {
+    // Explicit user action only. Guarded so a double-click, or a click that
+    // lands before `planLoading` has re-rendered the disabled button, is one call.
+    if (!loaded || !beginOp("plan")) return;
     setPlanLoading(true);
     setAgentStep(0); agentStepRef.current = setInterval(() => setAgentStep(s => s + 1), 2500);
     try {
       const prompt = `[${stratCtx}]\n\n${sourceRef}\n\nGenerate a detailed, actionable execution plan for: ${stairCtx}\n\nFormat your response EXACTLY as follows:\n\n## Action Plan\n\nFor each task, use this format:\n- **Task:** [task name]\n- **Owner:** [suggested role/team]\n- **Timeline:** [estimated duration]\n- **Priority:** [High/Medium/Low]\n- **Details:** [brief description of what needs to be done]\n\n---\n\n(Repeat for each task. Generate 5-8 concrete tasks. Make them specific, measurable, and directly related to executing this strategic element.)`;
-      const res = await api.aiPost("/api/v1/ai/chat", { message: prompt, strategy_id: strategyContext?.id || null }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+      const res = await api.aiPost("/api/v1/ai/chat", { message: prompt, strategy_id: strategyContext?.id || null }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`), "execroom:generate-action-plan");
       setRetryMsg(null);
       const r = normalizeAiResult(res, { lang });
       if (!r.ok) { setPlanFailure(r.kind); setActionPlan(null); }
@@ -182,23 +295,40 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
         const saved = await ActionPlansAPI.save(stair.id, "recommended", r.text, taskData);
         setSavedPlanId(saved.id);
         setHasSavedPlan(true);
-      } catch (saveErr) { console.warn("Auto-save action plan failed:", saveErr); }
+        setGeneratedAt(prev => ({ ...prev, [stampKey("action_plan", stair.id)]: saved.created_at || new Date().toISOString() }));
+        setUnsaved(prev => prev.filter(u => u.key !== stampKey("action_plan", stair.id)));
+      } catch (saveErr) {
+        console.warn("Auto-save action plan failed:", saveErr);
+        setUnsaved(prev => prev.some(u => u.key === stampKey("action_plan", stair.id)) ? prev
+          : [...prev, { key: stampKey("action_plan", stair.id), label: isAr ? "خطة العمل" : "Action plan" }]);
+      }
       }
     } catch (e) { setRetryMsg(null); setPlanFailure(normalizeAiResult(e, { lang }).kind); setActionPlan(null); }
-    clearInterval(agentStepRef.current); setPlanLoading(false);
+    clearInterval(agentStepRef.current); setPlanLoading(false); endOp("plan");
   };
 
   const generateSolutions = async () => {
+    // Was fired unconditionally on every mount of this component, with no
+    // persistence and no check — the single largest source of repeat calls.
+    // Now: explicit action only, result is stored and read back.
+    if (!loaded || !beginOp("solutions")) return;
     setSolLoading(true);
     try {
       const prompt = `[${stratCtx}]\n\n${sourceRef}\n\nProvide practical, specific solutions and recommendations for executing: ${stairCtx}\n\nInclude:\n## Solutions & Recommendations\n\n1. **Quick Wins** — Actions that can be taken immediately with minimal resources\n2. **Strategic Moves** — Medium-term initiatives that drive significant progress\n3. **Risk Mitigation** — Specific ways to address potential obstacles\n4. **Resource Optimization** — How to maximize impact with available resources\n5. **Success Metrics** — How to measure successful execution\n\nBe specific and practical. Provide concrete examples where possible.`;
-      const res = await api.aiPost("/api/v1/ai/chat", { message: prompt, strategy_id: strategyContext?.id || null }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+      const res = await api.aiPost("/api/v1/ai/chat", { message: prompt, strategy_id: strategyContext?.id || null }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`), "execroom:generate-solutions");
       setRetryMsg(null);
       const r = normalizeAiResult(res, { lang });
       if (!r.ok) { setSolutionsFailure(r.kind); setSolutions(null); }
-      else { setSolutionsFailure(null); setSolutions(r.text); }
+      else {
+        setSolutionsFailure(null);
+        setSolutions(r.text);
+        await persist({
+          type: ARTIFACT.SOLUTIONS, scope: stairScope(stair.id), content: r.text,
+          label: isAr ? "التوصيات" : "Recommendations",
+        });
+      }
     } catch (e) { setRetryMsg(null); setSolutionsFailure(normalizeAiResult(e, { lang }).kind); setSolutions(null); }
-    setSolLoading(false);
+    setSolLoading(false); endOp("solutions");
   };
 
   const parseTasks = (text) => {
@@ -244,11 +374,23 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
     setChatLoading(true);
     try {
       const contextMsg = `[${stratCtx} Currently in Execution Room for: ${stairCtx}]\n\nThe user has an action plan and solutions generated. They are asking follow-up questions about execution.\n\n${sourceRef}\n\n${msg}`;
-      const res = await api.aiPost("/api/v1/ai/chat", { message: contextMsg, strategy_id: strategyContext?.id || null }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+      const res = await api.aiPost("/api/v1/ai/chat", { message: contextMsg, strategy_id: strategyContext?.id || null }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`), "execroom:room-chat");
       setRetryMsg(null);
       const r = normalizeAiResult(res, { lang });
       if (!r.ok) setMessages(prev => [...prev, { role: "ai", failure: r.kind, retry: () => sendChat(msg), ts: new Date().toISOString() }]);
-      else setMessages(prev => [...prev, { role: "ai", text: r.text, tokens: res.tokens_used, ts: new Date().toISOString() }]);
+      else {
+        const aiMsg = { role: "ai", text: r.text, tokens: res.tokens_used, ts: new Date().toISOString() };
+        setMessages(prev => {
+          const next = [...prev, aiMsg];
+          // Persist the transcript, minus retry closures which can't serialise.
+          persist({
+            type: ARTIFACT.ROOM_CHAT, scope: stairScope(stair.id),
+            payload: { messages: next.filter(m => !m.failure).map(({ retry, ...m }) => m) },
+            label: isAr ? "محادثة غرفة التنفيذ" : "Execution Room chat",
+          });
+          return next;
+        });
+      }
     } catch (e) {
       setRetryMsg(null);
       setMessages(prev => [...prev, { role: "ai", failure: normalizeAiResult(e, { lang }).kind, retry: () => sendChat(msg), ts: new Date().toISOString() }]);
@@ -279,6 +421,10 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   };
 
   // ── Explain Chat Functions ──
+  // Opening a panel is navigation, not a request to generate. Previously this
+  // fired an AI call the moment an action card was clicked, so simply browsing
+  // the wizard billed a call per action. The panel now opens empty and offers a
+  // Generate button; the client decides.
   const toggleExplainChat = (task) => {
     if (explainTaskId === task.id) {
       setExplainTaskId(null);
@@ -287,12 +433,14 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
     }
     setExplainTaskId(task.id);
     setExplainChatInput("");
-    if (!explainChats[task.id]) runExplain(task);
   };
 
   // The fetch on its own, so "Try again" doesn't have to fight the toggle.
+  // Guarded on `loaded` (a persisted explanation may be on its way) and on the
+  // in-flight set (opening the same step twice must not stack two calls).
   const runExplain = (task) => {
-    if (!task) return;
+    if (!task || !loaded) return;
+    if (!beginOp(`explain:${task.id}`)) return;
     {
       setExplainChatLoading(true);
       const explainPrompt = `[${stratCtx} Execution Room for: ${stairCtx}]
@@ -321,8 +469,8 @@ Keep the explanation concise but thorough. The user should feel confident they u
         message: explainPrompt,
         strategy_id: strategyContext?.id || null,
         context_stair_id: stair.id,
-      }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`))
-        .then(res => {
+      }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`), "execroom:explain-action")
+        .then(async res => {
           setRetryMsg(null);
           const r = normalizeAiResult(res, { lang });
           if (!r.ok) {
@@ -339,6 +487,11 @@ Keep the explanation concise but thorough. The user should feel confident they u
               ts: new Date().toISOString(),
             }],
           }));
+          await persist({
+            type: ARTIFACT.EXPLAIN, scope: taskScope(stair.id, task.id), content: r.text,
+            payload: { task_name: task.name, sources_used: res.sources_used || [], follow_ups: [] },
+            label: isAr ? `شرح: ${task.name}` : `Explanation: ${task.name}`,
+          });
           saveManifest(task.id, { task_name: task.name, explanation: r.text, sources_used: res.sources_used || [] });
         })
         .catch(e => {
@@ -348,7 +501,7 @@ Keep the explanation concise but thorough. The user should feel confident they u
             [task.id]: [{ role: "ai", failure: normalizeAiResult(e, { lang }).kind, ts: new Date().toISOString() }],
           }));
         })
-        .finally(() => setExplainChatLoading(false));
+        .finally(() => { setExplainChatLoading(false); endOp(`explain:${task.id}`); });
     }
   };
 
@@ -381,13 +534,26 @@ User: ${msg}`;
         message: contextMsg,
         strategy_id: strategyContext?.id || null,
         context_stair_id: stair.id,
-      }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+      }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`), "execroom:explain-followup");
       setRetryMsg(null);
       const r = normalizeAiResult(res, { lang });
       const aiMsg = r.ok
         ? { role: "ai", text: r.text, tokens: res.tokens_used, sources_used: res.sources_used, ts: new Date().toISOString() }
         : { role: "ai", failure: r.kind, ts: new Date().toISOString() };
-      setExplainChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), aiMsg] }));
+      setExplainChats(prev => {
+        const next = { ...prev, [taskId]: [...(prev[taskId] || []), aiMsg] };
+        if (r.ok) {
+          // The head of the thread is the stored explanation; the rest are
+          // follow-ups riding along in the same artifact.
+          const [head, ...followUps] = next[taskId];
+          persist({
+            type: ARTIFACT.EXPLAIN, scope: taskScope(stair.id, taskId), content: head?.text ?? null,
+            payload: { task_name: task.name, sources_used: head?.sources_used || [], follow_ups: followUps.filter(m => !m.failure) },
+            label: isAr ? `شرح: ${task.name}` : `Explanation: ${task.name}`,
+          });
+        }
+        return next;
+      });
     } catch (e) {
       setRetryMsg(null);
       setExplainChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), { role: "ai", failure: normalizeAiResult(e, { lang }).kind, ts: new Date().toISOString() }] }));
@@ -396,6 +562,9 @@ User: ${msg}`;
   };
 
   // ── Implementation Room Functions ──
+  // Same as the Understand step: reaching step 4 opens the room, it does not
+  // commission a guide. Persisted guides show immediately; otherwise the client
+  // presses Generate.
   const openImplRoom = async (task, isCustomTask = false) => {
     if (implRoomTaskId === task.id) {
       setImplRoomTaskId(null);
@@ -404,11 +573,11 @@ User: ${msg}`;
     }
     setImplRoomTaskId(task.id);
     setImplRoomChatInput("");
-    if (!implRoomData[task.id]) await runImplRoom(task);
   };
 
   const runImplRoom = async (task) => {
-    if (!task) return;
+    if (!task || !loaded) return;
+    if (!beginOp(`impl:${task.id}`)) return;
     {
       setImplRoomLoading(true);
       try {
@@ -461,12 +630,13 @@ IMPORTANT: Ground ALL guidance in the user's actual data from Source of Truth. R
           message: implPrompt,
           strategy_id: strategyContext?.id || null,
           context_stair_id: stair.id,
-        }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+        }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`), "execroom:implementation-guide");
         setRetryMsg(null);
         const r = normalizeAiResult(res, { lang });
         if (!r.ok) {
           setImplRoomData(prev => ({ ...prev, [task.id]: { content: null, failure: r.kind, steps: [], messages: [], ts: new Date().toISOString() } }));
           setImplRoomLoading(false);
+          endOp(`impl:${task.id}`);
           return;
         }
         // Parse steps from the response to create checkboxes
@@ -487,6 +657,11 @@ IMPORTANT: Ground ALL guidance in the user's actual data from Source of Truth. R
             ts: new Date().toISOString(),
           },
         }));
+        await persist({
+          type: ARTIFACT.IMPL_GUIDE, scope: taskScope(stair.id, task.id), content: r.text,
+          payload: { task_name: task.name, steps, sources_used: res.sources_used || [], messages: [] },
+          label: isAr ? `دليل التنفيذ: ${task.name}` : `Implementation guide: ${task.name}`,
+        });
         // Save implementation guide and steps to manifest
         saveManifest(task.id, { task_name: task.name, impl_guide: r.text, impl_steps: steps, impl_sources_used: res.sources_used || [] });
         fireGuidance("manifest_saved");
@@ -504,6 +679,7 @@ IMPORTANT: Ground ALL guidance in the user's actual data from Source of Truth. R
         }));
       }
       setImplRoomLoading(false);
+      endOp(`impl:${task.id}`);
     }
   };
 
@@ -512,6 +688,13 @@ IMPORTANT: Ground ALL guidance in the user's actual data from Source of Truth. R
       const data = prev[taskId];
       if (!data) return prev;
       const updatedSteps = data.steps.map(s => s.id === stepId ? { ...s, done: !s.done } : s);
+      // Checking a step is user-created state: persist it, don't just mirror it.
+      const taskName = data.task_name || tasks.find(t => t.id === taskId)?.name || customTasks.find(t => t.id === taskId)?.name;
+      persist({
+        type: ARTIFACT.IMPL_GUIDE, scope: taskScope(stair.id, taskId), content: data.content,
+        payload: { task_name: taskName, steps: updatedSteps, sources_used: data.sources_used || [], messages: data.messages || [] },
+        label: isAr ? "تقدم الخطوات" : "Step progress",
+      });
       // Sync step progress to manifest store
       saveManifest(taskId, { impl_steps: updatedSteps });
       return {
@@ -592,16 +775,23 @@ User question: ${msg}`;
         message: contextMsg,
         strategy_id: strategyContext?.id || null,
         context_stair_id: stair.id,
-      }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+      }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`), "execroom:impl-coach-chat");
       setRetryMsg(null);
       const r = normalizeAiResult(res, { lang });
       const aiMsg = r.ok
         ? { role: "ai", text: r.text, tokens: res.tokens_used, ts: new Date().toISOString() }
         : { role: "ai", failure: r.kind, ts: new Date().toISOString() };
-      setImplRoomData(prev => ({
-        ...prev,
-        [taskId]: { ...prev[taskId], messages: [...(prev[taskId].messages || []), aiMsg] },
-      }));
+      setImplRoomData(prev => {
+        const entry = { ...prev[taskId], messages: [...(prev[taskId].messages || []), aiMsg] };
+        if (r.ok) {
+          persist({
+            type: ARTIFACT.IMPL_GUIDE, scope: taskScope(stair.id, taskId), content: entry.content,
+            payload: { task_name: task.name, steps: entry.steps || [], sources_used: entry.sources_used || [], messages: entry.messages.filter(m => !m.failure) },
+            label: isAr ? `دليل التنفيذ: ${task.name}` : `Implementation guide: ${task.name}`,
+          });
+        }
+        return { ...prev, [taskId]: entry };
+      });
     } catch (e) {
       setRetryMsg(null);
       setImplRoomData(prev => ({
@@ -623,17 +813,22 @@ User question: ${msg}`;
     try {
       const history = (actionChats[taskId] || []).filter(m => !m.failure).map(m => `${m.role === "user" ? "User" : "AI"}: ${m.text}`).join("\n\n");
       const contextMsg = `[${stratCtx} Execution Room for: ${stairCtx}]\n\nThe user is assessing their ability to execute this specific action item:\n- Task: ${task.name}\n- Owner: ${task.owner}\n- Timeline: ${task.timeline}\n- Priority: ${task.priority}\n- Details: ${task.details}\n\nYour role: Help the user honestly assess how far they can go with this action. Ask clarifying questions about their constraints (budget, time, skills, tools, authority). If they can only do it partially, help them identify what portion is achievable and what needs external help or resources. Be practical and specific.\n\nConversation so far:\n${history}\n\nUser: ${msg}`;
-      const res = await api.aiPost("/api/v1/ai/chat", { message: contextMsg, strategy_id: strategyContext?.id || null }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+      const res = await api.aiPost("/api/v1/ai/chat", { message: contextMsg, strategy_id: strategyContext?.id || null }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`), "execroom:assess-chat");
       setRetryMsg(null);
       const r = normalizeAiResult(res, { lang });
       if (!r.ok) {
         setActionChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), { role: "ai", failure: r.kind, ts: new Date().toISOString() }] }));
       } else {
         const aiMsg = { role: "ai", text: r.text, tokens: res.tokens_used, ts: new Date().toISOString() };
+        const allMsgs = [...(actionChats[taskId] || []), userMsg, aiMsg];
         setActionChats(prev => ({ ...prev, [taskId]: [...(prev[taskId] || []), aiMsg] }));
         // Save ability assessment to manifest
-        const allMsgs = [...(actionChats[taskId] || []), userMsg, aiMsg];
         const assessmentText = allMsgs.filter(m => m.role === "user").map(m => `User: ${m.text}`).join("\n") + "\n" + allMsgs.filter(m => m.role === "ai" && !m.error && !m.failure).slice(-1).map(m => `AI Assessment: ${m.text}`).join("\n");
+        await persist({
+          type: ARTIFACT.ASSESS_CHAT, scope: taskScope(stair.id, taskId), content: assessmentText,
+          payload: { task_name: task.name, messages: allMsgs.filter(m => !m.failure) },
+          label: isAr ? `تقييم: ${task.name}` : `Assessment: ${task.name}`,
+        });
         saveManifest(taskId, { task_name: task.name, ability_assessment: assessmentText });
       }
     } catch (e) {
@@ -670,6 +865,7 @@ User question: ${msg}`;
   };
 
   const generateCustomPlan = async () => {
+    if (!loaded || !beginOp("custom-plan")) return;
     setCustomPlanLoading(true);
     try {
       const feedback = collectAllFeedback();
@@ -680,10 +876,10 @@ User question: ${msg}`;
         `- ${t.name} [${t.priority}] — ${t.details} (Owner: ${t.owner}, Timeline: ${t.timeline})${t.done ? " [COMPLETED]" : ""}`
       ).join("\n");
       const prompt = `[${stratCtx}]\n\n${sourceRef}\n\nYou previously generated an action plan for: ${stairCtx}\n\nOriginal tasks:\n${originalTasksSummary}\n\nThe user has provided feedback on their ability to execute these tasks. Here is all their feedback:\n\n${feedbackSummary}\n\nBased on this feedback, generate a NEW customized action plan that:\n1. Adapts tasks to the user's actual capabilities and constraints\n2. Breaks down tasks the user can only partially do into achievable sub-steps\n3. Suggests alternatives for tasks the user cannot currently do\n4. Prioritizes tasks the user CAN do to build momentum\n5. Adds specific workarounds for the constraints they mentioned\n\nFormat your response EXACTLY as follows:\n\n## Your Customized Action Plan\n\nFor each task, use this format:\n- **Task:** [task name]\n- **Owner:** [suggested role/team]\n- **Timeline:** [estimated duration]\n- **Priority:** [High/Medium/Low]\n- **Details:** [brief description tailored to the user's constraints and abilities]\n\n---\n\n(Repeat for each task. Generate 5-8 concrete tasks. Make them realistic based on what the user told you they can and cannot do.)`;
-      const res = await api.aiPost("/api/v1/ai/chat", { message: prompt, strategy_id: strategyContext?.id || null }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+      const res = await api.aiPost("/api/v1/ai/chat", { message: prompt, strategy_id: strategyContext?.id || null }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`), "execroom:generate-custom-plan");
       setRetryMsg(null);
       const r = normalizeAiResult(res, { lang });
-      if (!r.ok) { setCustomPlanFailure(r.kind); setCustomPlan(null); setCustomPlanLoading(false); return; }
+      if (!r.ok) { setCustomPlanFailure(r.kind); setCustomPlan(null); setCustomPlanLoading(false); endOp("custom-plan"); return; }
       setCustomPlanFailure(null);
       setCustomPlan(r.text);
       const parsedCustom = parseTasks(r.text);
@@ -699,7 +895,13 @@ User question: ${msg}`;
         const saved = await ActionPlansAPI.save(stair.id, "customized", r.text, taskData, feedback);
         setSavedCustomPlanId(saved.id);
         setHasSavedPlan(true);
-      } catch (saveErr) { console.warn("Auto-save customized plan failed:", saveErr.message); }
+        setGeneratedAt(prev => ({ ...prev, [stampKey("custom_plan", stair.id)]: saved.created_at || new Date().toISOString() }));
+        setUnsaved(prev => prev.filter(u => u.key !== stampKey("custom_plan", stair.id)));
+      } catch (saveErr) {
+        console.warn("Auto-save customized plan failed:", saveErr.message);
+        setUnsaved(prev => prev.some(u => u.key === stampKey("custom_plan", stair.id)) ? prev
+          : [...prev, { key: stampKey("custom_plan", stair.id), label: isAr ? "الخطة المخصصة" : "Customized plan" }]);
+      }
       // Log feedback to Source of Truth
       if (strategyContext?.id && feedback.length > 0) {
         try {
@@ -713,7 +915,7 @@ User question: ${msg}`;
         } catch (e) { console.warn("Failed to log feedback source:", e); }
       }
     } catch (e) { setRetryMsg(null); setCustomPlanFailure(normalizeAiResult(e, { lang }).kind); setCustomPlan(null); }
-    setCustomPlanLoading(false);
+    setCustomPlanLoading(false); endOp("custom-plan");
   };
 
   const toggleCustomTask = (id) => {
@@ -838,6 +1040,37 @@ User question: ${msg}`;
     </div>
   );
 
+  // How much of this room's work is on the server. Drives the Manifest Room
+  // signpost, so the client can see their work has a home and go find it.
+  const savedWorkCount = Object.keys(generatedAt).length;
+
+  // "Saved <when>" — persisted content should read as saved, not just present.
+  const SavedStamp = ({ type, scope }) => {
+    const ts = generatedAt[stampKey(type, scope)];
+    if (!ts) return null;
+    const d = new Date(ts);
+    if (isNaN(d)) return null;
+    return (
+      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400/80 border border-emerald-500/20 whitespace-nowrap"
+        title={`${isAr ? "محفوظ على الخادم" : "Saved on the server"} — ${d.toLocaleString()}`}>
+        ✓ {isAr ? "محفوظ" : "Saved"} {d.toLocaleDateString()} {d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+      </span>
+    );
+  };
+
+  // An empty step offers the work rather than doing it unasked.
+  const GenerateCard = ({ title, body, cta, onGenerate, busy, accent }) => (
+    <div className="rounded-lg p-4 text-center" style={{ background: `${accent}08`, border: `1px dashed ${accent}40` }}>
+      <div className="text-sm font-medium text-gray-200 mb-1">{title}</div>
+      <p className="text-xs text-gray-500 mb-3 max-w-md mx-auto leading-relaxed">{body}</p>
+      <button onClick={onGenerate} disabled={busy || !loaded}
+        className="px-4 py-2 rounded-lg text-xs font-semibold transition hover:scale-[1.02] disabled:opacity-40 disabled:hover:scale-100"
+        style={{ background: `linear-gradient(135deg, ${accent}, ${accent}cc)`, color: DEEP }}>
+        {busy ? (isAr ? "جاري الإنشاء..." : "Generating...") : cta}
+      </button>
+    </div>
+  );
+
   const PriorityBadge = ({ priority }) => {
     const c = { High: "bg-red-500/20 text-red-300 border-red-500/30", Medium: "bg-amber-500/20 text-amber-300 border-amber-500/30", Low: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" };
     return <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${c[priority] || c.Medium}`}>{priority}</span>;
@@ -868,10 +1101,28 @@ User question: ${msg}`;
           <div className="text-xs font-medium" style={{ color }}>{stair.progress_percent || 0}%</div>
         </div>
         <div className="flex items-center gap-2">
+          {unsaved.length > 0 && (
+            <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-red-500/15 text-red-300 border border-red-500/30"
+              title={`${isAr ? "لم يتم الحفظ على الخادم" : "Not saved to the server"}: ${unsaved.map(u => u.label).join(", ")}`}>
+              ⚠ {isAr ? `${unsaved.length} غير محفوظ` : `${unsaved.length} not saved`}
+            </span>
+          )}
           {hasSavedPlan && (
             <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
               <span className="text-emerald-400">✓</span> {isAr ? "الخطة محفوظة" : "Plan saved"}
             </span>
+          )}
+          {/* Where the saved work lives. "Plan saved" tells you it went
+              somewhere; this says where and takes you there. */}
+          {onOpenManifest && savedWorkCount > 0 && (
+            <button onClick={onOpenManifest}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium border transition hover:scale-[1.02] text-gray-300 hover:text-white"
+              style={{ borderColor: BORDER, background: "rgba(255,255,255,0.04)" }}
+              title={isAr ? "افتح سجل التنفيذ لرؤية كل ما تم إنشاؤه وحفظه" : "Open the Manifest Room to see everything you've generated and saved"}>
+              📦 {isAr
+                ? `${savedWorkCount} عنصر محفوظ — سجل التنفيذ`
+                : `${savedWorkCount} saved ${savedWorkCount === 1 ? "item" : "items"} · Manifest Room`}
+            </button>
           )}
           <button onClick={() => setShowExportModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{ borderColor: `${GOLD}60`, color: GOLD, background: `${GOLD}15` }}>
             ↓ {isAr ? "تصدير" : "Export Plan"}
@@ -892,6 +1143,28 @@ User question: ${msg}`;
         {strategyContext && <span className="text-xs text-gray-600">{strategyContext.icon} {strategyContext.name}</span>}
       </nav>
 
+      {/* Save / load failures — surfaced, never silent */}
+      {unsaved.length > 0 && (
+        <div className="px-6 py-2 shrink-0 flex items-center gap-2 text-[11px] bg-red-500/10 border-b border-red-500/20 text-red-300">
+          <span>⚠</span>
+          <span className="flex-1">
+            {isAr
+              ? `تعذّر حفظ ${unsaved.length} عنصر على الخادم (${unsaved.map(u => u.label).join("، ")}). ما زال معروضًا هنا — لا تُغلق الصفحة قبل إعادة المحاولة.`
+              : `Couldn't save ${unsaved.length} item${unsaved.length > 1 ? "s" : ""} to the server (${unsaved.map(u => u.label).join(", ")}). Still shown here — don't close this page before retrying.`}
+          </span>
+        </div>
+      )}
+      {loadFailed && (
+        <div className="px-6 py-2 shrink-0 flex items-center gap-2 text-[11px] bg-amber-500/10 border-b border-amber-500/20 text-amber-300">
+          <span>⚠</span>
+          <span className="flex-1">
+            {isAr
+              ? "تعذّر تحميل المحتوى المحفوظ. لن يُعاد الإنشاء تلقائيًا حتى لا تفقد عملك — أعد المحاولة."
+              : "Couldn't load your saved content. Nothing was regenerated automatically so your work isn't overwritten — reopen this room to retry."}
+          </span>
+        </div>
+      )}
+
       {/* Content */}
       <main className="flex-1 overflow-hidden">
         {/* Action Plan Tab — Split View + 4-Step Wizard */}
@@ -906,6 +1179,7 @@ User question: ${msg}`;
                     {tasks.filter(t => t.done).length}/{tasks.length} {isAr ? "مكتمل" : "completed"}
                   </span>
                 )}
+                <SavedStamp type="action_plan" scope={stair.id} />
                 {planValidation && (
                   <div className="hidden sm:flex items-center gap-2 min-w-0">
                     <ConfidenceBadge validation={planValidation} agentsUsed={planAgentsUsed} />
@@ -918,13 +1192,19 @@ User question: ${msg}`;
                     📌 {isAr ? "حفظ" : "Save"}
                   </button>
                 )}
-                <button onClick={generateActionPlan} disabled={planLoading} className="text-xs text-amber-400/70 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10 disabled:opacity-30">
-                  {planLoading ? "..." : `↻ ${isAr ? "تجديد" : "Regenerate"}`}
-                </button>
+                {(actionPlan || tasks.length > 0) && (
+                  <button onClick={generateActionPlan} disabled={planLoading || !loaded} className="text-xs text-amber-400/70 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10 disabled:opacity-30">
+                    {planLoading ? "..." : `↻ ${isAr ? "تجديد" : "Regenerate"}`}
+                  </button>
+                )}
               </div>
             </div>
 
-            {planLoading && !actionPlan ? (
+            {!loaded ? (
+              <div className="flex-1 flex items-center justify-center text-gray-600 text-sm">
+                {isAr ? "جاري تحميل المحتوى المحفوظ..." : "Loading your saved work..."}
+              </div>
+            ) : planLoading && !actionPlan ? (
               <div className="flex-1 overflow-y-auto p-6">
                 <AgentActivityIndicator agentStep={agentStep} />
               </div>
@@ -932,16 +1212,27 @@ User question: ${msg}`;
               <div className="flex-1 overflow-y-auto p-6 mx-auto w-full" style={{ maxWidth: 900 }}>
                 <AiUnavailable kind={planFailure} lang={lang} onRetry={generateActionPlan} retrying={planLoading} />
               </div>
+            ) : tasks.length === 0 && !actionPlan ? (
+              <div className="flex-1 overflow-y-auto p-6 mx-auto w-full flex items-center" style={{ maxWidth: 620 }}>
+                <div className="w-full">
+                  <GenerateCard
+                    accent={GOLD}
+                    title={isAr ? "لا توجد خطة عمل بعد" : "No action plan yet"}
+                    body={isAr
+                      ? "أنشئ خطة عمل لهذه الخطوة. ستُحفظ تلقائيًا وتظهر في كل مرة تفتح فيها غرفة التنفيذ."
+                      : "Generate an action plan for this step. It's saved automatically and will be here every time you open the Execution Room."}
+                    cta={isAr ? "✨ إنشاء خطة العمل" : "✨ Generate action plan"}
+                    onGenerate={generateActionPlan}
+                    busy={planLoading}
+                  />
+                </div>
+              </div>
             ) : tasks.length === 0 && actionPlan ? (
               <div className="flex-1 overflow-y-auto p-6 mx-auto w-full" style={{ maxWidth: 900 }}>
                 <div className="rounded-xl p-5" style={{ ...glass(0.5), borderLeft: "3px solid #14b8a6" }}>
                   <Markdown text={actionPlan} onMatrixClick={onMatrixClick} />
                   <LoadMatrixButtons text={actionPlan} onLoadMatrix={onMatrixClick} />
                 </div>
-              </div>
-            ) : tasks.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center text-gray-600 text-sm">
-                {isAr ? "لا توجد مهام بعد" : "No tasks yet"}
               </div>
             ) : (
               <div className="flex-1 flex min-h-0">
@@ -1072,7 +1363,22 @@ User question: ${msg}`;
                                     {isAr ? "مدعوم بمصدر الحقيقة" : "Grounded in Source of Truth"}
                                   </span>
                                 )}
+                                <SavedStamp type={ARTIFACT.EXPLAIN} scope={taskScope(stair.id, selectedTaskId)} />
                               </div>
+                              {loaded && !explainChats[selectedTaskId] && !explainChatLoading && (
+                                <div className="mb-3">
+                                  <GenerateCard
+                                    accent="#3b82f6"
+                                    title={isAr ? "لم يُنشأ شرح بعد" : "No explanation yet"}
+                                    body={isAr
+                                      ? "اطلب شرحًا لهذا الإجراء بلغة بسيطة، مبنيًا على مستنداتك في مصدر الحقيقة. يُحفظ الشرح ويظهر في كل زيارة."
+                                      : "Ask for a plain-language explanation of this action, grounded in your Source of Truth documents. It's saved and will be here next time."}
+                                    cta={isAr ? "📖 اشرح هذا الإجراء" : "📖 Explain this action"}
+                                    onGenerate={() => runExplain(selectedTask)}
+                                    busy={explainChatLoading}
+                                  />
+                                </div>
+                              )}
                               <div className="max-h-[420px] overflow-y-auto space-y-2 mb-3">
                                 {explainChatLoading && !explainChats[selectedTaskId] && (
                                   <div className="flex items-center gap-2 py-6 justify-center">
@@ -1196,6 +1502,7 @@ User question: ${msg}`;
                             <div data-tutorial="custom-plan">
                               <div className="flex items-center gap-2 mb-3">
                                 <span className="text-amber-300 text-sm font-semibold">✨ {isAr ? "خصّص: خطة مبنية على تقييمك" : "Customize: a plan based on your assessment"}</span>
+                                <SavedStamp type="custom_plan" scope={stair.id} />
                               </div>
                               {!hasFeedback() && !customPlan && (
                                 <p className="text-[11px] text-gray-500 mb-3">
@@ -1258,7 +1565,20 @@ User question: ${msg}`;
                                     {isAr ? "مدعوم بمصدر الحقيقة" : "Source of Truth"}
                                   </span>
                                 )}
+                                <SavedStamp type={ARTIFACT.IMPL_GUIDE} scope={taskScope(stair.id, selectedTaskId)} />
                               </div>
+                              {loaded && !implRoomData[selectedTaskId] && !implRoomLoading && (
+                                <GenerateCard
+                                  accent="#8b5cf6"
+                                  title={isAr ? "لا يوجد دليل تنفيذ بعد" : "No implementation guide yet"}
+                                  body={isAr
+                                    ? "احصل على دليل خطوة بخطوة مع المتطلبات والجدول الزمني ومعايير النجاح. يُحفظ الدليل مع قائمة الخطوات وتقدمك."
+                                    : "Get a step-by-step guide with prerequisites, timeline and success criteria. The guide, its checklist and your progress are all saved."}
+                                  cta={isAr ? "🚀 إنشاء دليل التنفيذ" : "🚀 Generate implementation guide"}
+                                  onGenerate={() => runImplRoom(selectedTask)}
+                                  busy={implRoomLoading}
+                                />
+                              )}
                               {implRoomLoading && !implRoomData[selectedTaskId] && (
                                 <div className="flex items-center gap-2 py-6 justify-center">
                                   <div className="flex gap-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-purple-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
@@ -1383,14 +1703,21 @@ User question: ${msg}`;
         {/* Solutions Tab */}
         {activeTab === "solutions" && (
           <div className="h-full overflow-y-auto px-6 py-5 max-w-5xl mx-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">{isAr ? "التوصيات" : "Recommendations"}</h2>
-              <button onClick={generateSolutions} disabled={solLoading} className="text-xs text-amber-400/70 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10">
-                {solLoading ? "..." : `↻ ${isAr ? "تجديد" : "Regenerate"}`}
-              </button>
+            <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-lg font-semibold text-white">{isAr ? "التوصيات" : "Recommendations"}</h2>
+                <SavedStamp type={ARTIFACT.SOLUTIONS} scope={stairScope(stair.id)} />
+              </div>
+              {solutions && (
+                <button onClick={generateSolutions} disabled={solLoading || !loaded} className="text-xs text-amber-400/70 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10 disabled:opacity-30">
+                  {solLoading ? "..." : `↻ ${isAr ? "تجديد" : "Regenerate"}`}
+                </button>
+              )}
             </div>
 
-            {solLoading && !solutions ? (
+            {!loaded ? (
+              <div className="text-gray-600 text-sm text-center py-10">{isAr ? "جاري تحميل المحتوى المحفوظ..." : "Loading your saved work..."}</div>
+            ) : solLoading && !solutions ? (
               <LoadingDots label={isAr ? "جاري إنشاء الحلول..." : "Generating solutions..."} />
             ) : solutionsFailure ? (
               <AiUnavailable kind={solutionsFailure} lang={lang} onRetry={generateSolutions} retrying={solLoading} />
@@ -1399,7 +1726,18 @@ User question: ${msg}`;
                 <Markdown text={solutions} onMatrixClick={onMatrixClick} />
                 <LoadMatrixButtons text={solutions} onLoadMatrix={onMatrixClick} />
               </div>
-            ) : null}
+            ) : (
+              <GenerateCard
+                accent={TEAL}
+                title={isAr ? "لا توجد توصيات بعد" : "No recommendations yet"}
+                body={isAr
+                  ? "احصل على مكاسب سريعة وتحركات استراتيجية وتخفيف للمخاطر لهذه الخطوة. تُحفظ النتيجة ولن يُعاد إنشاؤها تلقائيًا."
+                  : "Get quick wins, strategic moves and risk mitigation for this step. The result is saved and won't be regenerated on its own."}
+                cta={isAr ? "💡 إنشاء التوصيات" : "💡 Generate recommendations"}
+                onGenerate={generateSolutions}
+                busy={solLoading}
+              />
+            )}
 
             {solutions && onSaveNote && (
               <div className="mt-4">

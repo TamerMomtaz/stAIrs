@@ -57,6 +57,7 @@ from app.routers.websocket import router as ws_router
 from app.routers.admin import router as admin_router
 from app.routers.sources import router as sources_router
 from app.routers.data_qa import router as data_qa_router
+from app.routers.artifacts import router as artifacts_router
 
 
 # ─── LOGGING ───
@@ -421,6 +422,38 @@ async def ensure_action_plans_table():
             await conn.execute("CREATE INDEX idx_action_plans_org ON action_plans(organization_id)")
             print("  ✅ action_plans table created")
 
+        # One plan per (stair, plan_type). Regeneration used to INSERT a new
+        # row every time; reads take the newest, so the older rows never
+        # surfaced in the Execution Room but did show as the same plan repeated
+        # in Action Plans and the Manifest Room. Collapse them to the newest so
+        # the upsert in save_action_plan has a constraint to conflict on.
+        has_uq = await conn.fetchval("""
+            SELECT EXISTS(SELECT 1 FROM pg_indexes
+            WHERE tablename = 'action_plans' AND indexname = 'uq_action_plans_stair_type')
+        """)
+        if not has_uq:
+            dupes = await conn.fetchval("""
+                SELECT COUNT(*) FROM action_plans a
+                WHERE EXISTS (
+                    SELECT 1 FROM action_plans b
+                    WHERE b.stair_id = a.stair_id AND b.plan_type = a.plan_type
+                      AND (b.created_at, b.id) > (a.created_at, a.id)
+                )
+            """)
+            if dupes:
+                print(f"  → Collapsing {dupes} superseded action plan row(s) — keeping the newest per stair and plan type")
+                await conn.execute("""
+                    DELETE FROM action_plans a
+                    WHERE EXISTS (
+                        SELECT 1 FROM action_plans b
+                        WHERE b.stair_id = a.stair_id AND b.plan_type = a.plan_type
+                          AND (b.created_at, b.id) > (a.created_at, a.id)
+                    )
+                """)
+            await conn.execute(
+                "CREATE UNIQUE INDEX uq_action_plans_stair_type ON action_plans(stair_id, plan_type)")
+            print("  ✅ action_plans unique on (stair_id, plan_type)")
+
 
 # ─── AUTO-MIGRATION: AI USAGE LOGS TABLE ───
 
@@ -479,6 +512,38 @@ async def ensure_agent_logs_table():
         # Nullable on purpose: rows written before this column existed stay NULL
         # ("unknown") rather than being retroactively counted as successes.
         await conn.execute("ALTER TABLE agent_logs ADD COLUMN IF NOT EXISTS ok BOOLEAN")
+
+
+async def ensure_generated_artifacts_table():
+    """Home for generated/created content that used to live only in React state
+    or localStorage — Execution Room solutions, explanations, implementation
+    guides, per-task chats, staircase explain/enhance, matrix worksheets."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        exists = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'generated_artifacts')"
+        )
+        if not exists:
+            print("  → Creating generated_artifacts table...")
+            await conn.execute("""
+                CREATE TABLE generated_artifacts (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE NOT NULL,
+                    strategy_id UUID,
+                    stair_id UUID REFERENCES stairs(id) ON DELETE CASCADE,
+                    artifact_type VARCHAR(50) NOT NULL,
+                    scope_key VARCHAR(200) NOT NULL,
+                    content TEXT,
+                    payload JSONB DEFAULT '{}',
+                    generated_at TIMESTAMPTZ DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ DEFAULT NOW(),
+                    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                    UNIQUE (organization_id, artifact_type, scope_key)
+                )
+            """)
+            await conn.execute("CREATE INDEX idx_generated_artifacts_stair ON generated_artifacts(stair_id, artifact_type)")
+            await conn.execute("CREATE INDEX idx_generated_artifacts_strategy ON generated_artifacts(strategy_id, artifact_type)")
+            print("  ✅ generated_artifacts table created")
 
 
 async def ensure_ai_usage_logs_table():
@@ -554,6 +619,10 @@ async def lifespan(app: FastAPI):
         await ensure_strategy_sources_table()
     except Exception as e:
         print(f"  ⚠️ Strategy sources migration: {e}")
+    try:
+        await ensure_generated_artifacts_table()
+    except Exception as e:
+        print(f"  ⚠️ Generated artifacts migration: {e}")
     # Resolve a live Claude model now, so a bad key or a retired CLAUDE_MODEL
     # shows up in this boot log instead of in front of a client.
     try:
@@ -690,6 +759,7 @@ app.include_router(ws_router)
 app.include_router(admin_router)
 app.include_router(sources_router)
 app.include_router(data_qa_router)
+app.include_router(artifacts_router)
 # GET /api/v1/ai/status + POST /api/v1/ai/status/refresh
 app.include_router(ai_client.router)
 

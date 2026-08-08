@@ -95,7 +95,7 @@ Copy `.env.example` to `.env` at the repo root. Key variables:
 ## Architecture Notes
 
 - **Database**: PostgreSQL via asyncpg connection pool. Schema auto-initializes from `schema.sql` on first startup if tables don't exist. Railway auto-injects `DATABASE_URL`.
-- **Auth**: JWT tokens (python-jose) with bcrypt password hashing. Default org/user IDs used when no auth header present (dev convenience).
+- **Auth**: JWT tokens (python-jose) with bcrypt password hashing. `get_auth` requires a `Bearer` token and raises 401 without one — there is no unauthenticated fallback. The `DEFAULT_ORG_ID`/`DEFAULT_USER_ID` constants are used only by registration and the seed data, never as a request-time default.
 - **AI**: Anthropic Claude API via httpx. Knowledge engine caches strategy frameworks, failure patterns, measurement tools into system prompts. Falls back gracefully when `ANTHROPIC_API_KEY` is unset.
 - **WebSocket**: Connection manager with per-org broadcast at `/ws/{org_id}/{user_id}`.
 - **Frontend state**: All state lives in `StairsApp.jsx`. No external state management library. API classes in `api.js` wrap fetch calls. `ConvStore` and `NotesStore` persist to localStorage.

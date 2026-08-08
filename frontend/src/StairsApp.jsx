@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { api, StrategyAPI, NotesStore, MatrixResultsStore, SourcesAPI } from "./api";
+import { api, StrategyAPI, NotesStore, MatrixResultsStore, SourcesAPI, ArtifactsAPI, ARTIFACT, matrixScope, NotesAPI } from "./api";
 import { GOLD, GOLD_L, DEEP, BORDER, typeIcons } from "./constants";
 import { DEVONEERS_LOGO_URI } from "./exportUtils";
 
@@ -61,14 +61,33 @@ export default function App() {
   const matrixStoreRef = useRef(null);
   const stratApiRef = useRef(null);
   const notesStoreRef = useRef(null);
-  const saveToNotes = (title, content, source) => {
+  // Notes go to the server first; the local store stays as an offline cache so
+  // a save that can't reach the backend is still visible rather than lost.
+  const saveToNotes = async (title, content, source) => {
     if (!notesStoreRef.current && user) notesStoreRef.current = new NotesStore(user.id || user.email);
-    if (notesStoreRef.current) { notesStoreRef.current.create(title, content, source); fireGuidance("note_saved"); }
+    try {
+      await NotesAPI.create({ title, content, source: source || "manual" });
+      fireGuidance("note_saved");
+    } catch (e) {
+      console.warn("[stairs] note save failed, keeping local copy:", e.message);
+      if (notesStoreRef.current) { notesStoreRef.current.create(title, content, source); fireGuidance("note_saved"); }
+    }
   };
   const saveMatrixResult = (matrixKey, data) => {
     if (matrixStoreRef.current) {
+      // Cache locally, then persist. The server is the source of truth on the
+      // next load; the cache only keeps the UI responsive and offline-readable.
       matrixStoreRef.current.save(matrixKey, data);
       setMatrixResults(matrixStoreRef.current.getAll());
+      if (activeStrat?.id) {
+        ArtifactsAPI.save({
+          artifactType: ARTIFACT.MATRIX,
+          scopeKey: matrixScope(activeStrat.id, matrixKey),
+          strategyId: activeStrat.id,
+          content: data?.summary || null,
+          payload: data || {},
+        }).catch(e => console.warn("[stairs] matrix result save failed:", e.message));
+      }
       const idx = MATRIX_ORDER.indexOf(matrixKey);
       const nextKey = idx >= 0 && idx < MATRIX_ORDER.length - 1 ? MATRIX_ORDER[idx + 1] : null;
       fireGuidance("matrix_complete", {
@@ -138,7 +157,21 @@ export default function App() {
     setActiveStrat(strat); setView("dashboard");
     if (stratApiRef.current) stratApiRef.current.setActive(strat.id);
     matrixStoreRef.current = new MatrixResultsStore(strat.id);
+    // Show the cached copy immediately, then let the server's copy win — the
+    // cache is per-browser, the server follows the account.
     setMatrixResults(matrixStoreRef.current.getAll());
+    ArtifactsAPI.forStrategy(strat.id, ARTIFACT.MATRIX)
+      .then(list => {
+        if (!list?.length) return;
+        const fromServer = {};
+        for (const a of list) {
+          const key = a.scope_key.slice(a.scope_key.indexOf(":") + 1);
+          fromServer[key] = { ...(a.payload || {}), summary: a.content ?? a.payload?.summary, saved_at: a.generated_at };
+        }
+        setMatrixResults(prev => ({ ...prev, ...fromServer }));
+        for (const [k, v] of Object.entries(fromServer)) matrixStoreRef.current?.save(k, v);
+      })
+      .catch(() => {});
     try { const tree = await api.get(`/api/v1/strategies/${strat.id}/tree`); setStairTree(tree || []); } catch { setStairTree([]); }
     try { const dash = await api.get(`/api/v1/dashboard`); setDashData(dash); } catch { setDashData({ stats: { total_elements: 0, overall_progress: 0 } }); }
     try { const al = await api.get(`/api/v1/alerts`); setAlerts(al || []); } catch { setAlerts([]); }
@@ -375,7 +408,7 @@ export default function App() {
 
       <StairEditor open={showEditor} onClose={() => { setShowEditor(false); setEditStair(null); }} stair={editStair} allStairs={stairTree} onSave={saveStair} onDelete={deleteStair} lang={lang} />
 
-      {execRoomStair && <ExecutionRoom stair={execRoomStair} strategyContext={activeStrat} lang={lang} onBack={() => setExecRoomStair(null)} onSaveNote={saveToNotes} onMatrixClick={openMatrix} />}
+      {execRoomStair && <ExecutionRoom stair={execRoomStair} strategyContext={activeStrat} lang={lang} onBack={() => setExecRoomStair(null)} onSaveNote={saveToNotes} onMatrixClick={openMatrix} onOpenManifest={() => { setExecRoomStair(null); goToView("manifest"); }} />}
 
       <StrategyMatrixToolkit open={matrixToolkit.open} matrixKey={matrixToolkit.key} onClose={closeMatrix} onSave={saveMatrixResult} strategyContext={activeStrat} initialData={matrixToolkit.initialData} />
 
