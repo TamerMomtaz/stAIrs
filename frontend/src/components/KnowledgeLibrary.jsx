@@ -2,14 +2,38 @@ import { useState, useEffect } from "react";
 import { api } from "../api";
 import { glass, GOLD, BORDER } from "../constants";
 import { buildHeader, openExportWindow } from "../exportUtils";
+import LoadFailed from "./LoadFailed";
+import { ViewHeader } from "./ViewHeader";
 
 export const KnowledgeLibrary = ({ lang, strategyContext }) => {
   const [tab, setTab] = useState("overview");
   const [data, setData] = useState({ stats: null, frameworks: [], books: [], failurePatterns: [], measurementTools: [] });
-  const [loading, setLoading] = useState(true); const isAr = lang === "ar";
-  useEffect(() => { (async () => { setLoading(true); try { const [stats,fw,bk,fp,mt] = await Promise.all([api.get("/api/v1/knowledge/stats").catch(()=>null), api.get("/api/v1/knowledge/frameworks").catch(()=>[]), api.get("/api/v1/knowledge/books").catch(()=>[]), api.get("/api/v1/knowledge/failure-patterns").catch(()=>[]), api.get("/api/v1/knowledge/measurement-tools").catch(()=>[])]); setData({stats,frameworks:fw,books:bk,failurePatterns:fp,measurementTools:mt}); } catch(e) { console.error(e); } setLoading(false); })(); }, []);
+  const [loading, setLoading] = useState(true); const [failed, setFailed] = useState(false); const isAr = lang === "ar";
+  // Each of these used to swallow its own failure into an empty array, so a
+  // backend outage rendered as a library with nothing in it. Let them reject
+  // and treat the whole load as one thing that either arrived or didn't.
+  const load = async () => {
+    setLoading(true); setFailed(false);
+    try {
+      const [stats, fw, bk, fp, mt] = await Promise.all([
+        api.get("/api/v1/knowledge/stats").catch(() => null),
+        api.get("/api/v1/knowledge/frameworks"),
+        api.get("/api/v1/knowledge/books"),
+        api.get("/api/v1/knowledge/failure-patterns"),
+        api.get("/api/v1/knowledge/measurement-tools"),
+      ]);
+      setData({ stats, frameworks: fw || [], books: bk || [], failurePatterns: fp || [], measurementTools: mt || [] });
+    } catch (e) {
+      console.error("[stairs] load knowledge:", e);
+      setFailed(true);
+    }
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
   const tabs = [{key:"overview",icon:"📊",label:isAr?"نظرة عامة":"Overview"},{key:"frameworks",icon:"🧩",label:isAr?"الأطر":"Frameworks"},{key:"books",icon:"📚",label:isAr?"الكتب":"Books"},{key:"patterns",icon:"⚠️",label:isAr?"أنماط الفشل":"Failure Patterns"},{key:"tools",icon:"🔧",label:isAr?"أدوات القياس":"Measurement Tools"}];
-  if (loading) return <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin"/></div>;
+  const header = <ViewHeader title={isAr ? "المعرفة" : "Knowledge"} subtitle={isAr ? "الأطر والكتب وأنماط الإخفاق وأدوات القياس" : "Frameworks, books, failure patterns and measurement tools"} />;
+  if (loading) return <div>{header}<div className="flex items-center gap-2 py-16 justify-center"><div className="w-5 h-5 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin"/><span className="text-gray-500 text-xs">{isAr ? "جارٍ تحميل المكتبة..." : "Loading the library..."}</span></div></div>;
+  if (failed) return <div>{header}<div className="py-8"><LoadFailed what={isAr ? "المكتبة" : "the knowledge library"} lang={lang} onRetry={load} /></div></div>;
   const phaseColors = { analysis:"#60a5fa", formulation:"#a78bfa", design:"#f472b6", execution:"#34d399" };
   const tierColors = { tier_1:"#fbbf24", tier_2:"#60a5fa", tier_3:"#94a3b8" };
   const sevColors = { critical:"#f87171", high:"#fbbf24", medium:"#60a5fa", low:"#94a3b8" };

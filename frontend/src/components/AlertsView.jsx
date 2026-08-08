@@ -1,7 +1,9 @@
 import { GOLD, BORDER } from "../constants";
 import { buildHeader, openExportWindow } from "../exportUtils";
+import LoadFailed from "./LoadFailed";
+import { ViewHeader } from "./ViewHeader";
 
-export const AlertsView = ({ alerts, lang, strategyContext }) => {
+export const AlertsView = ({ alerts, lang, strategyContext, failed, retrying, onRetry }) => {
   const isAr = lang === "ar";
   const sc = { critical: { bg:"rgba(248,113,113,0.1)", border:"#f8717130", icon:"🔴", text:"text-red-300", printBg:"#fef2f2", printBorder:"#fecaca", printColor:"#991b1b" }, high: { bg:"rgba(251,191,36,0.1)", border:"#fbbf2430", icon:"🟡", text:"text-amber-300", printBg:"#fffbeb", printBorder:"#fde68a", printColor:"#92400e" }, medium: { bg:"rgba(96,165,250,0.1)", border:"#60a5fa30", icon:"🔵", text:"text-blue-300", printBg:"#eff6ff", printBorder:"#bfdbfe", printColor:"#1e40af" }, info: { bg:"rgba(96,165,250,0.08)", border:"#60a5fa20", icon:"ℹ️", text:"text-blue-300", printBg:"#f0f9ff", printBorder:"#bae6fd", printColor:"#0369a1" } };
   const exportAlerts = () => {
@@ -18,8 +20,15 @@ export const AlertsView = ({ alerts, lang, strategyContext }) => {
       ${alertHtml}`;
     openExportWindow("Alerts", body);
   };
-  if (!alerts?.length) return <div className="text-gray-500 text-center py-12">{isAr?"لا توجد تنبيهات":"No active alerts"}</div>;
+  const header = <ViewHeader title={isAr ? "تنبيهات" : "Alerts"} />;
+  // "We couldn't reach the alerts" and "you have no alerts" are different
+  // sentences. They used to be the same screen. The heading stays put across
+  // all three states so the view never loses its label.
+  if (failed && !alerts?.length) return <div>{header}<div className="py-8"><LoadFailed what={isAr ? "التنبيهات" : "your alerts"} lang={lang} onRetry={onRetry} retrying={retrying} /></div></div>;
+  if (!alerts?.length) return <div>{header}<div className="text-gray-500 text-center py-12">{isAr?"لا توجد تنبيهات":"No active alerts"}</div></div>;
   return <div className="space-y-3">
+    {header}
+    {failed && <LoadFailed compact what={isAr ? "أحدث التنبيهات" : "the latest alerts"} lang={lang} onRetry={onRetry} retrying={retrying} />}
     <div className="flex justify-end mb-2"><button onClick={exportAlerts} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{ borderColor: `${GOLD}60`, color: GOLD, background: `${GOLD}15` }}>↓ {isAr ? "تصدير" : "Export"}</button></div>
     {alerts.map((a,i) => { const s = sc[a.severity]||sc.info; return <div key={i} className="p-4 rounded-xl" style={{background:s.bg,border:`1px solid ${s.border}`}}><div className="flex items-start gap-3"><span className="text-lg">{s.icon}</span><div className="flex-1"><div className={`font-medium text-sm ${s.text}`}>{isAr&&a.title_ar?a.title_ar:a.title}</div><div className="text-gray-400 text-xs mt-1">{isAr&&a.description_ar?a.description_ar:a.description}</div></div></div></div>; })}
   </div>;

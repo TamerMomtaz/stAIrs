@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { SourcesAPI, DataQaAPI } from "../api";
 import { GOLD, GOLD_L, DEEP, BORDER, glass, inputCls } from "../constants";
+import LoadFailed from "./LoadFailed";
 import { fireGuidance } from "../guidanceConfig";
 
 const sourceTypeConfig = {
@@ -27,6 +28,7 @@ const formatFileSize = (bytes) => {
 export const SourceOfTruthView = ({ lang, strategyContext }) => {
   const [sources, setSources] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const [filter, setFilter] = useState(null);
   const [search, setSearch] = useState("");
   const [searchDebounced, setSearchDebounced] = useState("");
@@ -155,6 +157,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
     if (!strategyContext?.id) return;
     setLoading(true);
     try {
+      setFailed(false);
       const opts = {};
       if (filter) opts.sourceType = filter;
       if (searchDebounced) opts.search = searchDebounced;
@@ -162,7 +165,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
       setSources(data || []);
     } catch (e) {
       console.error("Load sources:", e);
-      setSources([]);
+      setFailed(true);
     }
     setLoading(false);
   };
@@ -857,6 +860,8 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
         <div className="flex items-center justify-center py-12">
           <div className="w-8 h-8 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
         </div>
+      ) : failed && sources.length === 0 ? (
+        <LoadFailed what={isAr ? "المصادر" : "your sources"} lang={lang} onRetry={loadSources} />
       ) : sources.length === 0 ? (
         <div className="text-center py-12 rounded-xl" style={glass(0.3)}>
           <div className="text-3xl mb-3">{searchDebounced || filter ? "🔍" : "📭"}</div>

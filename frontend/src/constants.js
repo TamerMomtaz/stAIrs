@@ -19,7 +19,12 @@ export const BORDER = "rgba(30, 58, 95, 0.5)";
 // names) stays in the UI face instead of dropping to a generic sans.
 export const FONT_UI = "'DM Sans', 'DM Sans Fallback', system-ui, -apple-system, sans-serif";
 export const FONT_UI_AR = "'Noto Kufi Arabic', 'DM Sans', 'DM Sans Fallback', system-ui, sans-serif";
-export const FONT_DISPLAY = "'Instrument Serif', 'Instrument Serif Fallback', Georgia, serif";
+// Noto Kufi sits in the display stack too. Instrument Serif has no Arabic
+// glyphs, so without it an Arabic heading falls past the Latin display faces
+// all the way to a generic serif — the wrong typeface entirely. Latin is
+// unaffected: Instrument Serif matches first, and the browser only falls
+// through per-glyph.
+export const FONT_DISPLAY = "'Instrument Serif', 'Instrument Serif Fallback', 'Noto Kufi Arabic', Georgia, serif";
 export const fontStack = (isAr) => (isAr ? FONT_UI_AR : FONT_UI);
 
 export const typeColors = { vision: GOLD, objective: "#60a5fa", key_result: "#34d399", initiative: "#a78bfa", task: "#94a3b8", perspective: "#f472b6", strategic_objective: "#38bdf8", measure: "#fb923c", kpi: "#22d3ee", goal: "#a3e635", strategy: GOLD };

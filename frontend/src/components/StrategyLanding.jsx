@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { GOLD, GOLD_L, DEEP, BORDER, glass, fontStack, FONT_DISPLAY } from "../constants";
 import { StrategyWizard } from "./StrategyWizard";
-import { WelcomeSlideshow } from "./WelcomeSlideshow";
+import { WelcomeSlideshow, hasSeenWelcome, markWelcomeSeen } from "./WelcomeSlideshow";
 
 export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, userName, onLogout, onLangToggle, lang, loading, userId, userEmail, userRole }) => {
   const [showWizard, setShowWizard] = useState(false);
@@ -10,23 +10,40 @@ export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, user
   const isAr = lang === "ar";
   const hasStrategies = strategies.length > 0;
 
-  // Auto-show welcome slideshow for ALL users when they open the app
+  // The gate below has existed since the slideshow was written — exported,
+  // unit-tested, and never called, so nine slides played on every single app
+  // open. Call it.
+  //
+  // Arabic sessions don't get it at all: every slide is English-only, and nine
+  // English slides is a worse first impression than no slideshow. When an
+  // Arabic version exists, drop the isAr check.
   useEffect(() => {
-    if (!loading && userId) {
-      setShowWelcome(true);
-    }
-  }, [loading, userId]);
+    if (loading || !userId || isAr) return;
+    if (hasSeenWelcome(userId)) return;
+    setShowWelcome(true);
+  }, [loading, userId, isAr]);
+
+  // Seen is seen, however it was opened.
+  const dismissWelcome = () => { setShowWelcome(false); if (userId) markWelcomeSeen(userId); };
   return (
     <div className="min-h-screen text-white" dir={isAr ? "rtl" : "ltr"} style={{ background: `linear-gradient(180deg, ${DEEP} 0%, #0f1f3a 50%, ${DEEP} 100%)`, fontFamily: fontStack(isAr) }}>
-      <header className="flex items-center justify-between px-6 py-4">
+      <header className="flex items-center justify-between px-6 py-4"
+        /* px-6 here is dead: index.html's unlayered `* { padding: 0 }` reset
+                 outranks Tailwind v4's @layer utilities, so all 1,036 spacing
+                 utilities in the app compute to zero. Until that reset moves
+                 into @layer base, the header needs its padding inline — without
+                 it the wordmark sits flush against the viewport edge, which
+                 under RTL is the first thing an Arabic client sees. Delete this
+                 style, not the class, once the cascade is fixed. */
+        style={{ paddingInline: "1.5rem" }}>
         <div className="flex items-center gap-2">
-          <span className="text-2xl font-bold" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: FONT_DISPLAY }}>Stairs</span>
+          <span className="text-2xl font-normal" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: FONT_DISPLAY }}>Stairs</span>
           <span className="text-[10px] text-gray-600 uppercase tracking-widest">v3.7.0</span>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={() => setShowWelcome(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition uppercase tracking-wider" title="Watch the Stairs introduction" data-testid="watch-intro-btn">
-            <span className="text-sm">🎬</span> <span className="hidden sm:inline">{isAr ? "مقدمة" : "Watch Intro"}</span>
-          </button>
+          {!isAr && <button onClick={() => setShowWelcome(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition uppercase tracking-wider" title="Watch the Stairs introduction" data-testid="watch-intro-btn">
+            <span className="text-sm">🎬</span> <span className="hidden sm:inline">Watch Intro</span>
+          </button>}
           <button onClick={onLangToggle} className="text-xs text-gray-500 hover:text-amber-400 transition">{isAr ? "EN" : "عربي"}</button>
           <div className="relative">
             <button onClick={() => setShowProfile(v => !v)} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition">
@@ -53,7 +70,7 @@ export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, user
         </div>
       </header>
       <div className="max-w-5xl mx-auto px-6 pt-16 pb-8 text-center" data-tutorial="strategy-landing">
-        <h1 className="text-3xl font-bold text-white mb-3 flex items-center justify-center gap-3" style={{ fontFamily: FONT_DISPLAY }}><img src="/devoneers-logo.png" alt="DEVONEERS" style={{ height: "32px" }} />{isAr ? "استراتيجياتك" : "Your Strategies"}</h1>
+        <h1 className="text-3xl font-normal text-white mb-3 flex items-center justify-center gap-3" style={{ fontFamily: FONT_DISPLAY }}><img src="/devoneers-logo.png" alt="DEVONEERS" style={{ height: "32px" }} />{isAr ? "استراتيجياتك" : "Your Strategies"}</h1>
         <p className="text-gray-500 text-sm max-w-lg mx-auto">{isAr ? "كل استراتيجية هي سلم مستقل." : "Each strategy is an independent staircase for a company, product, or project."}</p>
       </div>
       <div className="max-w-5xl mx-auto px-6 pb-12">
@@ -93,8 +110,8 @@ export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, user
       <StrategyWizard open={showWizard} onClose={() => setShowWizard(false)} onCreate={onCreate} lang={lang} />
       <WelcomeSlideshow
         open={showWelcome}
-        onClose={() => setShowWelcome(false)}
-        onGetStarted={() => { setShowWelcome(false); setShowWizard(true); }}
+        onClose={dismissWelcome}
+        onGetStarted={() => { dismissWelcome(); setShowWizard(true); }}
         hasStrategies={hasStrategies}
       />
       <footer className="text-center py-8 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • Stairs v3.7.0 • {new Date().getFullYear()}</footer>

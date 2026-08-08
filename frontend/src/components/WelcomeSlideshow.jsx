@@ -420,7 +420,7 @@ const slideConfigs = [
           style={{ opacity: animate ? 0 : 1, animationDelay: "300ms", animationFillMode: "forwards" }}
         >
           <span style={{
-            fontSize: "56px", fontWeight: "800", fontFamily: FONT_DISPLAY,
+            fontSize: "56px", fontWeight: 400, fontFamily: FONT_DISPLAY,
             background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_L})`,
             WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
           }}>Stairs</span>
@@ -557,7 +557,7 @@ const slideConfigs = [
           style={{ opacity: animate ? 0 : 1, animationDelay: "300ms", animationFillMode: "forwards" }}
         >
           <span style={{
-            fontSize: "48px", fontWeight: "800", fontFamily: FONT_DISPLAY,
+            fontSize: "48px", fontWeight: 400, fontFamily: FONT_DISPLAY,
             background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_L})`,
             WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
           }}>Stairs</span>

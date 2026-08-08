@@ -3,6 +3,8 @@ import { ActionPlansAPI, ManifestStore, SourcesAPI, ArtifactsAPI, ARTIFACT } fro
 import { GOLD, GOLD_L, DEEP, BORDER, glass, typeColors, typeIcons } from "../constants";
 import { Markdown } from "./Markdown";
 import { logoUrl, printDocument } from "../exportUtils";
+import LoadFailed from "./LoadFailed";
+import { ViewHeader } from "./ViewHeader";
 
 // ═══ PDF HELPERS ═══
 const pdfStyles = `@page{margin:20mm 15mm}*{box-sizing:border-box;margin:0;padding:0}html,body{background:#fff}body{color:#1e293b;font-family:'Segoe UI',system-ui,sans-serif;line-height:1.5}.section{margin-top:24px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;color:#B8904A;font-size:16px;font-weight:700}.footer{text-align:center;margin-top:40px;padding-top:20px;border-top:2px solid #B8904A}.brand{color:#B8904A;font-weight:700;letter-spacing:2px}.header{padding-bottom:16px;border-bottom:3px solid #B8904A;margin-bottom:20px}.manifest-card{margin-top:16px;padding:16px;border:1px solid #e2e8f0;border-radius:8px;page-break-inside:avoid}.toc-item{padding:4px 0;font-size:13px;color:#475569}.toc-num{color:#B8904A;font-weight:600;margin-right:8px}.page-break{page-break-before:always}.sec{margin-bottom:12px;padding:10px 14px;border-radius:6px;background:#f8fafc;border:1px solid #e5e7eb;border-left:4px solid #cbd5e1}.sec-explain{border-left-color:#0d9488}.sec-assess{border-left-color:#2563eb}.sec-custom{border-left-color:#B8904A}.sec-impl{border-left-color:#059669}.sec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}.sec-body{font-size:12px;color:#334155;white-space:pre-wrap}.step{display:flex;align-items:flex-start;gap:8px;padding:4px 0;font-size:12px;color:#334155}.cbox{display:inline-block;width:13px;height:13px;border:1.5px solid #94a3b8;border-radius:3px;flex-shrink:0;margin-top:1px;text-align:center;line-height:11px;font-size:10px;font-weight:700;color:#fff}.cbox-done{background:#059669;border-color:#059669}.step-done{color:#94a3b8;text-decoration:line-through}.step-num{font-weight:700;margin-right:2px}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.manifest-card{page-break-inside:avoid}.page-break{page-break-before:always}.no-print{display:none}}`;
@@ -72,6 +74,7 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
   const [planGroups, setPlanGroups] = useState([]);
   const [manifestData, setManifestData] = useState({});
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const [expandedStair, setExpandedStair] = useState(null);
   const [expandedManifest, setExpandedManifest] = useState(null);
   const isAr = lang === "ar";
@@ -123,6 +126,7 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
     if (!strategyContext?.id) return;
     setLoading(true);
     try {
+      setFailed(false);
       const store = new ManifestStore(strategyContext.id);
 
       const [data, artifacts] = await Promise.all([
@@ -165,7 +169,7 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
       setManifestData(reconciledManifests);
     } catch (e) {
       console.error("Load manifest data:", e);
-      setPlanGroups([]);
+      setFailed(true);
     }
     setLoading(false);
   }, [strategyContext?.id, reconcileManifests]);
@@ -320,15 +324,29 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
 
   if (loading) {
     return (
+      <div>
+        <ViewHeader title={isAr ? "سجل التنفيذ" : "Manifest Room"} />
       <div className="flex items-center gap-2 py-12 justify-center">
         <div className="flex gap-1">{[0, 1, 2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-amber-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
         <span className="text-gray-500 text-xs">{isAr ? "جاري تحميل سجل التنفيذ..." : "Loading manifests..."}</span>
+      </div>
+      </div>
+    );
+  }
+
+  if (failed && manifestGroups.length === 0) {
+    return (
+      <div>
+        <ViewHeader title={isAr ? "سجل التنفيذ" : "Manifest Room"} />
+        <div className="py-8"><LoadFailed what={isAr ? "سجل التنفيذ" : "your implementation manifests"} lang={lang} onRetry={loadData} /></div>
       </div>
     );
   }
 
   if (manifestGroups.length === 0) {
     return (
+      <div>
+        <ViewHeader title={isAr ? "سجل التنفيذ" : "Manifest Room"} />
       <div className="text-center py-16">
         <div className="text-4xl mb-4">📦</div>
         <h3 className="text-white text-lg font-semibold mb-2">{isAr ? "لا توجد سجلات تنفيذ بعد" : "No Implementation Manifests Yet"}</h3>
@@ -338,15 +356,14 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
             : "When you work through actions in the Execution Room (explain, assess ability, customize plan, generate implementation guide), manifests will appear here automatically."}
         </p>
       </div>
+      </div>
     );
   }
 
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <h2 className="text-lg font-semibold text-white">{isAr ? "سجل التنفيذ" : "Manifest Room"}</h2>
-        <div className="flex items-center gap-3">
+      <ViewHeader title={isAr ? "سجل التنفيذ" : "Manifest Room"} right={<>
           <button
             onClick={exportAllManifests}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]"
@@ -358,8 +375,7 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
           <button onClick={loadData} className="text-xs text-amber-400/70 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10">
             {isAr ? "↻ تحديث" : "↻ Refresh"}
           </button>
-        </div>
-      </div>
+        </>} />
 
       {/* Intro */}
       <p className="text-gray-400 text-sm mb-5 max-w-3xl">

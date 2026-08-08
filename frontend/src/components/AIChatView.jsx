@@ -135,6 +135,8 @@ export const AIChatView = ({ lang, userId, strategyContext, onSaveNote, onMatrix
       </div>
       <div className="flex-1 flex flex-col min-w-0">
         <div className="flex items-center gap-2 mb-3">
+          <h2 className="text-lg font-semibold text-white shrink-0">{isAr ? "المستشار" : "AI Advisor"}</h2>
+          <span className="text-gray-700 shrink-0">|</span>
           <button onClick={() => setShowHist(!showHist)} className={`p-2 rounded-lg transition ${showHist?"bg-amber-500/15 text-amber-400":"text-gray-500 hover:text-gray-300"}`}><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="2" width="14" height="2" rx="1"/><rect x="1" y="7" width="14" height="2" rx="1"/><rect x="1" y="12" width="14" height="2" rx="1"/></svg></button>
           {activeConv && <span className="text-sm text-gray-400 truncate">{activeConv.title}</span>}<div className="flex-1"/>
           {messages.length > 1 && <button onClick={exportConversation} className="text-xs px-3 py-1.5 rounded-lg text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 transition" style={{ border: `1px solid ${BORDER}` }}>↓ {isAr ? "تصدير" : "Export"}</button>}
