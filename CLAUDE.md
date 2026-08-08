@@ -91,6 +91,7 @@ Copy `.env.example` to `.env` at the repo root. Key variables:
 | `RATE_LIMIT_WINDOW` | No | `60` | Rate limit window in seconds |
 | `RATE_LIMIT_MAX` | No | `100` | Max requests per window per IP |
 | `PORT` | No | `8000` | Backend server port |
+| `VITE_API_URL` | No | production API URL | **Frontend, build-time.** Which backend the built bundle calls. Set on preview deployments to keep them off production data |
 
 ## Architecture Notes
 
