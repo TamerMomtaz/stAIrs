@@ -2,7 +2,7 @@ import { GOLD } from "../constants";
 
 const SECTIONS = [
   { label: { en: "Core", ar: "الأساسية" }, keys: ["dashboard", "staircase", "ai", "alerts"] },
-  { label: { en: "Execution", ar: "التنفيذ" }, keys: ["actionplans", "manifest", "sources"] },
+  { label: { en: "Execution", ar: "التنفيذ" }, keys: ["execroom", "actionplans", "manifest", "sources"] },
   { label: { en: "Library", ar: "المكتبة" }, keys: ["knowledge", "tools", "notes"] },
 ];
 

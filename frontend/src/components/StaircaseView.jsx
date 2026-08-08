@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { api, ArtifactsAPI, ActionPlansAPI, ARTIFACT, stairScope } from "../api";
+import { api, ArtifactsAPI, ARTIFACT, stairScope } from "../api";
 import { GOLD, GOLD_L, TEAL, DEEP, typeColors, typeIcons } from "../constants";
 import { HealthBadge } from "./SharedUI";
 import { Markdown } from "./Markdown";
 import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
 import { fireGuidance } from "../guidanceConfig";
 import { normalizeAiResult } from "../lib/aiResilience";
+import { loadSavedWork } from "../lib/savedWork";
 import AiUnavailable from "./AiUnavailable";
 import LoadFailed from "./LoadFailed";
 import { ViewHeader } from "./ViewHeader";
@@ -41,51 +42,18 @@ export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, str
   useEffect(() => {
     if (!strategyContext?.id) return;
     let cancelled = false;
-    Promise.all([
-      ArtifactsAPI.forStrategy(strategyContext.id).catch(() => []),
-      ActionPlansAPI.getForStrategy(strategyContext.id).catch(() => []),
-    ]).then(([artifacts, planGroups]) => {
-      if (cancelled) return;
-
-      const results = {}; const stamps = {};
-      // taskScope is "<stair id>:<task id>"; stair-level artifacts have no colon.
-      const workedTasksByStair = {};
-      for (const a of artifacts) {
-        if (a.artifact_type === ARTIFACT.STAIR_EXPLAIN) {
-          results[a.scope_key] = { ...(results[a.scope_key] || {}), explain: a.content };
-          stamps[`explain:${a.scope_key}`] = a.generated_at;
-        } else if (a.artifact_type === ARTIFACT.STAIR_ENHANCE) {
-          results[a.scope_key] = { ...(results[a.scope_key] || {}), enhance: a.content };
-          stamps[`enhance:${a.scope_key}`] = a.generated_at;
-        }
-        if (![ARTIFACT.EXPLAIN, ARTIFACT.ASSESS_CHAT, ARTIFACT.IMPL_GUIDE].includes(a.artifact_type)) continue;
-        const sep = a.scope_key.indexOf(":");
-        if (sep < 0) continue;
-        const stairId = a.scope_key.slice(0, sep);
-        (workedTasksByStair[stairId] ||= new Set()).add(a.scope_key.slice(sep + 1));
-      }
-
-      const counts = {};
-      for (const g of planGroups || []) {
-        const taskIds = new Set();
-        for (const p of g.plans || []) {
-          (p.tasks || []).forEach((t, i) => taskIds.add(t.id || `task_${i}_${p.id}`));
-        }
-        const worked = workedTasksByStair[String(g.stair_id)] || new Set();
-        // Only count work against tasks the current plan still has, so a
-        // regenerated plan doesn't inflate the number with orphaned artifacts.
-        const withWork = [...worked].filter(id => taskIds.has(id)).length;
-        if (taskIds.size > 0) counts[String(g.stair_id)] = { total: taskIds.size, withWork };
-      }
-
-      setAiResult(prev => {
-        const merged = { ...prev };
-        for (const [k, v] of Object.entries(results)) merged[k] = { ...(merged[k] || {}), ...v };
-        return merged;
-      });
-      setSavedAt(stamps);
-      setSavedWork(counts);
-    });
+    loadSavedWork(strategyContext.id)
+      .then(({ results, stamps, counts }) => {
+        if (cancelled) return;
+        setAiResult(prev => {
+          const merged = { ...prev };
+          for (const [k, v] of Object.entries(results)) merged[k] = { ...(merged[k] || {}), ...v };
+          return merged;
+        });
+        setSavedAt(stamps);
+        setSavedWork(counts);
+      })
+      .catch(e => console.warn("[stairs] saved work:", e.message));
     return () => { cancelled = true; };
   }, [strategyContext?.id]);
 
