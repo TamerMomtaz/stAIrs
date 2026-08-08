@@ -93,25 +93,29 @@ describe("normalizeAiResult — genuine output passes through untouched", () => 
 
   it.each([
     "We recommend Anthropic's Claude for the advisor tier.",
-    "Anthropic and OpenAI both price per token; budget 2,000 USD a month.",
+    "Anthropic and OpenAI both price per token; budget 500 USD a month.",
     "Claude 4.6 vs GPT-4o: pick Claude for 200k-token documents.",
     "A 300% increase in throughput is realistic on Claude 4.6.",
   ])("lets vendor talk through when no error token rides along: %s", (text) => {
     expect(containsLeak(text)).toBe(false);
   });
 
-  it("documents the one residual false positive in the vendor gate", () => {
-    // A bare 4xx/5xx number is on the agreed error-token list, so a sentence
-    // that names a vendor AND happens to carry one is treated as a leak. This
-    // is a knowing trade, not an oversight — and res.ok makes it moot against
-    // a patched backend. Asserted here so the cost stays visible.
-    expect(containsLeak("Anthropic pricing starts near 500 USD a month.")).toBe(true);
+  it("no longer treats a vendor name beside a number as a leak", () => {
+    // This used to fail: a bare status code was an error token, so pricing and
+    // sizing prose tripped the vendor gate. The digit token was dropped because
+    // the structural patterns catch a status-carrying leak on their own.
+    expect(containsLeak("Anthropic pricing starts near 500 USD a month.")).toBe(false);
+    expect(containsLeak("Claude 4.6 handles 200k tokens; GPT-4o caps at 128k.")).toBe(false);
+    // ...and a genuine leak carrying a status code is still caught, gate or no gate.
+    expect(containsLeak("AI service returned status 404. Please try again.")).toBe(true);
+    expect(containsLeak("HTTP 503 from api.anthropic.com")).toBe(true);
   });
 
   it("still catches a vendor name the moment an error token joins it", () => {
     expect(containsLeak("Anthropic request failed")).toBe(true);
-    expect(containsLeak("claude-sonnet-4-6 returned 503")).toBe(true);
     expect(containsLeak("Unauthorized calling Anthropic")).toBe(true);
+    expect(containsLeak("claude-sonnet-4-6 not found")).toBe(true);
+    expect(containsLeak("Error from api.anthropic.com")).toBe(true);
   });
 
   it("does not censor a long analysis that happens to name an AI vendor", () => {

@@ -49,12 +49,13 @@ const VENDOR_PATTERNS = [
   /anthropic|api\.anthropic\.com|x-api-key/i,
   /claude-[a-z0-9]*-?\d/i,
 ];
-// 4xx/5xx only: a 2xx/3xx number in prose ("300% increase") is never a failure
-// signal, so including it would cost false positives and buy nothing.
-// Residual, accepted knowingly: a sentence that names a vendor AND contains a
-// bare 4xx/5xx number ("Anthropic pricing starts near 500 USD") reads as a leak.
-// Rare, and moot once the backend sets res.ok.
-const ERROR_TOKEN = /\b[45]\d{2}\b|\bstatus\b|\berror\b|\bfailed\b|not[ _]?found|unauthoriz|traceback/i;
+// A bare status code used to be on this list. It was removed: the structural
+// patterns above already catch /returned status \d{3}/ and /HTTP \d{3}/
+// unconditionally at any length, so a real leak carrying a status code is caught
+// with or without the vendor gate — while this client's prose is full of
+// vendor-plus-number (pricing, token counts, market sizes), which the digit
+// token turned into false positives for no added coverage.
+const ERROR_TOKEN = /\bstatus\b|\berror\b|\bfailed\b|not[ _]?found|unauthoriz|traceback/i;
 
 /* ── What the customer actually reads ── */
 const COPY = {

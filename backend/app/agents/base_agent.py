@@ -1,14 +1,25 @@
 """Base Agent — Foundation for all specialized agents in the ensemble."""
 
-import json
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
 from app.ai_providers import call_ai_with_fallback, PROVIDER_DISPLAY
 from app.db.connection import get_pool
 
 logger = logging.getLogger("stairs.agents")
+
+# Whether agent_logs exists. The answer cannot change at runtime — the table is
+# created by ensure_agent_logs_table() during lifespan, before any request — so
+# checking information_schema once per agent per request was a round-trip to the
+# public Postgres proxy for a constant.
+_agent_logs_table: bool | None = None
+
+
+def _reset_agent_logs_table_cache():
+    """Test hook — forget the cached information_schema answer."""
+    global _agent_logs_table
+    _agent_logs_table = None
 
 
 class BaseAgent:
@@ -69,12 +80,19 @@ class BaseAgent:
                 system_prompt += sot
                 system_prompt += "\n=== End Verified Data ===\n"
 
-            # Inject previous agent outputs for chain context
-            prev = strategy_context.get("previous_outputs")
+            # Inject previous agent outputs for chain context.
+            # A failed call carries client-safe failure copy in place of an
+            # answer — injecting that would have the next agent reason about
+            # our outage. Drop anything marked failed or empty, and read the
+            # fields defensively so one malformed entry can't kill the call.
+            prev = [
+                p for p in (strategy_context.get("previous_outputs") or [])
+                if isinstance(p, dict) and p.get("ok") is not False and str(p.get("summary") or "").strip()
+            ]
             if prev:
                 system_prompt += "\n\n=== Previous Analysis from Other Agents ===\n"
                 for p in prev:
-                    system_prompt += f"\n[{p['agent']}]: {p['summary']}\n"
+                    system_prompt += f"\n[{p.get('agent', 'agent')}]: {p.get('summary')}\n"
                 system_prompt += "=== End Previous Analysis ===\n"
 
         result = await call_ai_with_fallback(
@@ -87,6 +105,8 @@ class BaseAgent:
         tokens = result.get("tokens", 0)
         provider = result.get("provider", "none")
         provider_display = PROVIDER_DISPLAY.get(provider, provider)
+        ok = result.get("ok", True)
+        error_kind = result.get("error_kind")
 
         # Log to agent_logs table
         strategy_id = strategy_context.get("strategy_id") if strategy_context else None
@@ -94,7 +114,17 @@ class BaseAgent:
         if messages:
             content = messages[-1].get("content", "")
             input_summary = content[:500] if isinstance(content, str) else str(content)[:500]
-        output_summary = text[:500] if text else ""
+
+        if ok:
+            output_summary = text[:500] if text else ""
+            model_used = provider_display
+        else:
+            # `text` is client-safe failure copy, not something an agent said.
+            # Recording it as output_summary makes a dead call look like an
+            # answer to anything that later reads the log — and naming a model
+            # credits one for work it never did.
+            output_summary = f"[unavailable: {error_kind or 'unknown'}]"
+            model_used = "unavailable"
 
         await self._log(
             strategy_id=strategy_id,
@@ -102,7 +132,8 @@ class BaseAgent:
             input_summary=input_summary,
             output_summary=output_summary,
             tokens_used=tokens,
-            model_used=provider_display,
+            model_used=model_used,
+            ok=ok,
         )
 
         return {
@@ -112,8 +143,8 @@ class BaseAgent:
             "provider_display": provider_display,
             "fallback_used": result.get("fallback_used", False),
             # ok=False means `text` is client-safe failure copy, not an answer.
-            "ok": result.get("ok", True),
-            "error_kind": result.get("error_kind"),
+            "ok": ok,
+            "error_kind": error_kind,
             "agent": self.name,
         }
 
@@ -126,19 +157,27 @@ class BaseAgent:
         tokens_used: int = 0,
         model_used: str = "",
         confidence_score: int = None,
+        ok: bool = None,
     ):
-        """Log agent call to the agent_logs database table."""
+        """Log agent call to the agent_logs database table.
+
+        ok is nullable: True/False for calls that went through call(), NULL for
+        rows written before the column existed, so the transparency panel can
+        separate dead calls from real ones instead of averaging them together.
+        """
+        global _agent_logs_table
         try:
             pool = await get_pool()
             async with pool.acquire() as conn:
-                table_exists = await conn.fetchval(
-                    "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'agent_logs')"
-                )
-                if table_exists:
+                if _agent_logs_table is None:
+                    _agent_logs_table = await conn.fetchval(
+                        "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'agent_logs')"
+                    )
+                if _agent_logs_table:
                     await conn.execute(
                         "INSERT INTO agent_logs (id, strategy_id, agent_name, task_type, "
-                        "input_summary, output_summary, tokens_used, model_used, confidence_score) "
-                        "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+                        "input_summary, output_summary, tokens_used, model_used, confidence_score, ok) "
+                        "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
                         str(uuid.uuid4()),
                         strategy_id,
                         self.name,
@@ -148,6 +187,7 @@ class BaseAgent:
                         tokens_used,
                         model_used,
                         confidence_score,
+                        ok,
                     )
         except Exception as e:
             logger.warning("Failed to log agent call: %s", e)

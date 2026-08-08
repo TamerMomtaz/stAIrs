@@ -468,12 +468,17 @@ async def ensure_agent_logs_table():
                     tokens_used INTEGER DEFAULT 0,
                     model_used VARCHAR(50),
                     confidence_score INTEGER,
+                    ok BOOLEAN,
                     created_at TIMESTAMPTZ DEFAULT NOW()
                 )
             """)
             await conn.execute("CREATE INDEX idx_agent_logs_strategy ON agent_logs(strategy_id, created_at DESC)")
             await conn.execute("CREATE INDEX idx_agent_logs_agent ON agent_logs(agent_name, created_at DESC)")
             print("  ✅ agent_logs table created")
+
+        # Nullable on purpose: rows written before this column existed stay NULL
+        # ("unknown") rather than being retroactively counted as successes.
+        await conn.execute("ALTER TABLE agent_logs ADD COLUMN IF NOT EXISTS ok BOOLEAN")
 
 
 async def ensure_ai_usage_logs_table():
