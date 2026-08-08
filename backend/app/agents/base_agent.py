@@ -9,17 +9,21 @@ from app.db.connection import get_pool
 
 logger = logging.getLogger("stairs.agents")
 
-# Whether agent_logs exists. The answer cannot change at runtime — the table is
-# created by ensure_agent_logs_table() during lifespan, before any request — so
-# checking information_schema once per agent per request was a round-trip to the
-# public Postgres proxy for a constant.
-_agent_logs_table: bool | None = None
+# True once agent_logs has been seen to exist. Deliberately one-way: a table
+# that exists cannot stop existing under us, so the positive is cached and the
+# information_schema round-trip (once per agent per request, over the public
+# Postgres proxy) disappears. The negative is NOT cached, because
+# ensure_agent_logs_table() warns and continues on failure like every other
+# startup migration — so "missing" is a state the process can recover from, and
+# latching it would silently disable agent logging for the life of the process.
+# A missing table therefore costs one query per call, in an already-broken state.
+_agent_logs_table: bool = False
 
 
 def _reset_agent_logs_table_cache():
-    """Test hook — forget the cached information_schema answer."""
+    """Test hook — forget that we have seen the table."""
     global _agent_logs_table
-    _agent_logs_table = None
+    _agent_logs_table = False
 
 
 class BaseAgent:
@@ -54,21 +58,37 @@ class BaseAgent:
         strategy_context: dict = None,
         max_tokens: int = 1024,
         task_type: str = "",
+        log: bool = True,
     ) -> dict:
         """Call the AI with the agent's specialized system prompt.
 
         Uses the existing multi-AI fallback chain (Claude -> GPT-4o -> Gemini).
-        Logs the call to agent_logs for traceability.
+        Logs the call to agent_logs for traceability unless log=False.
 
         Returns:
             {
-                "text": str,
+                "text": str,           # the answer — OR, when ok is False,
+                                       # client-safe failure copy in its place
+                                       # ("The strategy assistant is taking a
+                                       # moment..."). Never a status code.
                 "tokens": int,
                 "provider": str,
                 "provider_display": str,
                 "fallback_used": bool,
+                "ok": bool,            # False when no provider produced an
+                                       # answer. Callers MUST branch on this
+                                       # before treating `text` as output:
+                                       # persisting, validating, chaining into
+                                       # another agent's prompt or showing it as
+                                       # analysis are all wrong when ok is False.
+                "error_kind": str|None, # no_key | unavailable | busy |
+                                        # too_long | offline; None when ok.
                 "agent": str,
             }
+
+        Args:
+            log: write a row to agent_logs. Pass False when the caller logs a
+                 richer row itself, so one AI call does not become two rows.
         """
         system_prompt = self._build_system_prompt(strategy_context)
 
@@ -126,15 +146,16 @@ class BaseAgent:
             output_summary = f"[unavailable: {error_kind or 'unknown'}]"
             model_used = "unavailable"
 
-        await self._log(
-            strategy_id=strategy_id,
-            task_type=task_type or self.name,
-            input_summary=input_summary,
-            output_summary=output_summary,
-            tokens_used=tokens,
-            model_used=model_used,
-            ok=ok,
-        )
+        if log:
+            await self._log(
+                strategy_id=strategy_id,
+                task_type=task_type or self.name,
+                input_summary=input_summary,
+                output_summary=output_summary,
+                tokens_used=tokens,
+                model_used=model_used,
+                ok=ok,
+            )
 
         return {
             "text": text,
@@ -169,10 +190,13 @@ class BaseAgent:
         try:
             pool = await get_pool()
             async with pool.acquire() as conn:
-                if _agent_logs_table is None:
-                    _agent_logs_table = await conn.fetchval(
+                if not _agent_logs_table:
+                    # Re-checked every call until it succeeds once; see the note
+                    # on _agent_logs_table for why the negative isn't cached.
+                    if await conn.fetchval(
                         "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'agent_logs')"
-                    )
+                    ):
+                        _agent_logs_table = True
                 if _agent_logs_table:
                     await conn.execute(
                         "INSERT INTO agent_logs (id, strategy_id, agent_name, task_type, "

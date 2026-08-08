@@ -350,3 +350,133 @@ class TestOrchestratorEndToEnd:
         for prompt in captured["prompts"]:
             assert "taking a moment" not in prompt.lower()
             assert "Previous Analysis" not in prompt
+
+
+class TestTableCacheRecoversFromAMissingTable:
+    """The positive is cached; the negative deliberately is not.
+
+    ensure_agent_logs_table() warns and continues on failure like every other
+    startup migration, so "table missing" is a state the process can recover
+    from. Latching it would silently disable agent logging for the life of the
+    process — worse than one wasted query per call in an already-broken state.
+    """
+
+    def _pool(self, exists_sequence, record):
+        class Conn:
+            async def fetchval(self, *a, **kw):
+                record["checks"] += 1
+                return exists_sequence.pop(0) if exists_sequence else True
+            async def execute(self, *a, **kw):
+                record["inserts"] += 1
+                return "INSERT 0 1"
+
+        class Acquire:
+            async def __aenter__(self): return Conn()
+            async def __aexit__(self, *a): return False
+
+        class Pool:
+            def acquire(self): return Acquire()
+
+        async def get_pool():
+            return Pool()
+        return get_pool
+
+    async def test_table_missing_then_present_still_inserts(self, monkeypatch):
+        base_agent_module._reset_agent_logs_table_cache()
+        record = {"checks": 0, "inserts": 0}
+        monkeypatch.setattr(base_agent_module, "get_pool",
+                            self._pool([False, True], record))
+
+        agent = RecordingAgent()
+        await agent._log(task_type="t", ok=True)      # table not there yet
+        assert record["inserts"] == 0
+
+        await agent._log(task_type="t", ok=True)      # migration has since run
+        assert record["inserts"] == 1, "a missing table must not latch off permanently"
+        assert record["checks"] == 2
+
+        # ...and now that it has been seen, stop asking.
+        await agent._log(task_type="t", ok=True)
+        assert record["checks"] == 2
+        assert record["inserts"] == 2
+        base_agent_module._reset_agent_logs_table_cache()
+
+    async def test_the_positive_is_still_cached_after_the_first_hit(self, monkeypatch):
+        base_agent_module._reset_agent_logs_table_cache()
+        record = {"checks": 0, "inserts": 0}
+        monkeypatch.setattr(base_agent_module, "get_pool", self._pool([True], record))
+
+        agent = RecordingAgent()
+        for _ in range(5):
+            await agent._log(task_type="t", ok=True)
+
+        assert record["checks"] == 1
+        assert record["inserts"] == 5
+        base_agent_module._reset_agent_logs_table_cache()
+
+
+class TestOneAiCallIsOneLogRow:
+    async def test_validate_writes_a_single_row_carrying_the_score(self, captured):
+        captured["install"](_success_envelope('{"confidence_score": 88, "validated": true}'))
+        await ValidationAgent().validate(
+            agent_name="strategy_advisor", agent_output=REAL_ANSWER,
+            task_type="advisor_chat", strategy_context={"strategy_id": "s1"},
+        )
+        rows = [r for r in captured["logs"] if r["agent"] == "validation"]
+        assert len(rows) == 1, "call() must not log when validate() logs a richer row"
+        assert rows[0]["confidence_score"] == 88
+        assert rows[0]["ok"] is True
+
+    async def test_a_failed_validate_also_writes_exactly_one_row(self, captured):
+        captured["install"](_failure_envelope())
+        await ValidationAgent().validate(
+            agent_name="strategy_advisor", agent_output=REAL_ANSWER,
+            task_type="advisor_chat", strategy_context={"strategy_id": "s1"},
+        )
+        rows = [r for r in captured["logs"] if r["agent"] == "validation"]
+        assert len(rows) == 1
+        assert rows[0]["ok"] is False
+        assert rows[0]["confidence_score"] is None
+
+    async def test_ordinary_agents_still_log_themselves(self, captured):
+        captured["install"](_success_envelope())
+        await RecordingAgent().call([{"role": "user", "content": "x"}], {"strategy_id": "s1"})
+        assert len(captured["logs"]) == 1
+
+    async def test_log_false_writes_nothing(self, captured):
+        captured["install"](_success_envelope())
+        await RecordingAgent().call([{"role": "user", "content": "x"}], {"strategy_id": "s1"}, log=False)
+        assert captured["logs"] == []
+
+
+class TestEveryFallbackReturnPathSetsOk:
+    """base_agent defaults ok to True, so a return path that forgets to set it
+    would make a failure read as success — the exact inversion this work exists
+    to prevent. Lock every exit of call_ai_with_fallback."""
+
+    def test_no_return_path_omits_ok_or_error_kind(self):
+        import ast, inspect
+        from app import ai_providers
+
+        tree = ast.parse(inspect.getsource(ai_providers))
+        fn = next(n for n in ast.walk(tree)
+                  if isinstance(n, ast.AsyncFunctionDef) and n.name == "call_ai_with_fallback")
+        returns = [n for n in ast.walk(fn) if isinstance(n, ast.Return)]
+        assert returns, "expected explicit returns"
+
+        for r in returns:
+            assert isinstance(r.value, ast.Dict), f"line {r.lineno} returns a non-dict"
+            keys = [k.value for k in r.value.keys]
+            assert "ok" in keys, f"return at line {r.lineno} omits 'ok'"
+            assert "error_kind" in keys, f"return at line {r.lineno} omits 'error_kind'"
+
+        # No implicit `return None` off the end, and no handler returning bare.
+        assert isinstance(fn.body[-1], ast.Return), "function must end in an explicit return"
+        assert not [r for r in returns if r.value is None]
+
+    async def test_a_result_without_ok_is_read_as_success_not_failure(self, captured):
+        """Documents the default: a legacy envelope keeps working as an answer."""
+        captured["install"]({"text": REAL_ANSWER, "tokens": 1, "provider": "claude"})
+        result = await RecordingAgent().call([{"role": "user", "content": "x"}], {"strategy_id": "s1"})
+        assert result["ok"] is True
+        assert result["text"] == REAL_ANSWER

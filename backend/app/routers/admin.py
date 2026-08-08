@@ -13,6 +13,22 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
+# True once agent_logs.ok has been seen. One-way for the same reason as
+# base_agent's table cache: the ALTER runs at startup but warns-and-continues on
+# failure, so "absent" is recoverable and must not latch. Without the column the
+# endpoint degrades to the pre-ok numbers rather than 500ing.
+_agent_logs_has_ok: bool = False
+
+
+async def _has_ok_column(conn) -> bool:
+    global _agent_logs_has_ok
+    if not _agent_logs_has_ok:
+        _agent_logs_has_ok = bool(await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM information_schema.columns "
+            "WHERE table_name = 'agent_logs' AND column_name = 'ok')"
+        ))
+    return _agent_logs_has_ok
+
 
 @router.get("/ai-status")
 async def ai_status(auth: AuthContext = Depends(get_auth)):
@@ -98,27 +114,57 @@ async def agent_stats(auth: AuthContext = Depends(get_auth)):
         if not agent_table:
             return result
 
-        # Total calls per agent + avg confidence
-        agent_rows = await conn.fetch(
-            "SELECT agent_name, COUNT(*) as total_calls, "
-            "AVG(confidence_score) as avg_confidence, "
-            "COUNT(CASE WHEN confidence_score < 60 THEN 1 END) as low_confidence_count "
-            "FROM agent_logs GROUP BY agent_name ORDER BY total_calls DESC"
-        )
+        # Per-agent counts. total_calls stays every attempt; quality averages
+        # exclude ok IS FALSE (a dead call measured nothing, so averaging it in
+        # would quietly drag the number an operator watches). ok IS NULL is
+        # counted in neither — those rows pre-date the column.
+        has_ok = await _has_ok_column(conn)
+        if has_ok:
+            agent_rows = await conn.fetch(
+                "SELECT agent_name, "
+                "COUNT(*) AS total_calls, "
+                "COUNT(*) FILTER (WHERE ok IS FALSE) AS failed_calls, "
+                "AVG(confidence_score) FILTER (WHERE ok IS NOT FALSE) AS avg_confidence, "
+                "COUNT(confidence_score) FILTER (WHERE ok IS NOT FALSE) AS scored_calls, "
+                "COUNT(*) FILTER (WHERE ok IS NOT FALSE AND confidence_score < 60) AS low_confidence_count "
+                "FROM agent_logs GROUP BY agent_name ORDER BY total_calls DESC"
+            )
+        else:
+            agent_rows = await conn.fetch(
+                "SELECT agent_name, COUNT(*) AS total_calls, 0 AS failed_calls, "
+                "AVG(confidence_score) AS avg_confidence, "
+                "COUNT(confidence_score) AS scored_calls, "
+                "COUNT(*) FILTER (WHERE confidence_score < 60) AS low_confidence_count "
+                "FROM agent_logs GROUP BY agent_name ORDER BY total_calls DESC"
+            )
+
         total = 0
+        total_failed = 0
         for row in agent_rows:
             name = row["agent_name"]
             calls = row["total_calls"]
+            failed = row["failed_calls"] or 0
+            scored = row["scored_calls"] or 0
             total += calls
+            total_failed += failed
             result["agents"][name] = {
                 "total_calls": calls,
-                "avg_confidence": round(float(row["avg_confidence"]), 1) if row["avg_confidence"] else None,
+                "failed_calls": failed,
+                # The number that shows an outage before a client reports one.
+                "failure_rate": round((failed / calls) * 100, 1) if calls else 0,
+                "avg_confidence": round(float(row["avg_confidence"]), 1) if row["avg_confidence"] is not None else None,
+                "scored_calls": scored,
                 "low_confidence_count": row["low_confidence_count"],
+                # Out of calls that actually carry a score — an unscored call is
+                # not a rejection, and neither is a call that never ran.
                 "validation_rejection_rate": round(
-                    (row["low_confidence_count"] / calls) * 100, 1
-                ) if calls > 0 else 0,
+                    (row["low_confidence_count"] / scored) * 100, 1
+                ) if scored else 0,
             }
         result["total_calls"] = total
+        result["failed_calls"] = total_failed
+        result["failure_rate"] = round((total_failed / total) * 100, 1) if total else 0
+        result["ok_column_available"] = has_ok
 
         # Avg response time from ai_usage_logs
         usage_table = await conn.fetchval(
@@ -153,8 +199,9 @@ async def agent_stats(auth: AuthContext = Depends(get_auth)):
 
         # Recent activity (last 20 agent calls)
         recent = await conn.fetch(
-            "SELECT agent_name, task_type, confidence_score, model_used, created_at "
-            "FROM agent_logs ORDER BY created_at DESC LIMIT 20"
+            "SELECT agent_name, task_type, confidence_score, model_used, "
+            + ("ok" if has_ok else "NULL AS ok")
+            + ", created_at FROM agent_logs ORDER BY created_at DESC LIMIT 20"
         )
         result["recent_activity"] = [
             {
@@ -162,6 +209,7 @@ async def agent_stats(auth: AuthContext = Depends(get_auth)):
                 "task_type": r["task_type"],
                 "confidence_score": r["confidence_score"],
                 "model_used": r["model_used"],
+                "ok": r["ok"],   # None = pre-dates the column
                 "timestamp": r["created_at"].isoformat() if r["created_at"] else None,
             }
             for r in recent
