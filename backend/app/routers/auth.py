@@ -11,10 +11,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.db.connection import get_pool
 from app.helpers import (
     row_to_dict, rows_to_dicts, hash_password, verify_password,
-    create_jwt, get_auth, require_auth, AuthContext,
+    create_jwt, get_auth, require_auth, AuthContext, JWT_EXPIRY_HOURS,
 )
 from app.models.schemas import (
     LoginRequest, RegisterRequest, SignupRequest, InviteCreate, InviteOut,
+    PasswordChange, PasswordResetCreate, PasswordResetOut, PasswordResetRedeem,
 )
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
@@ -64,6 +65,23 @@ async def _lookup_invite(conn, token: str, email: str | None = None):
     if email and invite["email"] and invite["email"].lower() != email.lower():
         return invite, f"This invitation was sent to {invite['email']}. Sign up with that email address, or ask for an invitation to yours."
     return invite, None
+
+
+async def _lookup_reset(conn, token: str):
+    """Resolve a reset token to (row, problem), problem None when usable."""
+    row = await conn.fetchrow("""
+        SELECT r.*, u.email FROM password_resets r
+        JOIN users u ON u.id = r.user_id WHERE r.token = $1
+    """, token)
+    if not row:
+        return None, "This reset link isn't recognised. Ask your administrator for a new one."
+    if row["revoked_at"]:
+        return row, "This reset link has been revoked. Ask your administrator for a new one."
+    if row["used_at"]:
+        return row, "This reset link has already been used. Ask your administrator for a new one."
+    if row["expires_at"] and row["expires_at"] <= datetime.now(timezone.utc):
+        return row, "This reset link has expired. Ask your administrator for a new one."
+    return row, None
 
 
 async def _consume_invite(conn, token: str, email: str):
@@ -290,4 +308,130 @@ async def preview_invite(token: str):
             "organization_name": invite["org_name"],
             "role": invite["role"],
             "email": invite["email"],
+        }
+
+
+# ─── PASSWORDS ───
+# There was no way to change a password at all: no change endpoint, no reset,
+# and a "Forgot Password?" link that told users to contact an administrator who
+# had no mechanism either. The only route was a direct database write.
+
+@router.post("/password")
+async def change_password(req: PasswordChange, auth: AuthContext = Depends(require_auth)):
+    """Change your own password. Requires the current one."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        user = await conn.fetchrow("SELECT id, password_hash FROM users WHERE id = $1", auth.user_id)
+        if not user:
+            raise HTTPException(404, "User not found")
+        if not verify_password(req.current_password, user["password_hash"] or ""):
+            # Deliberately not "wrong password" — this endpoint is authenticated,
+            # so the only caller is the account holder, but there is no reason to
+            # confirm a guess for someone using a stolen token.
+            raise HTTPException(400, "Current password is incorrect")
+        if req.new_password == req.current_password:
+            raise HTTPException(400, "The new password must be different from the current one")
+        await conn.execute(
+            "UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2",
+            hash_password(req.new_password), auth.user_id)
+        # Existing tokens stay valid until they expire — there is no revocation
+        # list. Say so rather than implying a change here ends other sessions.
+        return {
+            "changed": True,
+            "note": ("Sessions already signed in elsewhere remain valid until their "
+                     f"token expires (up to {JWT_EXPIRY_HOURS} hours)."),
+        }
+
+
+@router.post("/password/reset-links", response_model=PasswordResetOut, status_code=201)
+async def create_password_reset(req: PasswordResetCreate, auth: AuthContext = Depends(require_auth)):
+    """Mint a single-use password reset link for someone in your organization.
+
+    Admins only, own organization only. Same shape as an invitation: a random
+    token, an expiry, single use, revocable, and returned exactly once.
+    """
+    if auth.role != "admin":
+        raise HTTPException(403, "Only an organization admin can issue password resets")
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        user = await conn.fetchrow(
+            "SELECT id, email FROM users WHERE lower(email) = lower($1) AND organization_id = $2",
+            req.email, auth.org_id)
+        if not user:
+            raise HTTPException(404, "No such user in your organization")
+        reset_id = str(uuid.uuid4())
+        token = secrets.token_urlsafe(32)
+        await conn.execute("""
+            INSERT INTO password_resets (id, user_id, organization_id, token, created_by, expires_at)
+            VALUES ($1,$2,$3,$4,$5, NOW() + ($6 || ' hours')::interval)
+        """, reset_id, str(user["id"]), auth.org_id, token, auth.user_id, str(req.expires_in_hours))
+        row = await conn.fetchrow("""
+            SELECT r.id, u.email, r.token, r.expires_at, r.created_at, r.used_at, r.revoked_at
+            FROM password_resets r JOIN users u ON u.id = r.user_id WHERE r.id = $1
+        """, reset_id)
+        return row_to_dict(row)
+
+
+@router.get("/password/reset-links", response_model=List[PasswordResetOut])
+async def list_password_resets(auth: AuthContext = Depends(require_auth)):
+    """Outstanding resets for your organization. Tokens are withheld — they are
+    handed out once, at creation, or this becomes a way to harvest live ones."""
+    if auth.role != "admin":
+        raise HTTPException(403, "Only an organization admin can view password resets")
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT r.id, u.email, NULL::text AS token, r.expires_at, r.created_at,
+                   r.used_at, r.revoked_at
+            FROM password_resets r JOIN users u ON u.id = r.user_id
+            WHERE r.organization_id = $1 ORDER BY r.created_at DESC
+        """, auth.org_id)
+        return rows_to_dicts(rows)
+
+
+@router.delete("/password/reset-links/{reset_id}")
+async def revoke_password_reset(reset_id: str, auth: AuthContext = Depends(require_auth)):
+    if auth.role != "admin":
+        raise HTTPException(403, "Only an organization admin can revoke password resets")
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.execute("""
+            UPDATE password_resets SET revoked_at = NOW()
+            WHERE id = $1 AND organization_id = $2 AND used_at IS NULL AND revoked_at IS NULL
+        """, reset_id, auth.org_id)
+        if result == "UPDATE 0":
+            raise HTTPException(404, "Reset link not found")
+        return {"revoked": True, "id": reset_id}
+
+
+@router.get("/password/reset/{token}")
+async def preview_password_reset(token: str):
+    """Describe a reset link to whoever is holding it. Unauthenticated by
+    necessity — the whole point is that they cannot sign in."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row, problem = await _lookup_reset(conn, token)
+        if not row:
+            return {"valid": False, "reason": problem}
+        return {"valid": problem is None, "reason": problem, "email": row["email"]}
+
+
+@router.post("/password/reset")
+async def redeem_password_reset(req: PasswordResetRedeem):
+    """Set a new password using a reset link. Unauthenticated, single use."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row, problem = await _lookup_reset(conn, req.token)
+        if problem:
+            raise HTTPException(400, problem)
+        await conn.execute(
+            "UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2",
+            hash_password(req.new_password), str(row["user_id"]))
+        await conn.execute(
+            "UPDATE password_resets SET used_at = NOW() WHERE id = $1", str(row["id"]))
+        return {
+            "reset": True,
+            "email": row["email"],
+            "note": ("Sessions already signed in elsewhere remain valid until their "
+                     f"token expires (up to {JWT_EXPIRY_HOURS} hours)."),
         }

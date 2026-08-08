@@ -534,3 +534,166 @@ class TestNoSeedPasswordReset:
         code = re.sub(r'(?s)""".*?"""', "", src)
         code = re.sub(r'#.*', "", code)
         assert "password_hash" not in code, "startup must not write account passwords"
+
+
+# ─── 8. PASSWORD CHANGE AND RESET ───
+# There was no way to change a password at all, so the only route was a direct
+# database write and "Forgot Password?" was a dead end.
+
+from app.helpers import hash_password as _hash
+
+
+class TestPasswordChange:
+    @pytest.fixture
+    def signed_in(self):
+        app.dependency_overrides[get_auth] = lambda: AuthContext(DEFAULT_USER_ID, ORG_A, "member")
+        yield
+        app.dependency_overrides.pop(get_auth, None)
+
+    def _client(self, role="member"):
+        import app.helpers as h
+        return TestClient(app), {"Authorization": f"Bearer {h.create_jwt(DEFAULT_USER_ID, ORG_A, role)}"}
+
+    def test_the_current_password_must_be_right(self, mock_pool):
+        pool, conn = mock_pool
+        conn.fetchrow = AsyncMock(return_value={"id": DEFAULT_USER_ID, "password_hash": _hash("the-real-one")})
+        client, hdr = self._client()
+        with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
+            r = client.post("/api/v1/auth/password", headers=hdr,
+                            json={"current_password": "a-guess", "new_password": "brand-new-password"})
+        assert r.status_code == 400
+        conn.execute.assert_not_called()
+
+    def test_a_correct_current_password_changes_it(self, mock_pool):
+        pool, conn = mock_pool
+        conn.fetchrow = AsyncMock(return_value={"id": DEFAULT_USER_ID, "password_hash": _hash("the-real-one")})
+        client, hdr = self._client()
+        with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
+            r = client.post("/api/v1/auth/password", headers=hdr,
+                            json={"current_password": "the-real-one", "new_password": "brand-new-password"})
+        assert r.status_code == 200
+        sql, new_hash, uid = conn.execute.call_args.args[:3]
+        assert "UPDATE users SET password_hash" in sql
+        # Stored hashed, never in the clear.
+        assert new_hash.startswith("$2") and "brand-new-password" not in new_hash
+        import bcrypt
+        assert bcrypt.checkpw(b"brand-new-password", new_hash.encode())
+
+    def test_it_says_that_other_sessions_survive(self, mock_pool):
+        """There is no revocation list; implying otherwise would be a lie."""
+        pool, conn = mock_pool
+        conn.fetchrow = AsyncMock(return_value={"id": DEFAULT_USER_ID, "password_hash": _hash("old-password")})
+        client, hdr = self._client()
+        with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
+            r = client.post("/api/v1/auth/password", headers=hdr,
+                            json={"current_password": "old-password", "new_password": "a-new-password"})
+        assert "remain valid" in r.json()["note"]
+
+    def test_reusing_the_same_password_is_refused(self, mock_pool):
+        pool, conn = mock_pool
+        conn.fetchrow = AsyncMock(return_value={"id": DEFAULT_USER_ID, "password_hash": _hash("same-password")})
+        client, hdr = self._client()
+        with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
+            r = client.post("/api/v1/auth/password", headers=hdr,
+                            json={"current_password": "same-password", "new_password": "same-password"})
+        assert r.status_code == 400
+        conn.execute.assert_not_called()
+
+    def test_a_short_password_is_refused_before_reaching_the_database(self, mock_pool):
+        pool, conn = mock_pool
+        client, hdr = self._client()
+        with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
+            r = client.post("/api/v1/auth/password", headers=hdr,
+                            json={"current_password": "whatever", "new_password": "short"})
+        assert r.status_code == 422
+
+    def test_it_needs_authentication(self):
+        assert TestClient(app).post("/api/v1/auth/password", json={
+            "current_password": "x", "new_password": "long-enough-password"}).status_code == 401
+
+
+class TestPasswordResets:
+    def _hdr(self, role):
+        import app.helpers as h
+        return {"Authorization": f"Bearer {h.create_jwt(DEFAULT_USER_ID, ORG_A, role)}"}
+
+    def test_only_an_admin_can_issue_one(self, mock_pool):
+        pool, _ = mock_pool
+        with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
+            r = TestClient(app).post("/api/v1/auth/password/reset-links",
+                                     headers=self._hdr("member"), json={"email": "x@y.test"})
+        assert r.status_code == 403
+
+    def test_it_refuses_someone_in_another_organization(self, mock_pool):
+        pool, conn = mock_pool
+        conn.fetchrow = AsyncMock(return_value=None)
+        with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
+            r = TestClient(app).post("/api/v1/auth/password/reset-links",
+                                     headers=self._hdr("admin"), json={"email": "outsider@elsewhere.test"})
+        assert r.status_code == 404
+        sql = conn.fetchrow.call_args.args[0]
+        assert "organization_id = $2" in sql
+
+    def test_listing_withholds_the_tokens(self, mock_pool):
+        pool, conn = mock_pool
+        conn.fetch = AsyncMock(return_value=[])
+        with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
+            TestClient(app).get("/api/v1/auth/password/reset-links", headers=self._hdr("admin"))
+        assert "NULL::text AS token" in conn.fetch.call_args.args[0]
+
+    @pytest.mark.parametrize("row,fragment", [
+        (None, "isn't recognised"),
+        ({"revoked_at": "now", "used_at": None, "expires_at": None}, "revoked"),
+        ({"revoked_at": None, "used_at": "now", "expires_at": None}, "already been used"),
+    ])
+    def test_a_broken_link_says_why_and_changes_nothing(self, mock_pool, row, fragment):
+        pool, conn = mock_pool
+        if row is not None:
+            row = {**row, "id": "r1", "user_id": DEFAULT_USER_ID, "email": "x@y.test"}
+        conn.fetchrow = AsyncMock(return_value=row)
+        with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
+            r = TestClient(app).post("/api/v1/auth/password/reset",
+                                     json={"token": "tok", "new_password": "a-new-password"})
+        assert r.status_code == 400
+        assert fragment in r.json()["detail"]
+        conn.execute.assert_not_called()
+
+    def test_an_expired_link_is_refused(self, mock_pool):
+        from datetime import datetime, timedelta, timezone
+        pool, conn = mock_pool
+        conn.fetchrow = AsyncMock(return_value={
+            "id": "r1", "user_id": DEFAULT_USER_ID, "email": "x@y.test",
+            "revoked_at": None, "used_at": None,
+            "expires_at": datetime.now(timezone.utc) - timedelta(hours=1)})
+        with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
+            r = TestClient(app).post("/api/v1/auth/password/reset",
+                                     json={"token": "tok", "new_password": "a-new-password"})
+        assert r.status_code == 400 and "expired" in r.json()["detail"]
+        conn.execute.assert_not_called()
+
+    def test_a_valid_link_sets_the_password_and_is_consumed(self, mock_pool):
+        from datetime import datetime, timedelta, timezone
+        pool, conn = mock_pool
+        conn.fetchrow = AsyncMock(return_value={
+            "id": "r1", "user_id": DEFAULT_USER_ID, "email": "x@y.test",
+            "revoked_at": None, "used_at": None,
+            "expires_at": datetime.now(timezone.utc) + timedelta(hours=1)})
+        with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
+            r = TestClient(app).post("/api/v1/auth/password/reset",
+                                     json={"token": "tok", "new_password": "a-new-password"})
+        assert r.status_code == 200
+        statements = [c.args[0] for c in conn.execute.call_args_list]
+        assert any("UPDATE users SET password_hash" in s for s in statements)
+        assert any("used_at = NOW()" in s for s in statements), "the link must be single use"
+
+    def test_preview_never_returns_the_token(self, mock_pool):
+        from datetime import datetime, timedelta, timezone
+        pool, conn = mock_pool
+        conn.fetchrow = AsyncMock(return_value={
+            "id": "r1", "user_id": DEFAULT_USER_ID, "email": "x@y.test", "token": "secret-token",
+            "revoked_at": None, "used_at": None,
+            "expires_at": datetime.now(timezone.utc) + timedelta(hours=1)})
+        with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
+            r = TestClient(app).get("/api/v1/auth/password/reset/tok")
+        assert r.json()["valid"] is True
+        assert "secret-token" not in r.text
