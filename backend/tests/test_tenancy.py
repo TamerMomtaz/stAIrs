@@ -235,9 +235,12 @@ class TestRegistrationCreatesAnOrganization:
             r = TestClient(app).post("/api/v1/auth/signup", json={
                 "name": "New", "email": "new@x.test",
                 "password": "stairs2026!", "confirm_password": "stairs2026!",
+                "org_name": "New Client Ltd",
             })
         assert r.status_code == 201
         assert r.json()["user"]["role"] == "admin"
+        # The organisation is named by the registrant, not after them.
+        assert conn.execute.call_args_list[0].args[2] == "New Client Ltd"
         statements = [c.args[0] for c in conn.execute.call_args_list]
         assert any("INSERT INTO organizations" in s for s in statements), \
             "signup must create an organization, not join a shared one"
@@ -290,3 +293,172 @@ class TestInvitesAreAdminOnly:
         assert r.status_code == 200
         assert all(i["token"] is None for i in r.json())
         assert "NULL::text AS token" in conn.fetch.call_args.args[0]
+
+
+# ─── 6. INVITE FAILURE PATHS ───
+# An invitation that cannot be used must say why and must never fall through to
+# creating a new organization — that is how an invited colleague lands alone in
+# an empty workspace wondering where their team's data went.
+
+import asyncio
+from datetime import datetime, timedelta, timezone
+
+from app.routers.auth import _lookup_invite
+
+
+def _invite(**over):
+    row = {
+        "id": "f0000000-0000-0000-0000-000000000001",
+        "organization_id": ORG_A,
+        "org_name": "Acme Corp",
+        "email": None,
+        "role": "member",
+        "token": "tok",
+        "expires_at": datetime.now(timezone.utc) + timedelta(days=7),
+        "accepted_at": None,
+        "revoked_at": None,
+    }
+    row.update(over)
+    return row
+
+
+def _lookup(row, email=None):
+    conn = AsyncMock()
+    conn.fetchrow = AsyncMock(return_value=row)
+    return asyncio.run(_lookup_invite(conn, "tok", email))
+
+
+class TestInviteFailurePaths:
+    def test_a_usable_invite_reports_no_problem(self):
+        invite, problem = _lookup(_invite())
+        assert problem is None and invite["org_name"] == "Acme Corp"
+
+    def test_unknown_token_says_it_is_not_recognised(self):
+        _, problem = _lookup(None)
+        assert "isn't recognised" in problem
+
+    def test_revoked_says_revoked(self):
+        _, problem = _lookup(_invite(revoked_at=datetime.now(timezone.utc)))
+        assert "revoked" in problem.lower()
+
+    def test_already_used_says_already_used(self):
+        _, problem = _lookup(_invite(accepted_at=datetime.now(timezone.utc)))
+        assert "already been used" in problem
+
+    def test_expired_says_expired(self):
+        _, problem = _lookup(_invite(expires_at=datetime.now(timezone.utc) - timedelta(hours=1)))
+        assert "expired" in problem.lower()
+
+    def test_wrong_recipient_names_the_right_address(self):
+        _, problem = _lookup(_invite(email="right@acme.test"), email="wrong@evil.test")
+        assert "right@acme.test" in problem
+
+    def test_the_right_recipient_is_accepted_case_insensitively(self):
+        _, problem = _lookup(_invite(email="Right@Acme.test"), email="right@acme.TEST")
+        assert problem is None
+
+    def test_each_failure_gives_a_distinct_message(self):
+        """"Invalid" for everything leaves the invitee with nothing to act on."""
+        messages = {
+            _lookup(None)[1],
+            _lookup(_invite(revoked_at=datetime.now(timezone.utc)))[1],
+            _lookup(_invite(accepted_at=datetime.now(timezone.utc)))[1],
+            _lookup(_invite(expires_at=datetime.now(timezone.utc) - timedelta(hours=1)))[1],
+        }
+        assert len(messages) == 4
+
+
+class TestSignupRefusesRatherThanDiverting:
+    @pytest.mark.parametrize("row,label", [
+        (None, "unknown"),
+        (_invite(revoked_at=datetime.now(timezone.utc)), "revoked"),
+        (_invite(accepted_at=datetime.now(timezone.utc)), "used"),
+        (_invite(expires_at=datetime.now(timezone.utc) - timedelta(hours=1)), "expired"),
+    ])
+    def test_a_broken_invite_creates_nothing(self, mock_pool, row, label):
+        pool, conn = mock_pool
+        conn.fetchrow = AsyncMock(side_effect=[None, row])   # email free, then the invite
+        with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
+            r = TestClient(app).post("/api/v1/auth/signup", json={
+                "name": "Invitee", "email": "invitee@acme.test",
+                "password": "stairs2026!", "confirm_password": "stairs2026!",
+                "invite_token": "tok",
+            })
+        assert r.status_code == 400, label
+        statements = [c.args[0] for c in conn.execute.call_args_list]
+        assert not any("INSERT INTO organizations" in s for s in statements), \
+            f"a {label} invite silently created a new organization"
+        assert not any("INSERT INTO users" in s for s in statements)
+
+
+class TestOrganisationNameIsRequired:
+    def test_signup_without_an_org_name_is_refused(self, mock_pool):
+        """Falling back to the registrant's own name left every client
+        organisation named after a person."""
+        pool, conn = mock_pool
+        conn.fetchrow = AsyncMock(return_value=None)
+        with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
+            r = TestClient(app).post("/api/v1/auth/signup", json={
+                "name": "Solo", "email": "solo@acme.test",
+                "password": "stairs2026!", "confirm_password": "stairs2026!",
+            })
+        assert r.status_code == 400
+        assert "organisation name" in r.json()["detail"].lower()
+
+    def test_whitespace_is_not_a_name(self, mock_pool):
+        pool, conn = mock_pool
+        conn.fetchrow = AsyncMock(return_value=None)
+        with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
+            r = TestClient(app).post("/api/v1/auth/signup", json={
+                "name": "Solo", "email": "solo@acme.test",
+                "password": "stairs2026!", "confirm_password": "stairs2026!",
+                "org_name": "   ",
+            })
+        assert r.status_code == 400
+
+    def test_an_invitee_needs_no_org_name(self, mock_pool):
+        """They're joining one, not naming one."""
+        pool, conn = mock_pool
+        conn.fetchrow = AsyncMock(side_effect=[
+            None, _invite(),
+            {"id": DEFAULT_USER_ID, "email": "invitee@acme.test", "full_name": "Invitee",
+             "role": "member", "language": "en", "organization_id": ORG_A},
+        ])
+        with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
+            r = TestClient(app).post("/api/v1/auth/signup", json={
+                "name": "Invitee", "email": "invitee@acme.test",
+                "password": "stairs2026!", "confirm_password": "stairs2026!",
+                "invite_token": "tok",
+            })
+        assert r.status_code == 201
+        assert r.json()["user"]["role"] == "member"
+        statements = [c.args[0] for c in conn.execute.call_args_list]
+        assert not any("INSERT INTO organizations" in s for s in statements)
+        assert any("accepted_at = NOW()" in s for s in statements), "the invite must be consumed"
+
+
+class TestInvitePreview:
+    def test_preview_describes_a_valid_invitation(self, mock_pool):
+        pool, conn = mock_pool
+        conn.fetchrow = AsyncMock(return_value=_invite())
+        with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
+            r = TestClient(app).get("/api/v1/auth/invites/preview/tok")
+        body = r.json()
+        assert body["valid"] is True
+        assert body["organization_name"] == "Acme Corp"
+        assert body["role"] == "member"
+
+    def test_preview_explains_a_broken_one(self, mock_pool):
+        pool, conn = mock_pool
+        conn.fetchrow = AsyncMock(return_value=_invite(expires_at=datetime.now(timezone.utc) - timedelta(days=1)))
+        with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
+            r = TestClient(app).get("/api/v1/auth/invites/preview/tok")
+        body = r.json()
+        assert body["valid"] is False and "expired" in body["reason"].lower()
+
+    def test_preview_never_returns_the_token(self, mock_pool):
+        pool, conn = mock_pool
+        conn.fetchrow = AsyncMock(return_value=_invite())
+        with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
+            r = TestClient(app).get("/api/v1/auth/invites/preview/tok")
+        assert "token" not in r.json()

@@ -22,6 +22,7 @@ import { StrategyToolsPanel } from "./components/StrategyToolsPanel";
 import { SourceOfTruthView } from "./components/SourceOfTruthView";
 import { ManifestRoom } from "./components/ManifestRoom";
 import { Sidebar } from "./components/Sidebar";
+import { InviteManager } from "./components/InviteManager";
 import { GuidanceManager } from "./components/GuidanceToast";
 import { fireGuidance } from "./guidanceConfig";
 import { MATRIX_FRAMEWORKS } from "./components/StrategyMatrixToolkit";
@@ -50,6 +51,7 @@ export default function App() {
   const [aiProvider, setAiProvider] = useState(null);
   const [showWelcomeSlideshow, setShowWelcomeSlideshow] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [showInvites, setShowInvites] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("stairs_sidebar_collapsed") === "1");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const toggleSidebar = () => setSidebarCollapsed(v => { const n = !v; localStorage.setItem("stairs_sidebar_collapsed", n ? "1" : "0"); return n; });
@@ -377,6 +379,11 @@ export default function App() {
                     <div className="text-xs text-gray-500 mt-0.5">{user.email}</div>
                     <div className="text-[10px] text-gray-600 mt-1 uppercase tracking-wider">{user.role || "Member"}</div>
                   </div>
+                  {user.role === "admin" && (
+                    <button onClick={() => { setShowProfileDropdown(false); setShowInvites(true); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition flex items-center gap-2" data-testid="open-invites">
+                      <span>Invite your team</span>
+                    </button>
+                  )}
                   <button onClick={() => { setShowProfileDropdown(false); logout(); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition flex items-center gap-2">
                     <span>Sign Out</span>
                   </button>
@@ -411,6 +418,8 @@ export default function App() {
       {execRoomStair && <ExecutionRoom stair={execRoomStair} strategyContext={activeStrat} lang={lang} onBack={() => setExecRoomStair(null)} onSaveNote={saveToNotes} onMatrixClick={openMatrix} onOpenManifest={() => { setExecRoomStair(null); goToView("manifest"); }} />}
 
       <StrategyMatrixToolkit open={matrixToolkit.open} matrixKey={matrixToolkit.key} onClose={closeMatrix} onSave={saveMatrixResult} strategyContext={activeStrat} initialData={matrixToolkit.initialData} />
+
+      <InviteManager open={showInvites} onClose={() => setShowInvites(false)} lang={lang} currentUserRole={user.role} />
 
       <WelcomeSlideshow open={showWelcomeSlideshow} onClose={() => setShowWelcomeSlideshow(false)} hasStrategies={true} />
 

@@ -773,11 +773,20 @@ app = FastAPI(
 
 # ─── CORS ───
 ALLOWED_ORIGINS_ENV = os.getenv("ALLOWED_ORIGINS", "")
+# The live front ends, pinned here rather than in an environment variable so a
+# deploy can't lose them. ALLOWED_ORIGINS still adds to this list; it never
+# replaces it.
+PRODUCTION_ORIGINS = [
+    "https://stairs.devoneerstechnology.ai",
+    "https://stairs-app-orcin.vercel.app",
+    "https://st-a-irs.vercel.app",
+]
 _cors_origins = [
     "http://localhost:5173",
     "http://localhost:3000",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:3000",
+    *PRODUCTION_ORIGINS,
 ]
 if ALLOWED_ORIGINS_ENV and ALLOWED_ORIGINS_ENV != "*":
     _cors_origins.extend(o.strip() for o in ALLOWED_ORIGINS_ENV.split(",") if o.strip())
@@ -806,6 +815,8 @@ def _is_origin_allowed(origin: str) -> bool:
     """
     if not origin:
         return False
+    if origin in PRODUCTION_ORIGINS:
+        return True
     if re_module.match(r'https://.*\.vercel\.app$', origin):
         return True
     if origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1"):

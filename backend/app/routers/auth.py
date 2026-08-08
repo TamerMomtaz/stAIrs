@@ -3,6 +3,7 @@
 import re
 import secrets
 import uuid
+from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -35,23 +36,47 @@ async def _create_org(conn, name: str, industry: str | None = None) -> str:
     return org_id
 
 
-async def _consume_invite(conn, token: str, email: str):
-    """Validate an invitation and return (org_id, role).
+async def _lookup_invite(conn, token: str, email: str | None = None):
+    """Resolve a token to (invite_row, problem).
 
-    This is the *only* path into an existing organization. Registration
-    previously defaulted every new user into DEFAULT_ORG_ID, which put
-    unrelated clients in one tenant and let them read each other's work.
+    problem is None when the invitation is usable, otherwise a plain sentence
+    saying exactly what is wrong. Being specific is safe here — the token is 32
+    random bytes, so anyone holding one already has it and cannot enumerate
+    others — and it is the difference between an invited colleague
+    understanding "this invitation has expired, ask for a new one" and staring
+    at "invalid".
     """
     invite = await conn.fetchrow("""
-        SELECT * FROM organization_invites
-        WHERE token = $1 AND accepted_at IS NULL AND revoked_at IS NULL
-          AND expires_at > NOW()
+        SELECT i.*, o.name AS org_name
+        FROM organization_invites i
+        JOIN organizations o ON o.id = i.organization_id
+        WHERE i.token = $1
     """, token)
     if not invite:
-        raise HTTPException(400, "Invitation is invalid, expired, or already used")
+        return None, "This invitation link isn't recognised. Ask your administrator to send a new one."
+    if invite["revoked_at"]:
+        return invite, "This invitation has been revoked. Ask your administrator to send a new one."
+    if invite["accepted_at"]:
+        return invite, "This invitation has already been used. If that wasn't you, ask your administrator to send a new one."
+    if invite["expires_at"] and invite["expires_at"] <= datetime.now(timezone.utc):
+        return invite, "This invitation has expired. Ask your administrator to send a new one."
     # An invite addressed to someone must not be redeemable by anyone else.
-    if invite["email"] and invite["email"].lower() != email.lower():
-        raise HTTPException(400, "Invitation is invalid, expired, or already used")
+    if email and invite["email"] and invite["email"].lower() != email.lower():
+        return invite, f"This invitation was sent to {invite['email']}. Sign up with that email address, or ask for an invitation to yours."
+    return invite, None
+
+
+async def _consume_invite(conn, token: str, email: str):
+    """Validate an invitation and return (org_id, role, invite_id).
+
+    This is the *only* path into an existing organization, and it either works
+    or raises. It must never fall through to creating a new organization —
+    that is how an invited colleague lands alone in an empty workspace
+    wondering where their team's data went.
+    """
+    invite, problem = await _lookup_invite(conn, token, email)
+    if problem:
+        raise HTTPException(400, problem)
     return str(invite["organization_id"]), invite["role"], str(invite["id"])
 
 
@@ -71,7 +96,9 @@ async def register(req: RegisterRequest):
         if req.invite_token:
             org_id, role, invite_id = await _consume_invite(conn, req.invite_token, req.email)
         else:
-            org_id = await _create_org(conn, req.org_name or req.full_name, req.industry)
+            if not (req.org_name or "").strip():
+                raise HTTPException(400, "An organisation name is required to create a new workspace")
+            org_id = await _create_org(conn, req.org_name.strip(), req.industry)
             role = "admin"
 
         await conn.execute("""
@@ -116,7 +143,11 @@ async def signup(req: SignupRequest):
         if req.invite_token:
             org_id, role, invite_id = await _consume_invite(conn, req.invite_token, req.email)
         else:
-            org_id = await _create_org(conn, req.org_name or req.name)
+            # Named deliberately: an organisation silently named after whoever
+            # signed up first reads as unfinished to every client who sees it.
+            if not (req.org_name or "").strip():
+                raise HTTPException(400, "An organisation name is required to create a new workspace")
+            org_id = await _create_org(conn, req.org_name.strip())
             role = "admin"
 
         await conn.execute("""
@@ -237,3 +268,26 @@ async def revoke_invite(invite_id: str, auth: AuthContext = Depends(require_auth
         if result == "UPDATE 0":
             raise HTTPException(404, "Invitation not found")
         return {"revoked": True, "id": invite_id}
+
+
+@router.get("/invites/preview/{token}")
+async def preview_invite(token: str):
+    """Describe an invitation to whoever is holding the link, before signup.
+
+    Unauthenticated on purpose — the person following an invite link has no
+    account yet. It reveals only the organization's name and the invited role,
+    to someone who already possesses an unguessable token, so the sign-up form
+    can say "Join Acme Corp" instead of asking them to trust a blank field.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        invite, problem = await _lookup_invite(conn, token)
+        if not invite:
+            return {"valid": False, "reason": problem}
+        return {
+            "valid": problem is None,
+            "reason": problem,
+            "organization_name": invite["org_name"],
+            "role": invite["role"],
+            "email": invite["email"],
+        }
