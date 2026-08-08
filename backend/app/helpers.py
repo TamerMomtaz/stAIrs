@@ -22,9 +22,52 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 # which discovers what this key can serve and fails over past retired ids.
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
 
-JWT_SECRET = os.getenv("JWT_SECRET", "stairs-dev-secret-change-in-production-2026")
+# No default. The whole tenancy model rests on the "org" claim in a token being
+# unforgeable, so a signing key checked into a public repository is a master key
+# for every organization on the system. An unset JWT_SECRET is a hard failure at
+# startup (see require_jwt_secret), never a silent fallback.
+JWT_SECRET = os.getenv("JWT_SECRET", "")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = int(os.getenv("JWT_EXPIRY_HOURS", "72"))
+
+# Values that must never sign a token. The first shipped as the default in this
+# repository, so it is public and permanently burned.
+BURNED_JWT_SECRETS = frozenset({
+    "stairs-dev-secret-change-in-production-2026",
+    "changeme", "secret", "change-me", "your-secret-key",
+})
+MIN_JWT_SECRET_LENGTH = 32
+
+
+def jwt_secret_problem(secret: str) -> Optional[str]:
+    """Why this secret is unusable, or None if it's acceptable.
+
+    Returns a reason that never contains the secret itself, so it is safe to
+    print in a boot log or CI output.
+    """
+    if not secret:
+        return "JWT_SECRET is not set"
+    if secret in BURNED_JWT_SECRETS:
+        return ("JWT_SECRET is a publicly known default value — it has appeared in "
+                "this repository and must never be used")
+    if len(secret) < MIN_JWT_SECRET_LENGTH:
+        return (f"JWT_SECRET is {len(secret)} characters; at least "
+                f"{MIN_JWT_SECRET_LENGTH} are required")
+    if len(set(secret)) < 8:
+        return (f"JWT_SECRET uses only {len(set(secret))} distinct characters — "
+                "it looks like a repeated or placeholder string")
+    return None
+
+
+def require_jwt_secret():
+    """Raise unless JWT_SECRET is set and strong. Called at startup."""
+    problem = jwt_secret_problem(JWT_SECRET)
+    if problem:
+        raise RuntimeError(
+            f"{problem}. Refusing to start: anyone who knows the signing key can "
+            f"mint a token for any organization and read and write all of its data. "
+            f"Generate one with:  python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+        )
 
 DEFAULT_ORG_ID = "a0000000-0000-0000-0000-000000000001"
 DEFAULT_USER_ID = "b0000000-0000-0000-0000-000000000001"
@@ -112,6 +155,9 @@ def verify_password(password: str, hashed: str) -> bool:
 # ─── JWT ───
 
 def create_jwt(user_id: str, org_id: str, role: str = "member") -> str:
+    # Fail closed. If startup validation was somehow bypassed, signing with an
+    # empty or burned key would mint tokens anyone could forge.
+    require_jwt_secret()
     payload = {
         "sub": user_id,
         "org": org_id,
@@ -123,6 +169,13 @@ def create_jwt(user_id: str, org_id: str, role: str = "member") -> str:
 
 
 def decode_jwt(token: str) -> dict:
+    # An empty key would make every signature verify against "", so a request
+    # must never be authenticated by a server that isn't properly configured.
+    if jwt_secret_problem(JWT_SECRET):
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Server authentication is misconfigured",
+        )
     try:
         return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
     except JWTError:

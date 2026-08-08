@@ -1,0 +1,292 @@
+"""Tenancy and signing-key tests.
+
+Covers the four things that made organization isolation decorative:
+
+  1. JWT_SECRET had a public default, so the "org" claim every filter trusts
+     was forgeable by anyone who read this repository.
+  2. Registration put every new user in DEFAULT_ORG_ID, so the filters never
+     engaged.
+  3. Four sources handlers filtered on (source_id, strategy_id) without
+     checking who owned the strategy — cross-org overwrite and delete.
+  4. stair_relationships had no organization_id and no filter at all.
+"""
+
+import re
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from fastapi.testclient import TestClient
+
+import app.helpers as helpers
+from app.helpers import (
+    jwt_secret_problem, require_jwt_secret, AuthContext, get_auth,
+    DEFAULT_ORG_ID, DEFAULT_USER_ID, MIN_JWT_SECRET_LENGTH,
+)
+from app.main import app, _is_origin_allowed
+
+
+ORG_A = "a0000000-0000-0000-0000-00000000000a"
+ORG_B = "a0000000-0000-0000-0000-00000000000b"
+STAIR_A = "c0000000-0000-0000-0000-00000000000a"
+STRAT_A = "d0000000-0000-0000-0000-00000000000a"
+
+
+@pytest.fixture
+def mock_pool():
+    conn = AsyncMock()
+    cm = MagicMock()
+    cm.__aenter__ = AsyncMock(return_value=conn)
+    cm.__aexit__ = AsyncMock(return_value=False)
+    pool = MagicMock()
+    pool.acquire = MagicMock(return_value=cm)
+    return pool, conn
+
+
+@pytest.fixture
+def as_org_b():
+    """Authenticated as an organization that owns none of the fixtures below."""
+    app.dependency_overrides[get_auth] = lambda: AuthContext(DEFAULT_USER_ID, ORG_B, "admin")
+    yield
+    app.dependency_overrides.pop(get_auth, None)
+
+
+# ─── 1. THE SIGNING KEY ───
+
+class TestJwtSecret:
+    def test_unset_is_rejected(self):
+        assert jwt_secret_problem("") == "JWT_SECRET is not set"
+
+    def test_the_published_repo_default_is_rejected(self):
+        # This exact string shipped as the default in this repository, so it is
+        # public forever. Entropy alone would pass it — the ban is what stops it.
+        problem = jwt_secret_problem("stairs-dev-secret-change-in-production-2026")
+        assert problem and "publicly known" in problem
+
+    @pytest.mark.parametrize("weak", ["changeme", "secret", "change-me", "your-secret-key"])
+    def test_common_placeholders_are_rejected(self, weak):
+        assert jwt_secret_problem(weak) is not None
+
+    def test_short_secrets_are_rejected(self):
+        problem = jwt_secret_problem("a1B2c3D4!" * 2)  # 18 chars
+        assert problem and "characters" in problem
+
+    def test_repeated_padding_is_rejected(self):
+        # Long enough to pass the length check, but only two distinct characters.
+        problem = jwt_secret_problem("ab" * 40)
+        assert problem and "distinct characters" in problem
+
+    def test_a_generated_secret_passes(self):
+        import secrets
+        assert jwt_secret_problem(secrets.token_urlsafe(48)) is None
+
+    def test_minimum_length_is_at_least_32(self):
+        assert MIN_JWT_SECRET_LENGTH >= 32
+
+    def test_require_raises_and_explains_the_stakes(self, monkeypatch):
+        monkeypatch.setattr(helpers, "JWT_SECRET", "")
+        with pytest.raises(RuntimeError) as exc:
+            require_jwt_secret()
+        assert "any organization" in str(exc.value)
+
+    def test_signing_fails_closed(self, monkeypatch):
+        """Even if startup validation were bypassed, no token gets minted."""
+        monkeypatch.setattr(helpers, "JWT_SECRET", "")
+        with pytest.raises(RuntimeError):
+            helpers.create_jwt(DEFAULT_USER_ID, ORG_A, "admin")
+
+    def test_verification_fails_closed(self, monkeypatch):
+        """A misconfigured server must not authenticate anyone, since every
+        signature would verify against an empty key."""
+        from fastapi import HTTPException
+        monkeypatch.setattr(helpers, "JWT_SECRET", "")
+        with pytest.raises(HTTPException) as exc:
+            helpers.decode_jwt("any.token.here")
+        assert exc.value.status_code == 500
+
+
+# ─── 2. CORS ───
+
+class TestCorsOrigins:
+    def test_wildcard_is_not_honoured(self, monkeypatch):
+        """allow_credentials=True with a wildcard origin is invalid per the CORS
+        spec and would let any site read 500 bodies with the victim's cookies.
+        The middleware never receives "*"; this helper must agree."""
+        monkeypatch.setattr("app.main.ALLOWED_ORIGINS_ENV", "*")
+        assert _is_origin_allowed("https://attacker.example") is False
+
+    def test_configured_origin_is_allowed(self, monkeypatch):
+        monkeypatch.setattr("app.main.ALLOWED_ORIGINS_ENV", "https://app.example.com")
+        assert _is_origin_allowed("https://app.example.com") is True
+        assert _is_origin_allowed("https://attacker.example") is False
+
+    def test_empty_origin_is_rejected(self):
+        assert _is_origin_allowed("") is False
+
+
+# ─── 3. SOURCES: cross-org write was live ───
+
+class TestSourceHandlersCheckTheOrg:
+    """Each of these filtered on (source_id, strategy_id) only. A caller who
+    knew both ids could overwrite or delete another organization's source."""
+
+    @pytest.mark.parametrize("method,path,body", [
+        ("put",    f"/api/v1/strategies/{STRAT_A}/sources/{STAIR_A}", {"content": "HIJACKED"}),
+        ("delete", f"/api/v1/strategies/{STRAT_A}/sources/{STAIR_A}", None),
+        ("get",    f"/api/v1/strategies/{STRAT_A}/sources/{STAIR_A}/download-url", None),
+        ("delete", f"/api/v1/strategies/{STRAT_A}/sources/{STAIR_A}/with-file", None),
+    ])
+    def test_refuses_a_strategy_from_another_org(self, mock_pool, as_org_b, method, path, body):
+        pool, conn = mock_pool
+        conn.fetchrow = AsyncMock(return_value=None)   # strategy not in this org
+        with patch("app.routers.sources.get_pool", AsyncMock(return_value=pool)):
+            client = TestClient(app)
+            r = getattr(client, method)(path, **({"json": body} if body else {}))
+        assert r.status_code == 404
+        # The ownership check must run before any mutation.
+        conn.execute.assert_not_called()
+
+    def test_the_guard_filters_on_organization(self, mock_pool, as_org_b):
+        pool, conn = mock_pool
+        conn.fetchrow = AsyncMock(return_value=None)
+        with patch("app.routers.sources.get_pool", AsyncMock(return_value=pool)):
+            TestClient(app).delete(f"/api/v1/strategies/{STRAT_A}/sources/{STAIR_A}")
+        sql, sid, org = conn.fetchrow.call_args.args[:3]
+        assert "FROM strategies" in sql and "organization_id = $2" in sql
+        assert org == ORG_B
+
+
+# ─── 4. RELATIONSHIPS: no tenancy column, no filter ───
+
+class TestRelationshipsAreOrgScoped:
+    def test_reading_another_orgs_graph_404s(self, mock_pool, as_org_b):
+        pool, conn = mock_pool
+        conn.fetchrow = AsyncMock(return_value=None)   # stair not in this org
+        with patch("app.routers.stairs.get_pool", AsyncMock(return_value=pool)):
+            r = TestClient(app).get(f"/api/v1/stairs/{STAIR_A}/relationships")
+        assert r.status_code == 404
+        conn.fetch.assert_not_called()
+
+    def test_writing_into_another_orgs_graph_404s(self, mock_pool, as_org_b):
+        pool, conn = mock_pool
+        conn.fetchval = AsyncMock(return_value=0)      # neither stair is ours
+        with patch("app.routers.stairs.get_pool", AsyncMock(return_value=pool)):
+            r = TestClient(app).post("/api/v1/relationships", json={
+                "source_stair_id": STAIR_A,
+                "target_stair_id": "c0000000-0000-0000-0000-00000000000b",
+                "relationship_type": "blocks",
+            })
+        assert r.status_code == 404
+        conn.execute.assert_not_called()
+
+    def test_an_edge_may_not_span_two_organizations(self, mock_pool, as_org_b):
+        """Owning one endpoint is not enough — the count must match both."""
+        pool, conn = mock_pool
+        conn.fetchval = AsyncMock(return_value=1)      # we own exactly one of two
+        with patch("app.routers.stairs.get_pool", AsyncMock(return_value=pool)):
+            r = TestClient(app).post("/api/v1/relationships", json={
+                "source_stair_id": STAIR_A,
+                "target_stair_id": "c0000000-0000-0000-0000-00000000000b",
+                "relationship_type": "supports",
+            })
+        assert r.status_code == 404
+        conn.execute.assert_not_called()
+
+    def test_a_created_edge_records_the_organization(self, mock_pool, as_org_b):
+        pool, conn = mock_pool
+        conn.fetchval = AsyncMock(return_value=2)      # both stairs are ours
+        conn.fetchrow = AsyncMock(return_value={
+            "id": "e0000000-0000-0000-0000-000000000001",
+            "source_stair_id": STAIR_A,
+            "target_stair_id": "c0000000-0000-0000-0000-00000000000b",
+            "relationship_type": "supports", "strength": 1.0, "description": None,
+            "created_by": None, "created_at": None,
+        })
+        with patch("app.routers.stairs.get_pool", AsyncMock(return_value=pool)):
+            r = TestClient(app).post("/api/v1/relationships", json={
+                "source_stair_id": STAIR_A,
+                "target_stair_id": "c0000000-0000-0000-0000-00000000000b",
+                "relationship_type": "supports",
+            })
+        assert r.status_code == 201
+        sql = conn.execute.call_args.args[0]
+        assert "organization_id" in sql
+        assert conn.execute.call_args.args[2] == ORG_B
+
+
+# ─── 5. REGISTRATION no longer defaults into a shared organization ───
+
+class TestRegistrationCreatesAnOrganization:
+    def test_default_org_is_gone_from_the_auth_router(self):
+        """The whole leak was this constant being the signup fallback."""
+        import app.routers.auth as auth_mod
+        source = open(auth_mod.__file__).read()
+        code = re.sub(r'(?s)""".*?"""', "", source)      # drop docstrings
+        code = re.sub(r'#.*', "", code)                   # drop comments
+        assert "DEFAULT_ORG_ID" not in code
+
+    def test_signup_creates_a_new_org_with_the_registrant_as_admin(self, mock_pool):
+        pool, conn = mock_pool
+        conn.fetchrow = AsyncMock(side_effect=[
+            None,                                        # email not taken
+            {"id": DEFAULT_USER_ID, "email": "new@x.test", "full_name": "New",
+             "role": "admin", "language": "en", "organization_id": ORG_A},
+        ])
+        with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
+            r = TestClient(app).post("/api/v1/auth/signup", json={
+                "name": "New", "email": "new@x.test",
+                "password": "stairs2026!", "confirm_password": "stairs2026!",
+            })
+        assert r.status_code == 201
+        assert r.json()["user"]["role"] == "admin"
+        statements = [c.args[0] for c in conn.execute.call_args_list]
+        assert any("INSERT INTO organizations" in s for s in statements), \
+            "signup must create an organization, not join a shared one"
+
+    def test_an_invalid_invite_is_refused_rather_than_falling_back(self, mock_pool):
+        """A bad token must not quietly drop the user into some default org."""
+        pool, conn = mock_pool
+        conn.fetchrow = AsyncMock(side_effect=[None, None])  # email free, invite invalid
+        with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
+            r = TestClient(app).post("/api/v1/auth/signup", json={
+                "name": "Thief", "email": "thief@evil.test",
+                "password": "stairs2026!", "confirm_password": "stairs2026!",
+                "invite_token": "made-up",
+            })
+        assert r.status_code == 400
+        statements = [c.args[0] for c in conn.execute.call_args_list]
+        assert not any("INSERT INTO users" in s for s in statements)
+
+
+class TestInvitesAreAdminOnly:
+    @pytest.fixture
+    def as_member(self):
+        app.dependency_overrides[get_auth] = lambda: AuthContext(DEFAULT_USER_ID, ORG_A, "member")
+        yield
+        app.dependency_overrides.pop(get_auth, None)
+
+    def test_a_member_cannot_mint_an_invite(self, as_member):
+        # require_auth is a separate dependency; drive it with a real token.
+        import app.helpers as h
+        token = h.create_jwt(DEFAULT_USER_ID, ORG_A, "member")
+        r = TestClient(app).post("/api/v1/auth/invites",
+                                 headers={"Authorization": f"Bearer {token}"},
+                                 json={"role": "admin"})
+        assert r.status_code == 403
+
+    def test_listing_never_returns_live_tokens(self, mock_pool):
+        """Handing a token out twice turns the list endpoint into a harvester."""
+        import app.helpers as h
+        pool, conn = mock_pool
+        conn.fetch = AsyncMock(return_value=[{
+            "id": "e0000000-0000-0000-0000-000000000001", "organization_id": ORG_A,
+            "email": "x@y.test", "role": "member", "token": None,
+            "created_by": None, "created_at": None, "expires_at": None,
+            "accepted_at": None, "accepted_by": None, "revoked_at": None,
+        }])
+        token = h.create_jwt(DEFAULT_USER_ID, ORG_A, "admin")
+        with patch("app.routers.auth.get_pool", AsyncMock(return_value=pool)):
+            r = TestClient(app).get("/api/v1/auth/invites",
+                                    headers={"Authorization": f"Bearer {token}"})
+        assert r.status_code == 200
+        assert all(i["token"] is None for i in r.json())
+        assert "NULL::text AS token" in conn.fetch.call_args.args[0]

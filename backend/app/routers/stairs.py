@@ -220,18 +220,43 @@ async def get_progress_history(stair_id: str, limit: int = 30, auth: AuthContext
 
 @router.get("/stairs/{stair_id}/relationships", response_model=List[RelationshipOut])
 async def get_relationships(stair_id: str, auth: AuthContext = Depends(get_auth)):
+    """Edges touching one stair, within the caller's organization.
+
+    This table had no organization_id and no filter at all, so any
+    authenticated caller could read another organization's dependency graph
+    just by naming a stair id.
+    """
     pool = await get_pool()
     async with pool.acquire() as conn:
-        return rows_to_dicts(await conn.fetch("SELECT * FROM stair_relationships WHERE source_stair_id = $1 OR target_stair_id = $1", stair_id))
+        stair = await conn.fetchrow(
+            "SELECT id FROM stairs WHERE id = $1 AND organization_id = $2 AND deleted_at IS NULL",
+            stair_id, auth.org_id)
+        if not stair:
+            raise HTTPException(404, "Stair not found")
+        return rows_to_dicts(await conn.fetch(
+            "SELECT * FROM stair_relationships WHERE (source_stair_id = $1 OR target_stair_id = $1) "
+            "AND organization_id = $2", stair_id, auth.org_id))
 
 
 @router.post("/relationships", response_model=RelationshipOut, status_code=201)
 async def create_relationship(rel: RelationshipCreate, auth: AuthContext = Depends(get_auth)):
+    """Create an edge between two stairs the caller owns.
+
+    Both endpoints are checked, so an edge can never span two organizations —
+    previously an unauthorised caller could write into someone else's graph.
+    """
     pool = await get_pool()
     async with pool.acquire() as conn:
+        source_id, target_id = str(rel.source_stair_id), str(rel.target_stair_id)
+        owned = await conn.fetchval(
+            "SELECT COUNT(*) FROM stairs WHERE id = ANY($1::uuid[]) "
+            "AND organization_id = $2 AND deleted_at IS NULL",
+            list({source_id, target_id}), auth.org_id)
+        if owned != len({source_id, target_id}):
+            raise HTTPException(404, "Stair not found")
         rel_id = str(uuid.uuid4())
-        await conn.execute("""INSERT INTO stair_relationships (id, source_stair_id, target_stair_id, relationship_type, strength, description)
-            VALUES ($1,$2,$3,$4,$5,$6)""", rel_id, str(rel.source_stair_id), str(rel.target_stair_id), rel.relationship_type, rel.strength, rel.description)
+        await conn.execute("""INSERT INTO stair_relationships (id, organization_id, source_stair_id, target_stair_id, relationship_type, strength, description)
+            VALUES ($1,$2,$3,$4,$5,$6,$7)""", rel_id, auth.org_id, source_id, target_id, rel.relationship_type, rel.strength, rel.description)
         return row_to_dict(await conn.fetchrow("SELECT * FROM stair_relationships WHERE id = $1", rel_id))
 
 

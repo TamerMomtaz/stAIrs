@@ -421,12 +421,42 @@ class RegisterRequest(BaseModel):
     password: str
     full_name: str
     language: str = "en"
+    org_name: Optional[str] = Field(None, max_length=255)
+    industry: Optional[str] = Field(None, max_length=100)
+    # Only way to land in someone else's organization. Without it, registration
+    # always creates a new one.
+    invite_token: Optional[str] = Field(None, max_length=128)
 
 class SignupRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     email: str
     password: str = Field(..., min_length=8)
     confirm_password: str = Field(..., min_length=8)
+    org_name: Optional[str] = Field(None, max_length=255)
+    invite_token: Optional[str] = Field(None, max_length=128)
+
+
+# ─── ORGANIZATION INVITES ───
+class InviteCreate(BaseModel):
+    email: Optional[str] = Field(None, max_length=255)
+    role: str = Field("member", pattern="^(admin|manager|member|viewer)$")
+    expires_in_hours: int = Field(168, ge=1, le=8760)
+
+class InviteOut(BaseModel):
+    id: UUID
+    organization_id: UUID
+    email: Optional[str] = None
+    role: str
+    token: Optional[str] = None
+    created_by: Optional[UUID] = None
+    created_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+    accepted_at: Optional[datetime] = None
+    accepted_by: Optional[UUID] = None
+    revoked_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
 
 class FrameworkOut(BaseModel):
     id: UUID
