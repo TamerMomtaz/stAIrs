@@ -23,18 +23,37 @@ export const ProgressRing = ({ percent = 0, size = 80, stroke = 6, color }) => {
 };
 
 // ═══ MODAL ═══
-export const Modal = ({ open, onClose, title, children, wide }) => {
+// size: "sm" (default) | "lg" | "full". `wide` is kept as an alias for "lg"
+// so existing callers keep working unchanged.
+const MODAL_SIZES = {
+  sm: { shell: "p-6", panel: "relative z-10 w-full max-w-lg min-w-[340px] max-h-[88vh] rounded-2xl" },
+  lg: { shell: "p-6", panel: "relative z-10 w-full max-w-4xl min-w-[340px] max-h-[88vh] rounded-2xl" },
+  // Full bleed below md, a 2.5% margin from every edge above it.
+  full: {
+    shell: "p-0",
+    panel:
+      "fixed z-10 inset-0 rounded-none md:inset-[2.5%] md:rounded-2xl " +
+      "w-auto h-auto max-w-none max-h-none",
+  },
+};
+
+export const Modal = ({ open, onClose, title, children, wide, size, footer }) => {
   if (!open) return null;
+  const key = MODAL_SIZES[size] ? size : wide ? "lg" : "sm";
+  const s = MODAL_SIZES[key];
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6" onClick={onClose}>
+    <div className={`fixed inset-0 z-[100] flex items-center justify-center ${s.shell}`} onClick={onClose}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div className={`relative z-10 w-full ${wide ? "max-w-4xl" : "max-w-lg"} min-w-[340px] max-h-[88vh] flex flex-col rounded-2xl overflow-hidden`}
+      <div className={`${s.panel} flex flex-col overflow-hidden`} data-modal-size={key}
         style={{ background: "rgba(15, 25, 50, 0.97)", border: `1px solid ${GOLD}33`, boxShadow: "0 25px 50px rgba(0,0,0,0.5)" }} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: `1px solid ${GOLD}22` }}>
+        <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" style={{ borderBottom: `1px solid ${GOLD}22` }}>
           <h2 className="text-white font-semibold text-lg">{title}</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-white transition text-xl leading-none p-1">✕</button>
         </div>
-        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
+        <div className="flex-1 min-h-0 overflow-auto px-6 py-5">{children}</div>
+        {footer && (
+          <div className="flex-shrink-0 px-6 py-4" style={{ borderTop: `1px solid ${GOLD}22` }}>{footer}</div>
+        )}
       </div>
     </div>
   );

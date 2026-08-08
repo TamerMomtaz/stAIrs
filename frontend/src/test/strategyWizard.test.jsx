@@ -182,3 +182,102 @@ describe("StrategyWizard — our scaffolding stays off their screen", () => {
     expect(aiPost.mock.calls[0][1].message).toContain("[CONTEXT:");
   });
 });
+
+describe("StrategyWizard — layout", () => {
+  const panel = () => document.querySelector("[data-modal-size]");
+
+  it("step 0 is a large form, not a full-screen sheet", () => {
+    render(<StrategyWizard open onClose={() => {}} onCreate={vi.fn()} lang="en" />);
+    expect(panel().dataset.modalSize).toBe("lg");
+  });
+
+  it("every step after the first fills the screen", async () => {
+    render(<StrategyWizard open onClose={() => {}} onCreate={vi.fn()} lang="en" />);
+    fireEvent.change(screen.getByPlaceholderText(/Growth Plan 2026/), { target: { value: "Q4" } });
+    fireEvent.click(screen.getByText("Marketing Strategy"));
+    fireEvent.click(screen.getByText(/Next → Strategy Questionnaire/));
+    expect(panel().dataset.modalSize).toBe("full");
+  });
+
+  it("lays the step-0 fields out in two columns on md+", () => {
+    const { container } = render(<StrategyWizard open onClose={() => {}} onCreate={vi.fn()} lang="en" />);
+    const grid = container.querySelector(".md\\:grid-cols-2");
+    expect(grid).toBeTruthy();
+    expect(grid.className).toContain("gap-x-5");
+    // Name + Company on one row, Industry + Framework on the next.
+    expect(grid.children.length).toBe(4);
+    expect(grid.textContent).toContain("Strategy Name");
+    expect(grid.textContent).toContain("Company / Product");
+    expect(grid.textContent).toContain("Industry");
+    expect(grid.textContent).toContain("Framework");
+  });
+
+  it("gives the description room and keeps it full width", () => {
+    render(<StrategyWizard open onClose={() => {}} onCreate={vi.fn()} lang="en" />);
+    const ta = screen.getByPlaceholderText(/Describe your company/);
+    expect(ta.getAttribute("rows")).toBe("4");
+    expect(ta.closest(".md\\:grid-cols-2")).toBeNull();
+  });
+
+  it("the build view is a two-pane grid with a captured-elements rail", async () => {
+    const { container } = await openBuilder();
+    aiPost.mockResolvedValue({ response: REAL_OUTPUT });
+
+    const grid = container.querySelector(".lg\\:grid-cols-\\[1fr_330px\\]");
+    expect(grid).toBeTruthy();
+    expect(grid.className).toContain("h-full");
+    expect(grid.className).toContain("min-h-0");
+    expect(grid.className).not.toContain("h-[60vh]");
+
+    const rail = container.querySelector("aside");
+    expect(rail.className).toContain("hidden");
+    expect(rail.className).toContain("lg:flex");
+    expect(rail.textContent).toContain("Captured");
+    expect(rail.textContent).toContain("0 elements");
+    expect(rail.textContent).toContain("Review & Create →");
+  });
+
+  it("the rail counts what the assistant captured", async () => {
+    const { container } = await openBuilder();
+    aiPost.mockResolvedValue({ response: REAL_OUTPUT });
+    await sendMessage();
+    await screen.findAllByText(/Become the leading tailored-AI partner/);
+
+    const rail = container.querySelector("aside");
+    await waitFor(() => expect(rail.textContent).toContain("2 elements"));
+    expect(rail.textContent).toContain("Reach 40 enterprise accounts");
+  });
+
+  it("the composer is a 3-row textarea where Enter sends and Shift+Enter does not", async () => {
+    await openBuilder();
+    aiPost.mockResolvedValue({ response: REAL_OUTPUT });
+    const ta = screen.getByPlaceholderText(/Describe your goals/);
+    expect(ta.tagName).toBe("TEXTAREA");
+    expect(ta.getAttribute("rows")).toBe("3");
+    expect(ta.className).toContain("text-[15px]");
+    expect(ta.className).toContain("py-3.5");
+
+    fireEvent.change(ta, { target: { value: "hello" } });
+    fireEvent.keyDown(ta, { key: "Enter", shiftKey: true });
+    expect(aiPost).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.keyDown(ta, { key: "Enter", shiftKey: false });
+    });
+    expect(aiPost).toHaveBeenCalledTimes(1);
+
+    expect(screen.getByText(/Enter to send · Shift\+Enter for a new line/)).toBeInTheDocument();
+  });
+
+  it("uses roomy conversation bubbles", async () => {
+    const { container } = await openBuilder();
+    aiPost.mockResolvedValue({ response: REAL_OUTPUT });
+    await sendMessage("hello");
+    await screen.findAllByText(/Become the leading tailored-AI partner/);
+
+    const bubble = container.querySelector(".max-w-\\[74ch\\]");
+    expect(bubble).toBeTruthy();
+    expect(bubble.className).toContain("text-[15px]");
+    expect(bubble.className).toContain("leading-[1.68]");
+  });
+});

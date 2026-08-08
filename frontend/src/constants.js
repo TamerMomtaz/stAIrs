@@ -12,5 +12,5 @@ export const typeIcons = { vision: "◆", objective: "▣", key_result: "◎", i
 export const typeLabels = { vision: "Vision", objective: "Objective", key_result: "Key Result", initiative: "Initiative", task: "Task" };
 export const typeLabelsAr = { vision: "الرؤية", objective: "الهدف", key_result: "نتيجة رئيسية", initiative: "مبادرة", task: "مهمة" };
 export const glass = (op = 0.6) => ({ background: `rgba(22, 37, 68, ${op})`, border: `1px solid ${BORDER}` });
-export const inputCls = "w-full px-3 py-2.5 rounded-lg bg-[#0a1628]/80 border border-[#1e3a5f] text-white placeholder-gray-600 focus:border-amber-500/40 focus:outline-none transition text-sm";
-export const labelCls = "text-gray-400 text-xs uppercase tracking-wider mb-1.5 block";
+export const inputCls = "w-full px-4 py-3.5 rounded-xl bg-[#0a1628]/85 border border-[#1e3a5f] text-white text-[15px] placeholder-gray-600 focus:border-amber-500/45 focus:ring-2 focus:ring-amber-500/10 focus:outline-none transition";
+export const labelCls = "text-gray-400 text-[11px] uppercase tracking-[0.12em] mb-2 block font-medium";

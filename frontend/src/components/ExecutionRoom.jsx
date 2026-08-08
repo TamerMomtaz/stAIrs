@@ -1416,10 +1416,10 @@ User question: ${msg}`;
           <div className="h-full flex flex-col px-6 py-4 max-w-5xl mx-auto">
             <div className="flex-1 overflow-y-auto space-y-3 pb-4 min-h-0">
               {messages.map((m, i) => m.failure ? (
-                <div key={i} className="flex justify-start"><div className="max-w-[85%] w-full"><AiUnavailable kind={m.failure} lang={lang} onRetry={m.retry} retrying={chatLoading} /></div></div>
+                <div key={i} className="flex justify-start"><div className="max-w-[74ch] w-full"><AiUnavailable kind={m.failure} lang={lang} onRetry={m.retry} retrying={chatLoading} /></div></div>
               ) : (
                 <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`group/msg relative max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed ${
+                  <div className={`group/msg relative max-w-[74ch] px-[18px] py-[15px] rounded-2xl text-[15px] leading-[1.68] ${
                     m.role === "user"
                       ? "bg-amber-500/20 text-amber-100 rounded-br-md"
                       : m.error
