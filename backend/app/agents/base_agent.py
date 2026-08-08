@@ -111,6 +111,9 @@ class BaseAgent:
             "provider": provider,
             "provider_display": provider_display,
             "fallback_used": result.get("fallback_used", False),
+            # ok=False means `text` is client-safe failure copy, not an answer.
+            "ok": result.get("ok", True),
+            "error_kind": result.get("error_kind"),
             "agent": self.name,
         }
 

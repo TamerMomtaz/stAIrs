@@ -14,7 +14,7 @@ from app.db.connection import get_pool
 from app.helpers import (
     row_to_dict, rows_to_dicts, generate_code,
     get_auth, AuthContext,
-    ANTHROPIC_API_KEY, CLAUDE_MODEL,
+    ANTHROPIC_API_KEY,
 )
 from app.models.schemas import (
     AIChatRequest, AIChatResponse, AIGenerateRequest,
@@ -99,30 +99,6 @@ async def _log_ai_usage(
                 )
     except Exception as e:
         logger.warning("Failed to log AI usage: %s", e)
-
-
-async def call_claude(messages: list, system: str = None, max_tokens: int = 1024) -> dict:
-    """Wrapper that uses the multi-provider fallback system but returns
-    the same dict shape the rest of the codebase expects.
-
-    Kept for backward compatibility (used by sources.py and other routers).
-    New code should use the orchestrator instead."""
-    result = await call_ai_with_fallback(
-        messages=messages,
-        system=system,
-        max_tokens=max_tokens,
-        log_callback=_log_ai_usage,
-    )
-    # Convert fallback result to the legacy format expected by existing endpoints
-    provider = result.get("provider", "none")
-    model_name = PROVIDER_DISPLAY.get(provider, provider)
-    return {
-        "content": [{"type": "text", "text": result["text"]}],
-        "usage": {"input_tokens": 0, "output_tokens": result.get("tokens", 0)},
-        "_provider": provider,
-        "_provider_display": model_name,
-        "_fallback_used": result.get("fallback_used", False),
-    }
 
 
 @router.get("/provider")
@@ -286,6 +262,17 @@ async def ai_chat(req: AIChatRequest, auth: AuthContext = Depends(get_auth)):
     tokens = agent_result.get("tokens", 0)
     provider = agent_result.get("provider", "claude")
     provider_display = agent_result.get("provider_display", "Claude")
+    ai_ok = agent_result.get("ok", True)
+    error_kind = agent_result.get("error_kind")
+
+    if not ai_ok:
+        # `text` is client-safe failure copy. Return it flagged so the browser
+        # renders the calm unavailable card instead of treating it as an answer,
+        # and keep it out of conversation history and the Source of Truth.
+        return {"response": text, "conversation_id": str(req.conversation_id) if req.conversation_id else str(uuid.uuid4()),
+                "actions": [], "tokens_used": 0, "provider": provider, "provider_display": provider_display,
+                "sources_used": None, "agents_used": [], "validation": None,
+                "ok": False, "error_kind": error_kind or "unavailable"}
 
     # Check which sources were actually cited in the response
     for src in sources_used:
@@ -330,7 +317,8 @@ async def ai_chat(req: AIChatRequest, auth: AuthContext = Depends(get_auth)):
             "provider": provider, "provider_display": provider_display,
             "sources_used": sources_used if sources_used else None,
             "agents_used": [ai.model_dump() for ai in _build_agents_used(agent_chain)],
-            "validation": _build_validation_info(validation_data).model_dump() if validation_data else None}
+            "validation": _build_validation_info(validation_data).model_dump() if validation_data else None,
+            "ok": True, "error_kind": None}
 
 
 @router.post("/analyze/{stair_id}")
@@ -350,8 +338,16 @@ CHILDREN ({len(list(children))}): {json.dumps([dict(c) for c in children], defau
 HISTORY: {json.dumps([dict(h) for h in history], default=str)[:800]}
 Check for these failure patterns: {', '.join(p['name'] for p in _knowledge_cache.get('failure_patterns', [])[:6])}
 Return JSON: risk_score (0-100), risk_level, identified_risks[], recommended_actions[], completion_probability (0-100), summary, summary_ar"""
-    result = await call_claude([{"role": "user", "content": prompt}], max_tokens=1500)
-    text = result["content"][0]["text"] if result.get("content") else "{}"
+    result = await call_ai_with_fallback(
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=1500,
+        log_callback=_log_ai_usage,
+    )
+    text = result.get("text") or "{}"
+    if result.get("ok") is False:
+        # `text` is client-safe failure copy, not an analysis. Don't persist a
+        # made-up risk score, and don't let the copy masquerade as evidence.
+        raise HTTPException(503, "AI analysis is temporarily unavailable")
     try: analysis = json.loads(text.strip().strip("`").removeprefix("json"))
     except Exception:
         analysis = {"risk_score": 50, "risk_level": "medium", "identified_risks": [{"pattern": "Analysis", "evidence": text[:200]}],
@@ -395,13 +391,22 @@ async def ai_generate_strategy(req: AIGenerateRequest, auth: AuthContext = Depen
 User request: {req.prompt}
 Return JSON array: [{{"title":"..","title_ar":"..","description":"..","element_type":"objective|key_result|initiative","parent_idx":null or int,"target_value":null or num,"unit":null or str,"priority":"critical|high|medium|low"}}]
 Start with Vision, then Objectives, then Key Results. 3-5 KRs per Objective. Include Arabic."""
-    result = await call_claude([{"role": "user", "content": prompt}], max_tokens=2048)
-    text = result["content"][0]["text"] if result.get("content") else "[]"
+    result = await call_ai_with_fallback(
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=2048,
+        log_callback=_log_ai_usage,
+    )
+    text = result.get("text") or "[]"
+    if result.get("ok") is False:
+        # `text` is client-safe failure copy — surface it as a failure, not as
+        # an empty-but-successful generation.
+        return {"generated": 0, "elements": [], "ok": False,
+                "error_kind": result.get("error_kind"), "message": text}
     try:
         start = text.find("["); end = text.rfind("]") + 1
         elements = json.loads(text[start:end]) if start >= 0 else []
     except Exception:
-        return {"generated": 0, "elements": [], "raw": text[:500], "message": "Could not parse AI response."}
+        return {"generated": 0, "elements": [], "message": "Could not parse AI response."}
     strategy_id = str(req.strategy_id) if req.strategy_id else None
     created, parent_ids = [], []
     async with pool.acquire() as conn:
@@ -513,15 +518,22 @@ async def ai_generate_questionnaire(req: QuestionnaireGenerateRequest, auth: Aut
 
     text = agent_result.get("text", "{}")
 
-    try:
-        start = text.find("{")
-        end = text.rfind("}") + 1
-        if start >= 0 and end > start:
-            questionnaire = json.loads(text[start:end])
-        else:
-            questionnaire = _mock_questionnaire(req.strategy_type)
-    except Exception:
+    if agent_result.get("ok") is False:
+        # Assistant is down. A generic-but-usable questionnaire beats an error
+        # screen — the client can still answer and generate the staircase later.
+        logger.warning("Questionnaire generation degraded to the built-in set: %s",
+                       agent_result.get("error_kind"))
         questionnaire = _mock_questionnaire(req.strategy_type)
+    else:
+        try:
+            start = text.find("{")
+            end = text.rfind("}") + 1
+            if start >= 0 and end > start:
+                questionnaire = json.loads(text[start:end])
+            else:
+                questionnaire = _mock_questionnaire(req.strategy_type)
+        except Exception:
+            questionnaire = _mock_questionnaire(req.strategy_type)
 
     # Auto-log questionnaire generation to Source of Truth
     try:
@@ -626,6 +638,11 @@ async def prefill_questionnaire(
 
     text = agent_result.get("text", "{}")
 
+    if agent_result.get("ok") is False:
+        # Pre-fill is a convenience; an empty answer set just means the client
+        # fills the questionnaire in by hand.
+        return {"answers": {}, "ok": False, "error_kind": agent_result.get("error_kind")}
+
     try:
         start = text.find("{")
         end = text.rfind("}") + 1
@@ -688,6 +705,8 @@ async def ai_action_plan(req: ActionPlanGenerateRequest, auth: AuthContext = Dep
         "confidence_score": validation.get("confidence_score"),
         "agents_used": [ai.model_dump() for ai in _build_agents_used(agent_chain)],
         "validation": _build_validation_info(validation).model_dump() if validation else None,
+        "ok": agent_result.get("ok", True),
+        "error_kind": agent_result.get("error_kind"),
     }
 
 
@@ -713,6 +732,8 @@ async def ai_customized_plan(req: CustomizedPlanRequest, auth: AuthContext = Dep
         "confidence_score": validation.get("confidence_score"),
         "agents_used": [ai.model_dump() for ai in _build_agents_used(agent_chain)],
         "validation": _build_validation_info(validation).model_dump() if validation else None,
+        "ok": agent_result.get("ok", True),
+        "error_kind": agent_result.get("error_kind"),
     }
 
 
@@ -754,6 +775,8 @@ async def ai_explain_action(req: ExplainActionRequest, auth: AuthContext = Depen
         "confidence_score": None,
         "agents_used": [ai.model_dump() for ai in _build_agents_used(agent_chain)],
         "validation": None,
+        "ok": agent_result.get("ok", True),
+        "error_kind": agent_result.get("error_kind"),
     }
 
 
@@ -797,4 +820,6 @@ async def ai_implementation_guide(req: ImplementationGuideRequest, auth: AuthCon
         "confidence_score": validation.get("confidence_score"),
         "agents_used": [ai.model_dump() for ai in _build_agents_used(agent_chain)],
         "validation": _build_validation_info(validation).model_dump() if validation else None,
+        "ok": agent_result.get("ok", True),
+        "error_kind": agent_result.get("error_kind"),
     }

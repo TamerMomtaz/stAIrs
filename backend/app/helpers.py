@@ -18,7 +18,9 @@ from app.db.connection import get_pool
 
 # ─── CONFIG ───
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514")
+# Advisory only — the live model id is resolved at runtime by app.ai_client,
+# which discovers what this key can serve and fails over past retired ids.
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
 
 JWT_SECRET = os.getenv("JWT_SECRET", "stairs-dev-secret-change-in-production-2026")
 JWT_ALGORITHM = "HS256"

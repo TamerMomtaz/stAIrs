@@ -4,6 +4,8 @@ import { GOLD, GOLD_L, TEAL, DEEP, BORDER, glass, typeColors, typeIcons, inputCl
 import { Markdown } from "./Markdown";
 import { Modal } from "./SharedUI";
 import { StrategyQuestionnaire } from "./StrategyQuestionnaire";
+import { normalizeAiResult, classifyAiFailure, promptTurn, isPromptTurn } from "../lib/aiResilience";
+import AiUnavailable from "./AiUnavailable";
 
 const strategyTypes = [
   { value: "marketing", label: "Marketing Strategy", icon: "📣" },
@@ -63,6 +65,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
   const [questionnaireData, setQuestionnaireData] = useState(null);
   const [questionnaireAnswers, setQuestionnaireAnswers] = useState({});
   const [questionnaireLoading, setQuestionnaireLoading] = useState(false);
+  // Failure *kind* (never a raw message) so the calm card can render instead.
   const [questionnaireError, setQuestionnaireError] = useState(null);
   const [retryMsg, setRetryMsg] = useState(null);
   // Document upload state (NEW)
@@ -80,6 +83,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
   const colorOpts = [GOLD, TEAL, "#60a5fa", "#a78bfa", "#f87171", "#34d399", "#fbbf24", "#ec4899"];
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [aiMessages]);
 
+  const isAr = lang === "ar";
   const selectedType = strategyTypes.find(t => t.value === info.strategyType);
   const typeLabel = selectedType?.label || info.strategyType.replace(/_/g, " ");
 
@@ -195,14 +199,15 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
             }
           } catch (e) {
             setRetryMsg(null);
-            console.warn("Prefill failed (non-critical):", e.message);
+            // Pre-fill is a convenience — the client just answers by hand.
+            console.warn("[stairs.ai] questionnaire pre-fill failed (non-critical):", e);
           }
           setPrefilling(false);
         }
       }
     } catch (e) {
       setRetryMsg(null);
-      setQuestionnaireError(e.message);
+      setQuestionnaireError(classifyAiFailure(e));
       setQuestionnaireLoading(false);
     }
   };
@@ -223,7 +228,10 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
       await goToQuestionnaire(texts);
     } catch (e) {
       setExtracting(false);
-      setExtractionError(e.message || "Failed to extract text from documents");
+      console.error("[stairs] document text extraction failed:", e);
+      setExtractionError(isAr
+        ? "تعذّر قراءة هذه الملفات. يمكنك المتابعة وملء الاستبيان يدويًا."
+        : "We couldn't read those files. You can continue and fill the questionnaire manually.");
     }
   };
 
@@ -241,19 +249,40 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
     setAiMessages([{ role: "ai", text: `Great! Let's build the **${typeLabel}** strategy for **${info.company || info.name}**.${introNote}\n\nTell me about your business goals, challenges, and what you want to achieve. Or click the button below to generate the staircase directly.\n\nExamples:\n- "We want to expand across the MENA region"\n- "Our goal is $5M ARR by 2027"` }]);
   };
 
-  const sendToAI = async () => {
-    if (!aiInput.trim() || aiLoading) return;
-    const msg = aiInput.trim(); setAiInput("");
-    setAiMessages(prev => [...prev, { role: "user", text: msg }]); setAiLoading(true);
+  // `turn` is either a plain string or a promptTurn(): what the client sees
+  // and what the model receives are deliberately two different things.
+  const sendToAI = async (turn) => {
+    const source = turn ?? aiInput;
+    const t = isPromptTurn(source) ? source : promptTurn(String(source || "").trim());
+    if (!t.display.trim() || aiLoading) return;
+    if (!turn) setAiInput("");
+    return runTurn(t);
+  };
+
+  // echo=false is the retry path: the client's question is already in the
+  // transcript, so replace the failure card rather than repeating the question.
+  const runTurn = async (t, { echo = true } = {}) => {
+    if (echo) setAiMessages(prev => [...prev, { role: "user", text: t.display }]);
+    else setAiMessages(prev => (prev.length && prev[prev.length - 1].failure ? prev.slice(0, -1) : prev));
+    setAiLoading(true);
+
+    const qContext = formatQuestionnaireContext(questionnaireData, questionnaireAnswers);
+    const contextMessage = `[CONTEXT: Creating ${typeLabel} strategy "${info.name}" for "${info.company || info.name}" in ${info.industry || "unspecified"} industry. ${info.description || ""}${qContext}\nGenerate structured strategy elements. Cite sources when referencing frameworks or research.]\n\nUser: ${t.payload}`;
+
+    let res;
     try {
-      const qContext = formatQuestionnaireContext(questionnaireData, questionnaireAnswers);
-      const contextMessage = `[CONTEXT: Creating ${typeLabel} strategy "${info.name}" for "${info.company || info.name}" in ${info.industry || "unspecified"} industry. ${info.description || ""}${qContext}\nGenerate structured strategy elements. Cite sources when referencing frameworks or research.]\n\nUser: ${msg}`;
-      const res = await api.aiPost("/api/v1/ai/chat", { message: contextMessage }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
-      setRetryMsg(null);
-      setAiMessages(prev => [...prev, { role: "ai", text: res.response, tokens: res.tokens_used }]);
-      const extracted = extractElements(res.response);
+      res = await api.aiPost("/api/v1/ai/chat", { message: contextMessage }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+    } catch (e) { res = e; }
+    setRetryMsg(null);
+
+    const r = normalizeAiResult(res, { lang });
+    if (!r.ok) {
+      setAiMessages(prev => [...prev, { role: "ai", failure: r.kind, retry: () => runTurn(t, { echo: false }) }]);
+    } else {
+      setAiMessages(prev => [...prev, { role: "ai", text: r.text, tokens: res.tokens_used }]);
+      const extracted = extractElements(r.text);
       if (extracted.length > 0) setGeneratedElements(prev => [...prev, ...extracted]);
-    } catch (e) { setRetryMsg(null); setAiMessages(prev => [...prev, { role: "ai", text: `Warning: ${e.message}`, error: true }]); }
+    }
     setAiLoading(false);
   };
 
@@ -272,10 +301,17 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
     return elements;
   };
 
+  // The client's own bubble must never show our scaffolding. They see one
+  // sentence; the model still receives the full [Vision]/[Objective N] template.
   const askForStrategy = () => {
     const qContext = formatQuestionnaireContext(questionnaireData, questionnaireAnswers);
     const enrichment = qContext ? `\n\nUse these questionnaire answers to make the strategy specific and actionable:${qContext}` : "";
-    setAiInput(`Based on our discussion, generate a complete ${typeLabel} strategic staircase for ${info.company || info.name}.${enrichment}\n\nFormat:\n[Vision]: ...\n[Objective 1]: ...\n[KR 1.1]: ...\n[Initiative 1.1]: ...\nBe specific and tailored to this ${typeLabel.toLowerCase()} context.`);
+    return sendToAI(promptTurn(
+      isAr
+        ? "أنشئ السلّم الكامل بناءً على كل ما ناقشناه."
+        : "Generate the full staircase from everything we've discussed.",
+      `Based on our discussion, generate a complete ${typeLabel} strategic staircase for ${info.company || info.name}.${enrichment}\n\nFormat:\n[Vision]: ...\n[Objective 1]: ...\n[KR 1.1]: ...\n[Initiative 1.1]: ...\nBe specific and tailored to this ${typeLabel.toLowerCase()} context.`,
+    ));
   };
 
   const finishWizard = async () => {
@@ -333,11 +369,12 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
     }
     // Log AI chat messages from wizard
     const userMsgs = aiMessages.filter(m => m.role === "user");
-    const aiMsgs = aiMessages.filter(m => m.role === "ai" && !m.error);
+    const aiMsgs = aiMessages.filter(m => m.role === "ai" && !m.error && !m.failure);
+    const loggable = aiMessages.filter(m => !m.error && !m.failure && typeof m.text === "string");
     if (userMsgs.length > 0) {
       pendingSources.push({
         source_type: "ai_chat",
-        content: `Strategy Wizard AI Chat (${userMsgs.length} user messages, ${aiMsgs.length} AI responses):\n\n${aiMessages.filter(m => !m.error).map(m => `${m.role === "user" ? "User" : "AI"}: ${m.text.slice(0, 300)}`).join("\n\n")}`,
+        content: `Strategy Wizard AI Chat (${userMsgs.length} user messages, ${aiMsgs.length} AI responses):\n\n${loggable.map(m => `${m.role === "user" ? "User" : "AI"}: ${m.text.slice(0, 300)}`).join("\n\n")}`,
         metadata: { context: "strategy_wizard_chat", user_message_count: userMsgs.length, ai_response_count: aiMsgs.length },
       });
     }
@@ -495,9 +532,15 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
               <div className="text-gray-400 text-sm">{retryMsg || <>Generating tailored questions for your <span className="text-amber-300">{typeLabel}</span> strategy...</>}</div>
             </div>
           ) : questionnaireError ? (
-            <div className="flex-1 flex flex-col items-center justify-center gap-4 py-12">
-              <div className="text-red-400 text-sm">Failed to generate questionnaire: {questionnaireError}</div>
-              <button onClick={() => goToQuestionnaire(extractedTexts)} className="px-4 py-2 rounded-lg text-sm text-amber-400 border border-amber-500/30 hover:bg-amber-500/10 transition">Retry</button>
+            <div className="flex-1 flex flex-col items-center justify-center py-12">
+              <div className="w-full max-w-lg">
+                <AiUnavailable
+                  kind={questionnaireError}
+                  lang={lang}
+                  onRetry={() => goToQuestionnaire(extractedTexts)}
+                  onContinueManually={skipQuestionnaire}
+                />
+              </div>
             </div>
           ) : questionnaireData ? (
             <div className="flex-1">
@@ -554,15 +597,33 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
       {step === 3 && (
         <div className="flex flex-col" style={{ height: "60vh" }}>
           <div className="flex-1 overflow-y-auto space-y-3 pb-4 min-h-0">
-            {aiMessages.map((m, i) => (<div key={i} className={`flex ${m.role==="user"?"justify-end":"justify-start"}`}><div className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed ${m.role==="user"?"bg-amber-500/20 text-amber-100 rounded-br-md":m.error?"bg-red-500/10 text-red-300 rounded-bl-md border border-red-500/20":"bg-[#162544] text-gray-200 rounded-bl-md border border-[#1e3a5f]"}`}>{m.role==="ai"?<Markdown text={m.text}/>:<div className="whitespace-pre-wrap">{m.text}</div>}</div></div>))}
+            {aiMessages.map((m, i) => (
+              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                {m.failure ? (
+                  <div className="max-w-[85%]">
+                    <AiUnavailable
+                      kind={m.failure}
+                      lang={lang}
+                      onRetry={m.retry}
+                      onContinueManually={() => setStep(4)}
+                      retrying={aiLoading}
+                    />
+                  </div>
+                ) : (
+                  <div className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed ${m.role === "user" ? "bg-amber-500/20 text-amber-100 rounded-br-md" : "bg-[#162544] text-gray-200 rounded-bl-md border border-[#1e3a5f]"}`}>
+                    {m.role === "ai" ? <Markdown text={m.text} /> : <div className="whitespace-pre-wrap">{m.text}</div>}
+                  </div>
+                )}
+              </div>
+            ))}
             {aiLoading && <div className="flex items-center gap-2 px-4 py-2">{[0,1,2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-amber-500/40 animate-bounce" style={{ animationDelay:`${i*0.15}s` }} />)}{retryMsg && <span className="text-amber-400/80 text-xs ml-1">{retryMsg}</span>}</div>}
             <div ref={endRef} />
           </div>
-          {generatedElements.length > 0 && (<div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-lg" style={glass(0.3)}><span className="text-amber-400 text-xs">✓ {generatedElements.length} elements captured</span><div className="flex-1"/><button onClick={() => setStep(4)} className="text-xs px-3 py-1 rounded-md bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition">Review & Create →</button></div>)}
-          {aiMessages.length >= 1 && generatedElements.length === 0 && (<div className="mb-2"><button onClick={askForStrategy} className="text-xs px-3 py-1.5 rounded-full border border-amber-500/30 text-amber-400/80 hover:bg-amber-500/10 transition">✨ Ask AI to generate the staircase now</button></div>)}
+          {generatedElements.length > 0 && (<div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-lg" style={glass(0.3)}><span className="text-amber-400 text-xs">✓ {generatedElements.length} elements captured</span><div className="flex-1"/><button onClick={() => setStep(4)} className="text-xs px-3 py-1 rounded-md bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition">Review &amp; Create →</button></div>)}
+          {aiMessages.length >= 1 && generatedElements.length === 0 && (<div className="mb-2"><button onClick={askForStrategy} disabled={aiLoading} className="text-xs px-3 py-1.5 rounded-full border border-amber-500/30 text-amber-400/80 hover:bg-amber-500/10 transition disabled:opacity-40">✨ Ask AI to generate the staircase now</button></div>)}
           <div className="shrink-0 flex gap-2 pt-2">
             <textarea value={aiInput} onChange={e => setAiInput(e.target.value)} onKeyDown={e => { if (e.key==="Enter"&&!e.shiftKey) { e.preventDefault(); sendToAI(); } }} placeholder="Describe your goals... (Shift+Enter for new line)" disabled={aiLoading} rows={2} className="flex-1 px-4 py-3 rounded-xl bg-[#0a1628]/60 border border-[#1e3a5f] text-white placeholder-gray-600 focus:border-amber-500/40 focus:outline-none transition text-sm resize-none" />
-            <button onClick={sendToAI} disabled={aiLoading||!aiInput.trim()} className="px-5 py-3 rounded-xl font-medium text-sm disabled:opacity-30 transition-all hover:scale-105 self-end" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, color: DEEP }}>Send</button>
+            <button onClick={() => sendToAI()} disabled={aiLoading||!aiInput.trim()} className="px-5 py-3 rounded-xl font-medium text-sm disabled:opacity-30 transition-all hover:scale-105 self-end" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, color: DEEP }}>Send</button>
           </div>
           <div className="flex justify-between mt-3"><button onClick={() => setStep(questionnaireData ? 2 : 1)} className="text-xs text-gray-500 hover:text-gray-300 transition">← Back</button><button onClick={() => setStep(4)} className="text-xs text-gray-500 hover:text-gray-300 transition">Skip AI → Create empty</button></div>
         </div>

@@ -255,6 +255,10 @@ class AIChatResponse(BaseModel):
     sources_used: Optional[List[dict]] = None
     agents_used: Optional[List[AgentInfo]] = None
     validation: Optional[ValidationInfo] = None
+    # False when `response` is client-safe failure copy rather than an answer,
+    # so the frontend never has to guess from the text.
+    ok: bool = True
+    error_kind: Optional[str] = None
 
 class AIAnalysisResponse(BaseModel):
     risk_score: float
@@ -332,6 +336,9 @@ class AgentResponse(BaseModel):
     confidence_score: Optional[int] = None
     agents_used: Optional[List[AgentInfo]] = None
     validation: Optional[ValidationInfo] = None
+    # False when `response` is client-safe failure copy rather than an answer.
+    ok: bool = True
+    error_kind: Optional[str] = None
 
 
 # ─── ALERTS ───

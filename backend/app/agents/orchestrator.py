@@ -30,6 +30,22 @@ def _is_framework_request(message: str) -> bool:
     return any(kw in lower for kw in _FRAMEWORK_KEYWORDS)
 
 
+def _failed(result: dict) -> bool:
+    """True when the AI layer handed back client-safe failure copy, not an answer.
+
+    When the assistant is down there is nothing to validate and nothing a
+    regeneration pass can improve — every extra agent call just makes the
+    client wait longer for the same failure.
+    """
+    return result.get("ok") is False
+
+
+def _short_circuit(result: dict, agent_chain: list) -> dict:
+    result["validation"] = None
+    result["agent_chain"] = agent_chain
+    return result
+
+
 class Orchestrator:
     """Routes incoming requests to the correct specialist agent.
 
@@ -172,6 +188,8 @@ class Orchestrator:
                 user_message=f"CONTEXT:\n{chr(10).join(context_parts)}\n\nUSER REQUEST:\n{message}",
                 strategy_context=strategy_context,
             )
+            if _failed(framework_result):
+                return _short_circuit(framework_result, ["strategy_analyst"])
 
             # Validate strategy output
             validation = await self._validate_output(
@@ -211,6 +229,8 @@ class Orchestrator:
             context_parts=context_parts,
             strategy_context=strategy_context,
         )
+        if _failed(result):
+            return _short_circuit(result, ["strategy_advisor"])
 
         # Validate advisor output
         validation = await self._validate_output(
@@ -249,6 +269,8 @@ class Orchestrator:
             document_text=document_text,
             strategy_context=strategy_context,
         )
+        if _failed(result):
+            return _short_circuit(result, ["document_analyst"])
 
         validation = await self._validate_output(
             agent_name=self.document_agent.name,
@@ -286,6 +308,8 @@ class Orchestrator:
             strategy_type=payload.get("strategy_type", "general"),
             strategy_context=strategy_context,
         )
+        if _failed(result):
+            return _short_circuit(result, ["strategy_analyst"])
 
         # Questionnaire validation is lighter — skip regeneration loop
         validation = await self._validate_output(
@@ -312,6 +336,7 @@ class Orchestrator:
         )
 
         result["agent_chain"] = ["document_analyst"]
+        result.setdefault("validation", None)
         return result
 
     async def _handle_action_plan(self, payload: dict, strategy_context: dict) -> dict:
@@ -320,6 +345,8 @@ class Orchestrator:
             stair_context=payload.get("stair_context", ""),
             strategy_context=strategy_context,
         )
+        if _failed(result):
+            return _short_circuit(result, ["execution_planner"])
 
         validation = await self._validate_output(
             agent_name=self.execution_agent.name,
@@ -355,6 +382,8 @@ class Orchestrator:
             feedback=payload.get("feedback", ""),
             strategy_context=strategy_context,
         )
+        if _failed(result):
+            return _short_circuit(result, ["execution_planner"])
 
         validation = await self._validate_output(
             agent_name=self.execution_agent.name,
@@ -376,6 +405,7 @@ class Orchestrator:
         )
 
         result["agent_chain"] = ["execution_planner"]
+        result.setdefault("validation", None)
         return result
 
     async def _handle_implementation_guide(self, payload: dict, strategy_context: dict) -> dict:
@@ -384,6 +414,8 @@ class Orchestrator:
             element_context=payload.get("element_context", ""),
             strategy_context=strategy_context,
         )
+        if _failed(result):
+            return _short_circuit(result, ["execution_planner"])
 
         validation = await self._validate_output(
             agent_name=self.execution_agent.name,
