@@ -64,11 +64,18 @@ Score interpretation:
 
         Returns:
             {
-                "confidence_score": int (0-100),
-                "validated": bool,
+                "confidence_score": int|None,  # None = the validator never ran,
+                                               # NOT a low score. Do not compare
+                                               # it numerically without a None
+                                               # check (see _should_regenerate).
+                "validated": bool|None,        # None when unknown
                 "warnings": list[str],
                 "contradictions": list[str],
                 "suggestions": list[str],
+                "ok": bool,                    # False when the validator's own
+                                               # AI call failed; everything above
+                                               # is then "unknown", not a verdict
+                "error_kind": str|None,
             }
         """
         sot_summary = ""
@@ -95,11 +102,15 @@ Check for:
 
 Return ONLY valid JSON with: confidence_score, validated, warnings, contradictions, suggestions."""
 
+        # log=False: we write our own richer row below (it carries the
+        # confidence score). Letting call() log too double-counted validation's
+        # total_calls in /api/v1/admin/agents.
         result = await self.call(
             messages=[{"role": "user", "content": prompt}],
             strategy_context=strategy_context,
             max_tokens=1024,
             task_type=f"validate_{task_type}",
+            log=False,
         )
 
         # Parse the validation result

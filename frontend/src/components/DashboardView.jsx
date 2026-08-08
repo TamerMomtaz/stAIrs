@@ -24,9 +24,29 @@ const AgentActivityLog = ({ isAr }) => {
   if (loading) return <div className="text-xs text-gray-500 py-4 text-center">{isAr ? "\u062C\u0627\u0631\u064A \u0627\u0644\u062A\u062D\u0645\u064A\u0644..." : "Loading agent activity..."}</div>;
   if (!activity || !activity.recent_activity || activity.recent_activity.length === 0) return null;
   const confColor = (s) => !s ? "text-gray-500" : s >= 85 ? "text-emerald-400" : s >= 60 ? "text-amber-400" : "text-red-400";
+  // Failure rate is the number that shows an outage before a client reports one,
+  // so it gets its own row rather than living only in the API payload.
+  const agents = Object.entries(activity.agents || {}).filter(([, a]) => a.total_calls > 0);
+  const degraded = agents.filter(([, a]) => a.failure_rate > 0);
+  const rateColor = (r) => r >= 10 ? "text-red-400" : r > 0 ? "text-amber-400" : "text-emerald-400";
   return (
     <div data-testid="agent-activity-log">
       <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-3">{isAr ? "\u0633\u062C\u0644 \u0646\u0634\u0627\u0637 \u0627\u0644\u0648\u0643\u0644\u0627\u0621" : "Agent Activity"}</h3>
+      {agents.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-3" data-testid="agent-health">
+          <span className={`text-[11px] px-2 py-1 rounded-md border ${activity.failure_rate > 0 ? "border-amber-500/25 bg-amber-500/5" : "border-emerald-500/20 bg-emerald-500/5"}`}>
+            <span className="text-gray-500">{isAr ? "معدل الإخفاق" : "Failure rate"}</span>{" "}
+            <span className={`font-medium ${rateColor(activity.failure_rate || 0)}`}>{activity.failure_rate ?? 0}%</span>
+            <span className="text-gray-600"> · {activity.failed_calls ?? 0}/{activity.total_calls ?? 0}</span>
+          </span>
+          {degraded.map(([name, a]) => (
+            <span key={name} className="text-[11px] px-2 py-1 rounded-md border border-amber-500/25 bg-amber-500/5" title={`${a.failed_calls} of ${a.total_calls} calls returned no answer`}>
+              <span className="text-gray-400">{AGENT_ICONS[name] || "\uD83E\uDD16"} {name}</span>{" "}
+              <span className={`font-medium ${rateColor(a.failure_rate)}`}>{a.failure_rate}%</span>
+            </span>
+          ))}
+        </div>
+      )}
       <div className="rounded-xl overflow-hidden" style={glass(0.4)}>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
@@ -41,12 +61,12 @@ const AgentActivityLog = ({ isAr }) => {
             </thead>
             <tbody>
               {activity.recent_activity.slice(0, 20).map((entry, i) => (
-                <tr key={i} className="border-b border-gray-700/20 hover:bg-white/[0.02] transition">
+                <tr key={i} className={`border-b border-gray-700/20 hover:bg-white/[0.02] transition ${entry.ok === false ? "bg-amber-500/[0.04]" : ""}`}>
                   <td className="px-3 py-1.5 text-gray-500 whitespace-nowrap">{entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "\u2014"}</td>
                   <td className="px-3 py-1.5 text-white whitespace-nowrap">{AGENT_ICONS[entry.agent_name] || "\uD83E\uDD16"} {entry.agent_name}</td>
                   <td className="px-3 py-1.5 text-gray-400 truncate max-w-[160px]">{entry.task_type}</td>
                   <td className={`px-3 py-1.5 text-center font-medium ${confColor(entry.confidence_score)}`}>{entry.confidence_score != null ? `${entry.confidence_score}%` : "\u2014"}</td>
-                  <td className="px-3 py-1.5 text-gray-500">{entry.model_used || "\u2014"}</td>
+                  <td className="px-3 py-1.5 text-gray-500">{entry.ok === false ? <span className="text-amber-400/80">{isAr ? "غير متاح" : "unavailable"}</span> : (entry.model_used || "\u2014")}</td>
                 </tr>
               ))}
             </tbody>
