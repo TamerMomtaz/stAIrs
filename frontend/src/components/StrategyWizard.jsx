@@ -148,6 +148,10 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
 
   const goToQuestionnaire = async (docTexts = null) => {
     if (!info.name.trim() || !info.strategyType) return;
+    // Reachable from "Continue", "Skip upload" and the failure card's Retry —
+    // guard so an impatient second click doesn't commission a second
+    // questionnaire on top of the one already in flight.
+    if (questionnaireLoading) return;
     const textsToUse = docTexts || extractedTexts;
     setStep(2);
     setQuestionnaireLoading(true);
@@ -158,7 +162,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
         company_brief: info.description || null,
         industry: info.industry || null,
         strategy_type: info.strategyType,
-      }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+      }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`), "wizard:generate-questionnaire");
       setRetryMsg(null);
       setQuestionnaireData(res);
       setQuestionnaireLoading(false);
@@ -179,7 +183,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
               strategy_type: info.strategyType,
               document_text: combinedText,
               groups: res.groups,
-            }, (attempt, max) => setRetryMsg(`Pre-filling answers... retrying (${attempt}/${max})`));
+            }, (attempt, max) => setRetryMsg(`Pre-filling answers... retrying (${attempt}/${max})`), "wizard:prefill-questionnaire");
             setRetryMsg(null);
 
             if (prefillRes?.answers) {
@@ -279,7 +283,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
 
     let res;
     try {
-      res = await api.aiPost("/api/v1/ai/chat", { message: contextMessage }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+      res = await api.aiPost("/api/v1/ai/chat", { message: contextMessage }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`), "wizard:builder-chat");
     } catch (e) { res = e; }
     setRetryMsg(null);
 

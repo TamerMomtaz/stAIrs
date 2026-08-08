@@ -1,4 +1,5 @@
 import { API, GOLD } from "./constants";
+import { recordAiCall } from "./lib/aiCallLog";
 
 // ═══ API CLIENT ═══
 class StairsAPI {
@@ -37,20 +38,20 @@ class StairsAPI {
   }
   async get(p) { const r = await fetch(`${API}${p}`, { headers: this.headers() }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw new Error(`GET ${p} → ${r.status}`); return r.json(); }
   async post(p, b) { const r = await fetch(`${API}${p}`, { method: "POST", headers: this.headers(), body: JSON.stringify(b) }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw new Error(`POST ${p} → ${r.status}`); return r.json(); }
-  async aiPost(p, b, onRetry) {
-    const maxRetries = 3;
-    const retryDelay = 5000;
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      const r = await fetch(`${API}${p}`, { method: "POST", headers: this.headers(), body: JSON.stringify(b) });
-      if (r.status === 401) { this._handleUnauthorized(); }
-      if (r.status === 529 && attempt < maxRetries) {
-        if (onRetry) onRetry(attempt, maxRetries);
-        await new Promise(res => setTimeout(res, retryDelay));
-        continue;
-      }
-      if (!r.ok) throw new Error(`POST ${p} → ${r.status}`);
-      return r.json();
-    }
+  // Every outbound AI call goes through here and is logged with the `trigger`
+  // that caused it, so the app can be walked and audited for stray calls.
+  //
+  // No client-side retry loop: app.ai_client already backs off on 429/5xx/529
+  // and app.ai_providers already fails over to the next provider. Retrying here
+  // as well multiplied one client action into (3 × backend retries × providers)
+  // upstream calls, each one billed. `onRetry` is kept in the signature so call
+  // sites don't have to change; the backend surfaces its own retry state.
+  async aiPost(p, b, onRetry, trigger) {
+    recordAiCall(trigger, p);
+    const r = await fetch(`${API}${p}`, { method: "POST", headers: this.headers(), body: JSON.stringify(b) });
+    if (r.status === 401) { this._handleUnauthorized(); }
+    if (!r.ok) throw new Error(`POST ${p} → ${r.status}`);
+    return r.json();
   }
   async put(p, b) { const r = await fetch(`${API}${p}`, { method: "PUT", headers: this.headers(), body: JSON.stringify(b) }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw new Error(`PUT ${p} → ${r.status}`); return r.json(); }
   async patch(p, b) { const r = await fetch(`${API}${p}`, { method: "PATCH", headers: this.headers(), body: JSON.stringify(b) }); if (r.status === 401) { this._handleUnauthorized(); } if (!r.ok) throw new Error(`PATCH ${p} → ${r.status}`); return r.json(); }
@@ -110,6 +111,76 @@ export const ActionPlansAPI = {
       done,
     });
   },
+};
+
+
+// ═══ GENERATED ARTIFACTS API ═══
+// Server-side home for content the client explicitly generated or created:
+// Execution Room solutions, explanations, implementation guides and their step
+// checklists, per-task chats, staircase explain/enhance, matrix worksheets.
+// The server is the source of truth; localStorage below is only a cache.
+export const ARTIFACT = {
+  SOLUTIONS: "solutions",
+  EXPLAIN: "explain",
+  EXPLAIN_CHAT: "explain_chat",
+  ASSESS_CHAT: "assess_chat",
+  IMPL_GUIDE: "impl_guide",
+  IMPL_CHAT: "impl_chat",
+  IMPL_STEPS: "impl_steps",
+  ROOM_CHAT: "room_chat",
+  STAIR_EXPLAIN: "stair_explain",
+  STAIR_ENHANCE: "stair_enhance",
+  MATRIX: "matrix",
+};
+
+// scope_key builders — keep every call site using the same shape, or a read
+// won't find what a write stored.
+export const stairScope = (stairId) => String(stairId);
+export const taskScope = (stairId, taskId) => `${stairId}:${taskId}`;
+export const matrixScope = (strategyId, matrixKey) => `${strategyId}:${matrixKey}`;
+
+export const ArtifactsAPI = {
+  async save({ artifactType, scopeKey, strategyId, stairId, content, payload }) {
+    return api.put("/api/v1/artifacts", {
+      artifact_type: artifactType,
+      scope_key: scopeKey,
+      strategy_id: strategyId || null,
+      stair_id: stairId || null,
+      content: content ?? null,
+      payload: payload || {},
+    });
+  },
+  async forStair(stairId) {
+    return api.get(`/api/v1/stairs/${stairId}/artifacts`);
+  },
+  async forStrategy(strategyId, artifactType) {
+    const q = artifactType ? `?artifact_type=${encodeURIComponent(artifactType)}` : "";
+    return api.get(`/api/v1/strategies/${strategyId}/artifacts${q}`);
+  },
+  async remove(artifactType, scopeKey) {
+    return api.del(`/api/v1/artifacts/${encodeURIComponent(artifactType)}/${scopeKey}`);
+  },
+  // Reshape a flat artifact list into {type: {scopeKey: artifact}} for lookup.
+  index(list) {
+    const out = {};
+    for (const a of list || []) {
+      if (!out[a.artifact_type]) out[a.artifact_type] = {};
+      // The API returns newest first; keep the newest per scope_key.
+      if (!out[a.artifact_type][a.scope_key]) out[a.artifact_type][a.scope_key] = a;
+    }
+    return out;
+  },
+};
+
+
+// ═══ NOTES API ═══
+// Server-backed, with the existing localStorage store kept as an offline cache
+// and a one-time migration of notes written before notes were persisted.
+export const NotesAPI = {
+  async list() { return api.get("/api/v1/notes"); },
+  async create(note) { return api.post("/api/v1/notes", note); },
+  async update(id, updates) { return api.put(`/api/v1/notes/${id}`, updates); },
+  async remove(id) { return api.del(`/api/v1/notes/${id}`); },
 };
 
 
@@ -218,7 +289,7 @@ export const SourcesAPI = {
     return api.del(`/api/v1/strategies/${strategyId}/sources/${sourceId}/with-file`);
   },
   async analyzeDocument(strategyId, sourceId) {
-    return api.aiPost(`/api/v1/strategies/${strategyId}/sources/${sourceId}/analyze`);
+    return api.aiPost(`/api/v1/strategies/${strategyId}/sources/${sourceId}/analyze`, undefined, undefined, "sources:analyze-document");
   },
   async approveExtractions(strategyId, sourceId, items) {
     return api.post(`/api/v1/strategies/${strategyId}/sources/${sourceId}/approve-extractions`, { items });

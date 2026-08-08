@@ -88,7 +88,7 @@ export const AIChatView = ({ lang, userId, strategyContext, onSaveNote, onMatrix
     if (strategyContext?.id) body.strategy_id = strategyContext.id;
     let res;
     try {
-      res = await api.aiPost("/api/v1/ai/chat", body, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+      res = await api.aiPost("/api/v1/ai/chat", body, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`), "advisor:chat-send");
     } catch (e) { res = e; }
     setRetryMsg(null);
 

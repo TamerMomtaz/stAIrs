@@ -536,6 +536,36 @@ class SourceOut(BaseModel):
         from_attributes = True
 
 
+# ─── GENERATED ARTIFACTS (persisted AI output & user-created content) ───
+# Anything the client explicitly generated or created lives here so it can be
+# read back on mount instead of regenerated. scope_key identifies the thing the
+# artifact belongs to (a stair id, "<stair id>:<task id>", a matrix key, ...)
+# and is unique per (organization, artifact_type) so writes upsert.
+class ArtifactUpsert(BaseModel):
+    artifact_type: str = Field(..., max_length=50)
+    scope_key: str = Field(..., max_length=200)
+    strategy_id: Optional[UUID] = None
+    stair_id: Optional[UUID] = None
+    content: Optional[str] = None
+    payload: Optional[dict] = {}
+
+class ArtifactOut(BaseModel):
+    id: UUID
+    organization_id: UUID
+    strategy_id: Optional[UUID] = None
+    stair_id: Optional[UUID] = None
+    artifact_type: str
+    scope_key: str
+    content: Optional[str] = None
+    payload: Optional[dict] = {}
+    generated_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    created_by: Optional[UUID] = None
+
+    class Config:
+        from_attributes = True
+
+
 # Fix forward references
 StairTree.model_rebuild()
 TokenResponse.model_rebuild()

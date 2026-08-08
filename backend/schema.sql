@@ -447,6 +447,32 @@ CREATE INDEX idx_agent_logs_strategy ON agent_logs(strategy_id, created_at DESC)
 CREATE INDEX idx_agent_logs_agent ON agent_logs(agent_name, created_at DESC);
 
 
+-- ─── 19. GENERATED ARTIFACTS (persisted AI output & user-created content) ───
+-- Anything the user explicitly generated or created is domain data: written
+-- here, read back on mount, never regenerated automatically. Identity is
+-- (organization_id, artifact_type, scope_key) so re-generating replaces rather
+-- than accumulating. scope_key names the owner: "<stair_id>" for solutions,
+-- "<stair_id>:<task_id>" for per-task artifacts, "<strategy_id>:<matrix_key>"
+-- for matrix worksheets.
+CREATE TABLE generated_artifacts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE NOT NULL,
+    strategy_id UUID,
+    stair_id UUID REFERENCES stairs(id) ON DELETE CASCADE,
+    artifact_type VARCHAR(50) NOT NULL,
+    scope_key VARCHAR(200) NOT NULL,
+    content TEXT,
+    payload JSONB DEFAULT '{}',
+    generated_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    UNIQUE (organization_id, artifact_type, scope_key)
+);
+
+CREATE INDEX idx_generated_artifacts_stair ON generated_artifacts(stair_id, artifact_type);
+CREATE INDEX idx_generated_artifacts_strategy ON generated_artifacts(strategy_id, artifact_type);
+
+
 -- ═══════════════════════════════════════════════════════════
 -- SEED DATA — DEVONEERS / RootRise
 -- ═══════════════════════════════════════════════════════════

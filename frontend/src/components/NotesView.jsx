@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { NotesStore } from "../api";
+import { NotesStore, NotesAPI } from "../api";
 import { GOLD, GOLD_L, glass, inputCls } from "../constants";
 import { DEVONEERS_LOGO_URI } from "../exportUtils";
 
@@ -8,19 +8,63 @@ export const NotesView = ({ lang, userId, strategyName }) => {
   const [notes, setNotes] = useState([]); const [editing, setEditing] = useState(null);
   const [title, setTitle] = useState(""); const [content, setContent] = useState("");
   const [search, setSearch] = useState(""); const [confirmDel, setConfirmDel] = useState(null);
+  const [offline, setOffline] = useState(false);
   const isAr = lang === "ar";
-  useEffect(() => { if (store) setNotes(store.list()); }, [store]);
-  const refresh = () => { if (store) setNotes(store.list()); };
+
+  // Notes are server-backed. The local store is an offline cache and the home
+  // of any note written before notes were persisted — those are pushed up once
+  // on first load so nothing written earlier stays stranded in one browser.
+  const refresh = async () => {
+    try {
+      const server = await NotesAPI.list();
+      const local = store ? store.list() : [];
+      const seen = new Set(server.map(n => `${n.title}::${n.content}`));
+      const strays = local.filter(n => !seen.has(`${n.title}::${n.content}`));
+      if (strays.length) {
+        const migrated = await Promise.all(strays.map(n =>
+          NotesAPI.create({ title: n.title, content: n.content, source: n.source || "manual", pinned: !!n.pinned })
+            .then(saved => { store.remove(n.id); return saved; })
+            .catch(() => null)
+        ));
+        setNotes([...migrated.filter(Boolean), ...server].sort((a, b) => (b.pinned - a.pinned) || String(b.updated_at).localeCompare(String(a.updated_at))));
+      } else {
+        setNotes(server);
+      }
+      setOffline(false);
+    } catch (e) {
+      console.warn("[stairs] notes unavailable, showing local cache:", e.message);
+      setOffline(true);
+      if (store) setNotes(store.list());
+    }
+  };
+  useEffect(() => { refresh(); }, [store]);
+
   const startNew = () => { setEditing("new"); setTitle(""); setContent(""); };
   const startEdit = (n) => { setEditing(n.id); setTitle(n.title); setContent(n.content); };
-  const saveNote = () => {
-    if (!store || !title.trim()) return;
-    if (editing === "new") { store.create(title.trim(), content, "manual"); }
-    else { const n = notes.find(x => x.id === editing); if (n) { n.title = title.trim(); n.content = content; n.updated_at = new Date().toISOString(); store.save(n); } }
+  const saveNote = async () => {
+    if (!title.trim()) return;
+    try {
+      if (editing === "new") await NotesAPI.create({ title: title.trim(), content, source: "manual" });
+      else await NotesAPI.update(editing, { title: title.trim(), content });
+    } catch (e) {
+      console.warn("[stairs] note save failed, keeping local copy:", e.message);
+      setOffline(true);
+      if (store) {
+        if (editing === "new") store.create(title.trim(), content, "manual");
+        else { const n = notes.find(x => x.id === editing); if (n) { n.title = title.trim(); n.content = content; n.updated_at = new Date().toISOString(); store.save(n); } }
+      }
+    }
     setEditing(null); setTitle(""); setContent(""); refresh();
   };
-  const deleteNote = (id) => { if (!store) return; store.remove(id); setConfirmDel(null); refresh(); };
-  const togglePin = (n) => { if (!store) return; n.pinned = !n.pinned; n.updated_at = new Date().toISOString(); store.save(n); refresh(); };
+  const deleteNote = async (id) => {
+    try { await NotesAPI.remove(id); } catch { if (store) store.remove(id); }
+    setConfirmDel(null); refresh();
+  };
+  const togglePin = async (n) => {
+    try { await NotesAPI.update(n.id, { pinned: !n.pinned }); }
+    catch { if (store) { n.pinned = !n.pinned; n.updated_at = new Date().toISOString(); store.save(n); } }
+    refresh();
+  };
   const exportNote = (n) => {
     const w = window.open("", "_blank"); if (!w) return;
     w.document.write(`<!DOCTYPE html><html><head><title>${n.title}</title><style>body{font-family:system-ui;padding:40px;max-width:700px;margin:0 auto;color:#1e293b;line-height:1.7}h1{color:#B8904A;border-bottom:2px solid #B8904A;padding-bottom:8px}pre{background:#f1f5f9;padding:16px;border-radius:8px;overflow-x:auto;font-size:13px;white-space:pre-wrap}.meta{color:#94a3b8;font-size:12px;margin-bottom:24px}.source{display:inline-block;background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:4px;font-size:11px}</style></head><body><div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><img src="${DEVONEERS_LOGO_URI}" style="height:28px" alt="DEVONEERS" /><span style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:2px">Stairs</span><span style="color:#64748b;font-size:12px;letter-spacing:1px">&nbsp;|&nbsp; ${strategyName || "Strategy"} &nbsp;|&nbsp; ${new Date().toLocaleDateString()}</span></div><h1>${n.title}</h1><div class="meta">${strategyName ? `Strategy: ${strategyName} · ` : ""}${new Date(n.created_at).toLocaleString()} · <span class="source">${n.source}</span></div><pre>${n.content}</pre><div style="margin-top:40px;text-align:center;padding-top:20px;border-top:2px solid #B8904A"><div style="font-size:14px;font-weight:700;color:#B8904A;letter-spacing:3px;margin-bottom:4px">BY DEVONEERS &bull; Stairs &bull; HUMAN IS THE LOOP &bull; ${new Date().getFullYear()}</div></div></body></html>`);
@@ -57,6 +101,14 @@ export const NotesView = ({ lang, userId, strategyName }) => {
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder={isAr ? "بحث..." : "Search notes..."} className={inputCls} style={{ padding: "8px 14px", fontSize: "13px", maxWidth: "240px" }} />
         <span className="text-gray-600 text-xs">{notes.length} {isAr ? "ملاحظة" : "notes"}</span>
       </div>
+      {offline && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] bg-amber-500/10 border border-amber-500/25 text-amber-300">
+          <span>⚠</span>
+          <span>{isAr
+            ? "تعذّر الوصول إلى الخادم — تُعرض نسخة محلية من هذا المتصفح فقط، وستُرفع تلقائيًا عند عودة الاتصال."
+            : "Can't reach the server — showing a local copy from this browser only. It will be uploaded automatically once the connection is back."}</span>
+        </div>
+      )}
       {notes.length === 0 ? (
         <div className="text-center py-16">
           <div className="text-4xl mb-4">📝</div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { ActionPlansAPI, ManifestStore, SourcesAPI } from "../api";
+import { ActionPlansAPI, ManifestStore, SourcesAPI, ArtifactsAPI, ARTIFACT } from "../api";
 import { GOLD, GOLD_L, DEEP, BORDER, glass, typeColors, typeIcons } from "../constants";
 import { Markdown } from "./Markdown";
 import { DEVONEERS_LOGO_URI } from "../exportUtils";
@@ -126,14 +126,44 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
     setLoading(true);
     try {
       const store = new ManifestStore(strategyContext.id);
-      const allManifests = store.getAll();
 
-      const data = await ActionPlansAPI.getForStrategy(strategyContext.id);
+      const [data, artifacts] = await Promise.all([
+        ActionPlansAPI.getForStrategy(strategyContext.id),
+        ArtifactsAPI.forStrategy(strategyContext.id).catch(() => []),
+      ]);
       const groups = data || [];
       setPlanGroups(groups);
 
+      // The server holds the real record; the local store is only a cache from
+      // this browser. Merge server-side artifacts over it so the Manifest Room
+      // shows the same work on any device.
+      const fromServer = {};
+      for (const a of artifacts || []) {
+        const sep = a.scope_key.indexOf(":");
+        if (sep < 0) continue;                       // stair-scoped, not per-task
+        const stairId = a.scope_key.slice(0, sep);
+        const taskId = a.scope_key.slice(sep + 1);
+        const key = `${stairId}_${taskId}`;
+        const entry = fromServer[key] || { stair_id: stairId, task_id: taskId };
+        entry.task_name = entry.task_name || a.payload?.task_name;
+        entry.updated_at = a.generated_at;
+        if (a.artifact_type === ARTIFACT.EXPLAIN) {
+          entry.explanation = a.content;
+          entry.sources_used = a.payload?.sources_used || [];
+        } else if (a.artifact_type === ARTIFACT.ASSESS_CHAT) {
+          entry.ability_assessment = a.content;
+        } else if (a.artifact_type === ARTIFACT.IMPL_GUIDE) {
+          entry.impl_guide = a.content;
+          entry.impl_steps = a.payload?.steps || [];
+          entry.impl_sources_used = a.payload?.sources_used || [];
+        }
+        fromServer[key] = entry;
+      }
+      const merged = { ...store.getAll() };
+      for (const [k, v] of Object.entries(fromServer)) merged[k] = { ...(merged[k] || {}), ...v };
+
       // Fix 2: Reconcile/migrate orphaned manifest entries to correct keys
-      const reconciledManifests = reconcileManifests(allManifests, groups);
+      const reconciledManifests = reconcileManifests(merged, groups);
       setManifestData(reconciledManifests);
     } catch (e) {
       console.error("Load manifest data:", e);

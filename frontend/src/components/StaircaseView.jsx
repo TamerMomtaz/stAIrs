@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { api } from "../api";
+import { useState, useEffect, useRef } from "react";
+import { api, ArtifactsAPI, ARTIFACT, stairScope } from "../api";
 import { GOLD, GOLD_L, TEAL, DEEP, typeColors, typeIcons } from "../constants";
 import { HealthBadge } from "./SharedUI";
 import { Markdown } from "./Markdown";
@@ -23,16 +23,53 @@ const NotStartedBadge = () => (
 export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, strategyContext, onSaveNote, onExecutionRoom, onMatrixClick }) => {
   const [expanded, setExpanded] = useState(null); const [aiAction, setAiAction] = useState(null);
   const [aiResult, setAiResult] = useState({}); const [aiLoading, setAiLoading] = useState(false); const [retryMsg, setRetryMsg] = useState(null);
+  // scope_key → ISO timestamp for content read back from the server.
+  const [savedAt, setSavedAt] = useState({});
+  const inFlight = useRef(new Set());
   const isAr = lang === "ar";
   const sourceRef = "When citing frameworks, books, or statistics, include a brief source reference.";
+
+  // Explain/Enhance results used to live only in component state, so they
+  // vanished on any navigation and had to be re-asked. Read them back instead.
+  useEffect(() => {
+    if (!strategyContext?.id) return;
+    let cancelled = false;
+    Promise.all([
+      ArtifactsAPI.forStrategy(strategyContext.id, ARTIFACT.STAIR_EXPLAIN).catch(() => []),
+      ArtifactsAPI.forStrategy(strategyContext.id, ARTIFACT.STAIR_ENHANCE).catch(() => []),
+    ]).then(([explains, enhances]) => {
+      if (cancelled) return;
+      const results = {}; const stamps = {};
+      for (const a of explains) {
+        results[a.scope_key] = { ...(results[a.scope_key] || {}), explain: a.content };
+        stamps[`explain:${a.scope_key}`] = a.generated_at;
+      }
+      for (const a of enhances) {
+        results[a.scope_key] = { ...(results[a.scope_key] || {}), enhance: a.content };
+        stamps[`enhance:${a.scope_key}`] = a.generated_at;
+      }
+      setAiResult(prev => {
+        const merged = { ...prev };
+        for (const [k, v] of Object.entries(results)) merged[k] = { ...(merged[k] || {}), ...v };
+        return merged;
+      });
+      setSavedAt(stamps);
+    });
+    return () => { cancelled = true; };
+  }, [strategyContext?.id]);
+
   const handleAI = async (stair, action) => {
+    // One call per stair+action, however fast the button is clicked.
+    const opKey = `${action}:${stair.id}`;
+    if (inFlight.current.has(opKey)) return;
+    inFlight.current.add(opKey);
     setAiAction({ id: stair.id, type: action }); setAiLoading(true);
     try {
       const ctx = strategyContext ? `[Strategy: "${strategyContext.name}" for "${strategyContext.company || strategyContext.name}". Industry: ${strategyContext.industry||"unspecified"}.]\n\n` : "";
       const prompt = action === "explain"
         ? `${ctx}${sourceRef}\n\nExplain: ${stair.element_type} "${stair.title}" (${stair.code||""}), health: ${stair.health}, progress: ${stair.progress_percent}%.\n${stair.description||""}\n\nExplain meaning, importance, success criteria, and risks.`
         : `${ctx}${sourceRef}\n\nEnhance: ${stair.element_type} "${stair.title}" (${stair.code||""}), health: ${stair.health}, progress: ${stair.progress_percent}%.\n${stair.description||""}\n\nSuggest: 1) Better definition, 2) KPIs, 3) Next actions, 4) Sub-elements.`;
-      const res = await api.aiPost("/api/v1/ai/chat", { message: prompt, strategy_id: strategyContext?.id || null }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`));
+      const res = await api.aiPost("/api/v1/ai/chat", { message: prompt, strategy_id: strategyContext?.id || null }, (attempt, max) => setRetryMsg(`AI is thinking... retrying (${attempt}/${max})`), `staircase:${action}`);
       setRetryMsg(null);
       const r = normalizeAiResult(res, { lang });
       if (!r.ok) {
@@ -40,13 +77,38 @@ export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, str
       } else {
         setAiResult(prev => ({...prev, [stair.id]: {...prev[stair.id], [action]: r.text, [`${action}_failure`]: null}}));
         fireGuidance("ai_insight", { name: stair.title, stair });
+        try {
+          const saved = await ArtifactsAPI.save({
+            artifactType: action === "explain" ? ARTIFACT.STAIR_EXPLAIN : ARTIFACT.STAIR_ENHANCE,
+            scopeKey: stairScope(stair.id),
+            strategyId: strategyContext?.id || null,
+            stairId: stair.id,
+            content: r.text,
+          });
+          setSavedAt(prev => ({ ...prev, [`${action}:${stair.id}`]: saved.generated_at || new Date().toISOString() }));
+        } catch (saveErr) {
+          console.warn(`[stairs] failed to save ${action} result:`, saveErr.message);
+          setAiResult(prev => ({...prev, [stair.id]: {...prev[stair.id], [`${action}_unsaved`]: true}}));
+        }
       }
     } catch (e) {
       setRetryMsg(null);
       const r = normalizeAiResult(e, { lang });
       setAiResult(prev => ({...prev, [stair.id]: {...prev[stair.id], [action]: null, [`${action}_failure`]: r.kind}}));
     }
-    setAiLoading(false); setAiAction(null);
+    setAiLoading(false); setAiAction(null); inFlight.current.delete(opKey);
+  };
+
+  // "Saved <when>" / "not saved" — a persisted insight should say so.
+  const SaveState = ({ stair, action, result }) => {
+    if (result?.[`${action}_unsaved`]) {
+      return <span className="text-[10px] text-red-300 px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/25" title={isAr ? "لم يُحفظ على الخادم" : "Not saved to the server"}>⚠ {isAr ? "غير محفوظ" : "Not saved"}</span>;
+    }
+    const ts = savedAt[`${action}:${stair.id}`];
+    if (!ts) return null;
+    const d = new Date(ts);
+    if (isNaN(d)) return null;
+    return <span className="text-[10px] text-emerald-400/80 px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20" title={d.toLocaleString()}>✓ {isAr ? "محفوظ" : "Saved"} {d.toLocaleDateString()}</span>;
   };
   const renderStair = (node, depth=0, si=0, sc=1) => {
     const s = node.stair, color = typeColors[s.element_type]||"#94a3b8", isExp = expanded===s.id, result = aiResult[s.id], isLd = aiLoading&&aiAction?.id===s.id;
@@ -72,8 +134,8 @@ export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, str
               {isLd && <div className="flex items-center gap-2 py-3"><div className="flex gap-1">{[0,1,2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-amber-500/40 animate-bounce" style={{animationDelay:`${i*0.15}s`}} />)}</div><span className="text-gray-500 text-xs">{retryMsg || (aiAction?.type==="explain"?"Analyzing...":"Generating...")}</span></div>}
               {result?.explain_failure && !isLd && <AiUnavailable compact kind={result.explain_failure} lang={lang} onRetry={() => handleAI(s, "explain")} />}
               {result?.enhance_failure && !isLd && <AiUnavailable compact kind={result.enhance_failure} lang={lang} onRetry={() => handleAI(s, "enhance")} />}
-              {result?.explain && <div className="p-3 rounded-lg" style={{background:`${TEAL}10`,border:`1px solid ${TEAL}25`}}><div className="flex items-center justify-between mb-2"><span className="text-xs font-semibold text-teal-300 uppercase tracking-wider">💡 Explanation</span>{onSaveNote&&<button onClick={() => onSaveNote(`💡 ${s.title} — Explain`, result.explain, "ai_explain")} className="text-[10px] text-gray-600 hover:text-teal-300 transition px-1.5 py-0.5 rounded hover:bg-teal-500/10">📌 Save</button>}</div><div className="text-sm"><Markdown text={result.explain} onMatrixClick={onMatrixClick}/><LoadMatrixButtons text={result.explain} onLoadMatrix={onMatrixClick}/></div></div>}
-              {result?.enhance && <div className="p-3 rounded-lg" style={{background:`${GOLD}08`,border:`1px solid ${GOLD}20`}}><div className="flex items-center justify-between mb-2"><span className="text-xs font-semibold text-amber-300 uppercase tracking-wider">✨ Enhancement</span>{onSaveNote&&<button onClick={() => onSaveNote(`✨ ${s.title} — Enhance`, result.enhance, "ai_enhance")} className="text-[10px] text-gray-600 hover:text-amber-300 transition px-1.5 py-0.5 rounded hover:bg-amber-500/10">📌 Save</button>}</div><div className="text-sm"><Markdown text={result.enhance} onMatrixClick={onMatrixClick}/><LoadMatrixButtons text={result.enhance} onLoadMatrix={onMatrixClick}/></div></div>}
+              {result?.explain && <div className="p-3 rounded-lg" style={{background:`${TEAL}10`,border:`1px solid ${TEAL}25`}}><div className="flex items-center justify-between gap-2 mb-2 flex-wrap"><span className="flex items-center gap-2 flex-wrap"><span className="text-xs font-semibold text-teal-300 uppercase tracking-wider">💡 Explanation</span><SaveState stair={s} action="explain" result={result} /></span>{onSaveNote&&<button onClick={() => onSaveNote(`💡 ${s.title} — Explain`, result.explain, "ai_explain")} className="text-[10px] text-gray-600 hover:text-teal-300 transition px-1.5 py-0.5 rounded hover:bg-teal-500/10">📌 Save</button>}</div><div className="text-sm"><Markdown text={result.explain} onMatrixClick={onMatrixClick}/><LoadMatrixButtons text={result.explain} onLoadMatrix={onMatrixClick}/></div></div>}
+              {result?.enhance && <div className="p-3 rounded-lg" style={{background:`${GOLD}08`,border:`1px solid ${GOLD}20`}}><div className="flex items-center justify-between gap-2 mb-2 flex-wrap"><span className="flex items-center gap-2 flex-wrap"><span className="text-xs font-semibold text-amber-300 uppercase tracking-wider">✨ Enhancement</span><SaveState stair={s} action="enhance" result={result} /></span>{onSaveNote&&<button onClick={() => onSaveNote(`✨ ${s.title} — Enhance`, result.enhance, "ai_enhance")} className="text-[10px] text-gray-600 hover:text-amber-300 transition px-1.5 py-0.5 rounded hover:bg-amber-500/10">📌 Save</button>}</div><div className="text-sm"><Markdown text={result.enhance} onMatrixClick={onMatrixClick}/><LoadMatrixButtons text={result.enhance} onLoadMatrix={onMatrixClick}/></div></div>}
               {(result?.explain || result?.enhance) && !isLd && (
                 <div className="rounded-xl p-4 flex items-center gap-4 flex-wrap" style={{background:`${GOLD}10`,border:`1px solid ${GOLD}33`}}>
                   <div className="flex-1 min-w-[180px]">
