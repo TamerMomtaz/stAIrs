@@ -547,6 +547,38 @@ async def ensure_organization_invites_table():
             print("  ✅ organization_invites table created")
 
 
+async def ensure_password_resets_table():
+    """Admin-issued, single-use password reset links.
+
+    Until now there was no way to change a password at all — no endpoint, and a
+    "Forgot Password?" link that told users to contact an administrator who had
+    no mechanism either. Same shape as organization_invites deliberately: random
+    token, expiry, single use, revocable.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        exists = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_name = 'password_resets')")
+        if not exists:
+            print("  → Creating password_resets table...")
+            await conn.execute("""
+                CREATE TABLE password_resets (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+                    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE NOT NULL,
+                    token VARCHAR(128) UNIQUE NOT NULL,
+                    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    expires_at TIMESTAMPTZ NOT NULL,
+                    used_at TIMESTAMPTZ,
+                    revoked_at TIMESTAMPTZ
+                )
+            """)
+            await conn.execute("CREATE INDEX idx_password_resets_org ON password_resets(organization_id, created_at DESC)")
+            await conn.execute("CREATE INDEX idx_password_resets_token ON password_resets(token) WHERE used_at IS NULL AND revoked_at IS NULL")
+            print("  ✅ password_resets table created")
+
+
 async def ensure_tenancy_columns():
     """Give every tenant-owned table its own organization_id.
 
@@ -743,6 +775,10 @@ async def lifespan(app: FastAPI):
         await ensure_organization_invites_table()
     except Exception as e:
         print(f"  ⚠️ Organization invites migration: {e}")
+    try:
+        await ensure_password_resets_table()
+    except Exception as e:
+        print(f"  ⚠️ Password resets migration: {e}")
     try:
         await ensure_tenancy_columns()
     except Exception as e:

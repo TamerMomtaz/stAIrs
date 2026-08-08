@@ -12,7 +12,7 @@ backend/
     db/connection.py     # asyncpg connection pool
     models/schemas.py    # Pydantic request/response models
     routers/
-      auth.py            # /api/v1/auth/* (login, register, me, refresh)
+      auth.py            # /api/v1/auth/* (login, register, me, refresh, invites, passwords)
       stairs.py          # /api/v1/stairs/* (CRUD, tree, progress, relationships, KPIs)
       strategies.py      # /api/v1/strategies/* (strategy containers CRUD)
       knowledge.py       # /api/v1/knowledge/* (frameworks, books, failure patterns)
@@ -97,6 +97,8 @@ Copy `.env.example` to `.env` at the repo root. Key variables:
 
 - **Database**: PostgreSQL via asyncpg connection pool. Schema auto-initializes from `schema.sql` on first startup if tables don't exist. Railway auto-injects `DATABASE_URL`.
 - **Auth**: JWT tokens (python-jose) with bcrypt password hashing. `get_auth` requires a `Bearer` token and raises 401 without one — there is no unauthenticated fallback. `DEFAULT_ORG_ID`/`DEFAULT_USER_ID` belong to the seed data only, never to a request path.
+- **Passwords**: `POST /api/v1/auth/password` changes your own (current password required). Admins issue single-use, expiring reset links via `POST /api/v1/auth/password/reset-links`; the holder redeems one at `/?reset=<token>`. Tokens are returned once, at creation. Setting a hash directly with pgcrypto works too — `crypt(pw, gen_salt('bf', 12))` produces `$2a$`, which the Python side verifies.
+- **Sessions**: JWTs are stateless with a 72-hour expiry and carry `org` and `role` as claims. There is **no revocation** — a password change, role change or organization move takes effect at next login, and existing tokens remain valid until they expire. Rotating `JWT_SECRET` is the only way to end every session at once.
 - **Tenancy**: every tenant-owned table carries its own `organization_id` and every query filters on it. Registration creates a **new organization per signup** with the registrant as its admin; joining an existing organization requires an invitation token minted by an admin of that organization (`POST /api/v1/auth/invites`). Cross-organization access returns 404, not 403, so an unauthorised caller learns nothing about whether an id exists.
 - **AI**: Anthropic Claude API via httpx. Knowledge engine caches strategy frameworks, failure patterns, measurement tools into system prompts. Falls back gracefully when `ANTHROPIC_API_KEY` is unset.
 - **WebSocket**: Connection manager with per-org broadcast at `/ws/{org_id}/{user_id}`.

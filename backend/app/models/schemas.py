@@ -436,6 +436,32 @@ class SignupRequest(BaseModel):
     invite_token: Optional[str] = Field(None, max_length=128)
 
 
+# ─── PASSWORDS ───
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+class PasswordResetCreate(BaseModel):
+    email: str = Field(..., max_length=255)
+    expires_in_hours: int = Field(24, ge=1, le=168)
+
+class PasswordResetOut(BaseModel):
+    id: UUID
+    email: str
+    token: Optional[str] = None
+    expires_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    used_at: Optional[datetime] = None
+    revoked_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class PasswordResetRedeem(BaseModel):
+    token: str = Field(..., max_length=128)
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+
 # ─── ORGANIZATION INVITES ───
 class InviteCreate(BaseModel):
     email: Optional[str] = Field(None, max_length=255)

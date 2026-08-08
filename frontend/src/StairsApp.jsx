@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { api, StrategyAPI, NotesStore, MatrixResultsStore, SourcesAPI, ArtifactsAPI, ARTIFACT, matrixScope, NotesAPI } from "./api";
+import { api, StrategyAPI, NotesStore, MatrixResultsStore, SourcesAPI, ArtifactsAPI, ARTIFACT, matrixScope, NotesAPI, syncLocalNotes } from "./api";
 import { GOLD, GOLD_L, DEEP, BORDER, typeIcons } from "./constants";
 import { DEVONEERS_LOGO_URI } from "./exportUtils";
 
@@ -23,6 +23,7 @@ import { SourceOfTruthView } from "./components/SourceOfTruthView";
 import { ManifestRoom } from "./components/ManifestRoom";
 import { Sidebar } from "./components/Sidebar";
 import { InviteManager } from "./components/InviteManager";
+import { PasswordManager } from "./components/PasswordManager";
 import { GuidanceManager } from "./components/GuidanceToast";
 import { fireGuidance } from "./guidanceConfig";
 import { MATRIX_FRAMEWORKS } from "./components/StrategyMatrixToolkit";
@@ -52,6 +53,8 @@ export default function App() {
   const [showWelcomeSlideshow, setShowWelcomeSlideshow] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [showInvites, setShowInvites] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [noteSync, setNoteSync] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("stairs_sidebar_collapsed") === "1");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const toggleSidebar = () => setSidebarCollapsed(v => { const n = !v; localStorage.setItem("stairs_sidebar_collapsed", n ? "1" : "0"); return n; });
@@ -114,6 +117,19 @@ export default function App() {
   useEffect(() => {
     if (user) { stratApiRef.current = new StrategyAPI(user.id || user.email); loadStrategies(); }
     else { stratApiRef.current = null; setStrategies([]); }
+  }, [user]);
+
+  // Lift local-only notes as soon as someone signs in. Every note ever written
+  // lives in one browser's localStorage; doing this inside the Notes view meant
+  // it needed the right browser AND someone opening that view, and a cleared
+  // browser lost them with no warning.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    syncLocalNotes()
+      .then(r => { if (!cancelled && (r.uploaded || r.failed)) setNoteSync(r); })
+      .catch(e => console.warn("[stairs] note sync:", e.message));
+    return () => { cancelled = true; };
   }, [user]);
 
   // Fetch active AI provider on login and periodically
@@ -379,6 +395,9 @@ export default function App() {
                     <div className="text-xs text-gray-500 mt-0.5">{user.email}</div>
                     <div className="text-[10px] text-gray-600 mt-1 uppercase tracking-wider">{user.role || "Member"}</div>
                   </div>
+                  <button onClick={() => { setShowProfileDropdown(false); setShowPassword(true); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition flex items-center gap-2" data-testid="open-password">
+                    <span>Change password</span>
+                  </button>
                   {user.role === "admin" && (
                     <button onClick={() => { setShowProfileDropdown(false); setShowInvites(true); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition flex items-center gap-2" data-testid="open-invites">
                       <span>Invite your team</span>
@@ -418,6 +437,24 @@ export default function App() {
       {execRoomStair && <ExecutionRoom stair={execRoomStair} strategyContext={activeStrat} lang={lang} onBack={() => setExecRoomStair(null)} onSaveNote={saveToNotes} onMatrixClick={openMatrix} onOpenManifest={() => { setExecRoomStair(null); goToView("manifest"); }} />}
 
       <StrategyMatrixToolkit open={matrixToolkit.open} matrixKey={matrixToolkit.key} onClose={closeMatrix} onSave={saveMatrixResult} strategyContext={activeStrat} initialData={matrixToolkit.initialData} />
+
+      {noteSync && (
+        <div className="fixed bottom-4 right-4 z-[95] max-w-sm rounded-xl p-4 text-xs" style={{ background: "rgba(22,37,68,0.97)", border: `1px solid ${GOLD}40`, backdropFilter: "blur(20px)" }} data-testid="note-sync-toast">
+          <div className="text-white font-medium mb-1">
+            {noteSync.uploaded > 0
+              ? `${noteSync.uploaded} note${noteSync.uploaded === 1 ? "" : "s"} saved to your account`
+              : `${noteSync.failed} note${noteSync.failed === 1 ? "" : "s"} still only on this device`}
+          </div>
+          <p className="text-gray-400 leading-relaxed">
+            {noteSync.uploaded > 0
+              ? "They were only stored in this browser until now, and are available on any device from here on."
+              : "We couldn't reach the server. They're safe in this browser — don't clear your site data, and they'll upload next time you sign in."}
+          </p>
+          <button onClick={() => setNoteSync(null)} className="mt-2 text-[11px] text-gray-500 hover:text-amber-400 transition">Dismiss</button>
+        </div>
+      )}
+
+      <PasswordManager open={showPassword} onClose={() => setShowPassword(false)} lang={lang} currentUserRole={user.role} />
 
       <InviteManager open={showInvites} onClose={() => setShowInvites(false)} lang={lang} currentUserRole={user.role} />
 

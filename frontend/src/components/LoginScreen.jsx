@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { api, InvitesAPI } from "../api";
+import { api, InvitesAPI, PasswordAPI } from "../api";
 import { GOLD, GOLD_L, CHAMPAGNE, DEEP, inputCls } from "../constants";
 
 export const LoginScreen = ({ onLogin }) => {
@@ -12,6 +12,12 @@ export const LoginScreen = ({ onLogin }) => {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
+  // ── Password reset redemption (?reset=<token>) ──
+  const [resetToken, setResetToken] = useState("");
+  const [reset, setReset] = useState(null);        // { valid, reason, email }
+  const [resetPass, setResetPass] = useState("");
+  const [resetConfirm, setResetConfirm] = useState("");
+  const [resetDone, setResetDone] = useState(false);
   // ── Invitation state ──
   // An invite decides which organisation the account joins, so it is resolved
   // before the form is usable rather than discovered on submit.
@@ -36,14 +42,33 @@ export const LoginScreen = ({ onLogin }) => {
   };
 
   // ?invite=<token> — the link an admin sends. Land straight on the join form.
+  // ?reset=<token> — the password reset link. Same idea.
   useEffect(() => {
-    const token = new URLSearchParams(window.location.search).get("invite");
-    if (!token) return;
-    setInviteToken(token);
-    setMode("signup");
-    setShowInviteField(true);
-    checkInvite(token);
+    const params = new URLSearchParams(window.location.search);
+    const invite = params.get("invite");
+    if (invite) {
+      setInviteToken(invite);
+      setMode("signup");
+      setShowInviteField(true);
+      checkInvite(invite);
+      return;
+    }
+    const rt = params.get("reset");
+    if (rt) {
+      setResetToken(rt);
+      PasswordAPI.previewReset(rt).then(setReset);
+    }
   }, []);
+
+  const submitReset = async (e) => {
+    e.preventDefault(); setErr("");
+    if (resetPass.length < 8) { setErr("Password must be at least 8 characters"); return; }
+    if (resetPass !== resetConfirm) { setErr("Passwords do not match"); return; }
+    setBusy(true);
+    try { await PasswordAPI.redeemReset(resetToken, resetPass); setResetDone(true); }
+    catch (ex) { setErr(ex.message || "Couldn't reset the password"); }
+    setBusy(false);
+  };
 
   // Joining is only offered when the invitation actually checks out. A broken
   // token must never quietly fall through to creating a new organisation —
@@ -91,6 +116,42 @@ export const LoginScreen = ({ onLogin }) => {
           <div style={{ width: "64px", height: "2px", margin: "16px auto 0", background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
         </div>
 
+        {resetToken ? (
+          <div data-testid="reset-screen">
+            {resetDone ? (
+              <div style={{ textAlign: "center" }}>
+                <div style={{ color: "#6ee7b7", fontSize: "15px", marginBottom: "8px" }}>Password updated</div>
+                <p style={{ color: "#9ca3af", fontSize: "13px", marginBottom: "20px" }}>You can sign in with your new password now.</p>
+                <button type="button" onClick={() => { setResetToken(""); setReset(null); setResetDone(false); setMode("login"); }} style={{ width: "100%", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "15px", color: "#0a1628", border: "none", cursor: "pointer", background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>Go to sign in</button>
+              </div>
+            ) : reset === null ? (
+              <div style={{ textAlign: "center", color: "#9ca3af", fontSize: "13px", padding: "24px 0" }}>Checking your reset link…</div>
+            ) : !reset.valid ? (
+              <div data-testid="reset-invalid">
+                <div style={{ padding: "12px 14px", borderRadius: "10px", background: "rgba(248,113,113,0.10)", border: "1px solid rgba(248,113,113,0.35)", color: "#fca5a5", fontSize: "13px", marginBottom: "16px" }}>
+                  <strong>This reset link can't be used</strong>
+                  <div style={{ marginTop: "4px" }}>{reset.reason}</div>
+                </div>
+                <button type="button" onClick={() => { setResetToken(""); setReset(null); setMode("login"); }} style={{ width: "100%", padding: "12px", borderRadius: "10px", fontSize: "14px", color: "#9ca3af", background: "transparent", border: `1px solid ${GOLD}25`, cursor: "pointer" }}>Back to sign in</button>
+              </div>
+            ) : (
+              <form onSubmit={submitReset} noValidate>
+                <p style={{ color: "#9ca3af", fontSize: "13px", marginBottom: "16px", textAlign: "center" }}>
+                  Choose a new password for <span style={{ color: "#fff" }}>{reset.email}</span>
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  <input type="password" value={resetPass} onChange={e => setResetPass(e.target.value)} placeholder="New password (min 8 characters)" className={inputCls} style={{ padding: "14px 18px", fontSize: "15px", height: "48px" }} data-testid="reset-password" />
+                  <input type="password" value={resetConfirm} onChange={e => setResetConfirm(e.target.value)} placeholder="Confirm new password" className={inputCls} style={{ padding: "14px 18px", fontSize: "15px", height: "48px" }} data-testid="reset-confirm" />
+                </div>
+                {err && <div style={{ marginTop: "12px", color: "#f87171", fontSize: "14px", textAlign: "center" }} data-testid="reset-error">{err}</div>}
+                <button type="submit" disabled={busy} style={{ width: "100%", marginTop: "24px", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "16px", color: "#0a1628", border: "none", cursor: "pointer", background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, opacity: busy ? 0.5 : 1 }} data-testid="reset-submit">
+                  {busy ? "..." : "Set new password"}
+                </button>
+              </form>
+            )}
+          </div>
+        ) : (
+        <>
         {/* Tab switcher */}
         <div style={{ display: "flex", marginBottom: "24px", borderRadius: "10px", overflow: "hidden", border: `1px solid ${GOLD}25` }}>
           <button type="button" onClick={() => switchMode("login")} style={{ flex: 1, padding: "10px", fontSize: "14px", fontWeight: 600, border: "none", cursor: "pointer", background: mode === "login" ? `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` : "transparent", color: mode === "login" ? "#0a1628" : "#9ca3af", transition: "all 0.2s" }}>Sign In</button>
@@ -168,12 +229,15 @@ export const LoginScreen = ({ onLogin }) => {
           </form>
         )}
 
+        </>
+        )}
+
         {/* Forgot password modal */}
         {showForgot && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }} onClick={() => setShowForgot(false)}>
             <div onClick={e => e.stopPropagation()} style={{ background: "#162544", border: `1px solid ${GOLD}33`, borderRadius: "12px", padding: "32px", maxWidth: "400px", width: "90%", textAlign: "center" }}>
-              <div style={{ fontSize: "24px", marginBottom: "12px" }}>Coming Soon</div>
-              <p style={{ color: "#9ca3af", fontSize: "14px", marginBottom: "20px" }}>Password reset functionality is coming soon. Please contact your administrator to reset your password.</p>
+              <div style={{ fontSize: "20px", marginBottom: "12px" }}>Reset your password</div>
+              <p style={{ color: "#9ca3af", fontSize: "14px", marginBottom: "20px" }}>Ask an administrator in your organisation to send you a reset link. They can create one from their profile menu, under Change password. Opening that link lets you choose a new password yourself — nobody else sees it.</p>
               <button onClick={() => setShowForgot(false)} style={{ padding: "10px 24px", borderRadius: "8px", fontWeight: 600, fontSize: "14px", color: "#0a1628", border: "none", cursor: "pointer", background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>OK</button>
             </div>
           </div>

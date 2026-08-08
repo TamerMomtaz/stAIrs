@@ -286,6 +286,115 @@ export class NotesStore {
 }
 
 
+// ═══ PASSWORD API ═══
+export const PasswordAPI = {
+  async change(currentPassword, newPassword) {
+    return api.post("/api/v1/auth/password", {
+      current_password: currentPassword, new_password: newPassword,
+    });
+  },
+  async createReset(email, expiresInHours = 24) {
+    return api.post("/api/v1/auth/password/reset-links", {
+      email, expires_in_hours: expiresInHours,
+    });
+  },
+  async listResets() { return api.get("/api/v1/auth/password/reset-links"); },
+  async revokeReset(id) { return api.del(`/api/v1/auth/password/reset-links/${id}`); },
+  // Both unauthenticated: whoever needs these cannot sign in.
+  async previewReset(token) {
+    const r = await fetch(`${API}/api/v1/auth/password/reset/${encodeURIComponent(token)}`);
+    if (!r.ok) return { valid: false, reason: "This reset link couldn't be checked. Try again in a moment." };
+    return r.json();
+  },
+  async redeemReset(token, newPassword) {
+    const r = await fetch(`${API}/api/v1/auth/password/reset`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, new_password: newPassword }),
+    });
+    if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.detail || "Couldn't reset the password"); }
+    return r.json();
+  },
+};
+
+
+// ═══ LOCAL NOTE SWEEP ═══
+// Notes were localStorage-only for the whole life of the product, so every note
+// anyone wrote lives in one browser under stairs_notes_<userId>. Lifting them
+// used to happen inside the Notes view, which meant it needed the right browser
+// AND someone opening that view — miss either and the notes stay invisible
+// until the storage is cleared and they are gone with no trace.
+//
+// This runs at login instead, so it needs only the right browser. It sweeps
+// EVERY stairs_notes_* key, not just the current user's, because the store is
+// keyed by `user.id || user.email` — anyone who used the app before the id was
+// available has notes filed under their email.
+const NOTE_KEY_RE = /^stairs_notes_/;
+
+export function findLocalNotes() {
+  const found = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || !NOTE_KEY_RE.test(key)) continue;
+    try {
+      const notes = JSON.parse(localStorage.getItem(key) || "[]");
+      if (Array.isArray(notes) && notes.length) found.push({ key, notes });
+    } catch { /* unparseable key — leave it alone rather than lose it */ }
+  }
+  return found;
+}
+
+export function countLocalNotes() {
+  return findLocalNotes().reduce((n, g) => n + g.notes.length, 0);
+}
+
+/**
+ * Upload every local note not already on the server, then clear the keys that
+ * uploaded cleanly. Returns { found, uploaded, failed, alreadyOnServer }.
+ *
+ * A key is only cleared when every note in it uploaded — a partial failure
+ * leaves the whole key in place, so a retry next login picks up the remainder
+ * rather than dropping it.
+ */
+export async function syncLocalNotes() {
+  const groups = findLocalNotes();
+  const found = groups.reduce((n, g) => n + g.notes.length, 0);
+  if (!found) return { found: 0, uploaded: 0, failed: 0, alreadyOnServer: 0 };
+
+  let server;
+  try { server = await NotesAPI.list(); }
+  catch (e) {
+    console.warn("[stairs] notes sync deferred, server unreachable:", e.message);
+    return { found, uploaded: 0, failed: found, alreadyOnServer: 0, deferred: true };
+  }
+  const seen = new Set(server.map(n => `${n.title}::${n.content}`));
+
+  let uploaded = 0, failed = 0, alreadyOnServer = 0;
+  for (const group of groups) {
+    let allHandled = true;
+    for (const n of group.notes) {
+      if (seen.has(`${n.title}::${n.content}`)) { alreadyOnServer++; continue; }
+      try {
+        await NotesAPI.create({
+          title: n.title || "Untitled note",
+          content: n.content || "",
+          source: n.source || "manual",
+          pinned: !!n.pinned,
+        });
+        seen.add(`${n.title}::${n.content}`);
+        uploaded++;
+      } catch (e) {
+        console.warn("[stairs] note upload failed, keeping the local copy:", e.message);
+        failed++;
+        allHandled = false;
+      }
+    }
+    // Only drop the local copy once the server definitely has all of it.
+    if (allHandled) localStorage.removeItem(group.key);
+  }
+  return { found, uploaded, failed, alreadyOnServer };
+}
+
+
 // ═══ SOURCES API (Source of Truth) ═══
 export const SourcesAPI = {
   async list(strategyId, { sourceType, search } = {}) {

@@ -503,6 +503,25 @@ CREATE INDEX idx_org_invites_org ON organization_invites(organization_id, create
 CREATE INDEX idx_org_invites_token ON organization_invites(token) WHERE accepted_at IS NULL AND revoked_at IS NULL;
 
 
+-- ─── 21. PASSWORD RESETS ───
+-- Admin-issued, single use, expiring, revocable. Same shape as the invites
+-- table on purpose.
+CREATE TABLE password_resets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE NOT NULL,
+    token VARCHAR(128) UNIQUE NOT NULL,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ,
+    revoked_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_password_resets_org ON password_resets(organization_id, created_at DESC);
+CREATE INDEX idx_password_resets_token ON password_resets(token) WHERE used_at IS NULL AND revoked_at IS NULL;
+
+
 -- ═══════════════════════════════════════════════════════════
 -- SEED DATA — DEVONEERS / RootRise
 -- ═══════════════════════════════════════════════════════════
