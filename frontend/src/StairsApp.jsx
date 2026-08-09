@@ -13,6 +13,7 @@ import { AlertsView } from "./components/AlertsView";
 import { KnowledgeLibrary } from "./components/KnowledgeLibrary";
 import { NotesView } from "./components/NotesView";
 import { ActionPlansView } from "./components/ActionPlansView";
+import { ExecutionPicker } from "./components/ExecutionPicker";
 import { StairEditor } from "./components/StairEditor";
 import { ExecutionRoom } from "./components/ExecutionRoom";
 import { TutorialOverlay, TutorialUpdatePrompt, FeaturesExploredBadge } from "./components/TutorialOverlay";
@@ -379,6 +380,7 @@ export default function App() {
     notes: { icon: "📝", label: isAr ? "ملاحظات" : "Notes", tutorial: "nav-notes" },
     knowledge: { icon: "📖", label: isAr ? "المعرفة" : "Knowledge", tutorial: "nav-knowledge" },
     tools: { icon: "🔧", label: isAr ? "أدوات استراتيجية" : "Strategy Tools", tutorial: "nav-tools" },
+    execroom: { icon: "🚀", label: isAr ? "غرفة التنفيذ" : "Execution Room", tutorial: "nav-execroom" },
     actionplans: { icon: "📋", label: isAr ? "خطط العمل" : "Action Plans", tutorial: "nav-actionplans" },
     manifest: { icon: "📦", label: isAr ? "سجل التنفيذ" : "Manifest Room", tutorial: "nav-manifest" },
   };
@@ -456,6 +458,7 @@ export default function App() {
         {view === "dashboard" && <DashboardView data={dashData} failed={loadFail.dash} retrying={retrying.dash} onRetry={loadDash} lang={lang} matrixResults={matrixResults} onMatrixClick={openMatrix} strategyContext={activeStrat} />}
         {view === "staircase" && <StaircaseView tree={stairTree} failed={loadFail.tree} retrying={retrying.tree} onRetry={loadTree} lang={lang} onEdit={s => { setEditStair(s); setShowEditor(true); }} onAdd={() => { setEditStair(null); setShowEditor(true); }} onExport={exportPDF} onMove={moveStair} strategyContext={activeStrat} onSaveNote={saveToNotes} onExecutionRoom={openExecutionRoom} onMatrixClick={openMatrix} />}
         {view === "ai" && <AIChatView lang={lang} userId={user.id || user.email} strategyContext={activeStrat} onSaveNote={saveToNotes} onMatrixClick={openMatrix} />}
+        {view === "execroom" && <ExecutionPicker tree={stairTree} strategyContext={activeStrat} lang={lang} onOpen={openExecutionRoom} treeFailed={loadFail.tree} onRetryTree={loadTree} />}
         {view === "actionplans" && <ActionPlansView strategyContext={activeStrat} lang={lang} onMatrixClick={openMatrix} />}
         {view === "manifest" && <ManifestRoom strategyContext={activeStrat} lang={lang} />}
         {view === "alerts" && <AlertsView alerts={alerts} failed={loadFail.alerts} retrying={retrying.alerts} onRetry={loadAlerts} lang={lang} strategyContext={activeStrat} />}
