@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { api, PasswordAPI } from "../api";
-import { GOLD, GOLD_L, DEEP, BORDER, glass, inputCls } from "../constants";
+import { BORDER, DEEP, GRAD_ACCENT, OK, glass, inputCls, tint } from "../constants";
 import { Modal } from "./SharedUI";
 
 // The token is shown once, at creation — the list endpoint withholds it, so
@@ -9,11 +9,11 @@ const FreshReset = ({ reset, onDone, isAr }) => {
   const [copied, setCopied] = useState(false);
   const link = `${window.location.origin}/?reset=${encodeURIComponent(reset.token)}`;
   return (
-    <div className="rounded-xl p-4" style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.30)" }}>
+    <div className="rounded-xl p-4" style={{ background: tint(OK, 8), border: `1px solid ${tint(OK, 30)}` }}>
       <div className="text-emerald-300 text-sm font-semibold mb-1">
         {isAr ? "تم إنشاء رابط إعادة التعيين" : "Reset link created"}
       </div>
-      <p className="text-[11px] text-gray-400 mb-3 leading-relaxed">
+      <p className="text-[11px] text-ink-3 mb-3 leading-relaxed">
         {isAr
           ? `انسخ الرابط الآن — لن يُعرض مرة أخرى. أرسله إلى ${reset.email} بوسيلة تثق بها.`
           : `Copy this now — it is never shown again. Send it to ${reset.email} however you normally reach them.`}
@@ -23,11 +23,11 @@ const FreshReset = ({ reset, onDone, isAr }) => {
         <button
           onClick={() => navigator.clipboard?.writeText(link).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); })}
           className="px-3 py-2 rounded-lg text-xs font-semibold shrink-0"
-          style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, color: DEEP }}>
+          style={{ background: GRAD_ACCENT, color: DEEP }}>
           {copied ? (isAr ? "تم النسخ" : "Copied") : (isAr ? "نسخ" : "Copy")}
         </button>
       </div>
-      <button onClick={onDone} className="mt-3 text-xs text-gray-400 hover:text-white transition">
+      <button onClick={onDone} className="mt-3 text-xs text-ink-3 hover:text-ink transition">
         {isAr ? "تم" : "Done"}
       </button>
     </div>
@@ -85,7 +85,7 @@ export const PasswordManager = ({ open, onClose, lang, currentUserRole }) => {
   };
 
   const statusOf = (r) => {
-    if (r.revoked_at) return { label: isAr ? "ملغى" : "Revoked", cls: "text-gray-500" };
+    if (r.revoked_at) return { label: isAr ? "ملغى" : "Revoked", cls: "text-ink-muted" };
     if (r.used_at) return { label: isAr ? "مستخدم" : "Used", cls: "text-emerald-400" };
     if (r.expires_at && new Date(r.expires_at) <= new Date()) return { label: isAr ? "منتهٍ" : "Expired", cls: "text-amber-400" };
     return { label: isAr ? "في الانتظار" : "Pending", cls: "text-blue-400" };
@@ -95,7 +95,7 @@ export const PasswordManager = ({ open, onClose, lang, currentUserRole }) => {
     <Modal open={open} onClose={onClose} title={isAr ? "كلمة المرور" : "Password"} size="lg">
       <div className="space-y-6">
         <div className="rounded-xl p-4" style={glass(0.4)}>
-          <div className="text-sm text-white font-medium mb-3">{isAr ? "غيّر كلمة مرورك" : "Change your password"}</div>
+          <div className="text-sm text-ink font-medium mb-3">{isAr ? "غيّر كلمة مرورك" : "Change your password"}</div>
           <div className="space-y-3">
             <input type="password" value={current} onChange={e => setCurrent(e.target.value)} placeholder={isAr ? "كلمة المرور الحالية" : "Current password"} className={inputCls} style={{ padding: "10px 12px", fontSize: "13px" }} data-testid="current-password" />
             <input type="password" value={next} onChange={e => setNext(e.target.value)} placeholder={isAr ? "كلمة مرور جديدة (8 أحرف على الأقل)" : "New password (at least 8 characters)"} className={inputCls} style={{ padding: "10px 12px", fontSize: "13px" }} data-testid="new-password" />
@@ -103,15 +103,15 @@ export const PasswordManager = ({ open, onClose, lang, currentUserRole }) => {
           </div>
           {error && <div className="text-xs text-red-400 mt-3" data-testid="password-error">{error}</div>}
           {done && <div className="text-xs text-emerald-400 mt-3 leading-relaxed" data-testid="password-done">✓ {done}</div>}
-          <button onClick={submit} disabled={busy || !current || !next} className="mt-4 px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-40 transition hover:scale-[1.01]" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, color: DEEP }} data-testid="submit-password">
+          <button onClick={submit} disabled={busy || !current || !next} className="mt-4 px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-40 transition hover:scale-[1.01]" style={{ background: GRAD_ACCENT, color: DEEP }} data-testid="submit-password">
             {busy ? "..." : (isAr ? "تغيير كلمة المرور" : "Change password")}
           </button>
         </div>
 
         {isAdmin && (
           <div>
-            <div className="text-sm text-white font-medium mb-1">{isAr ? "إعادة تعيين لشخص آخر" : "Reset someone else's password"}</div>
-            <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+            <div className="text-sm text-ink font-medium mb-1">{isAr ? "إعادة تعيين لشخص آخر" : "Reset someone else's password"}</div>
+            <p className="text-xs text-ink-muted mb-3 leading-relaxed">
               {isAr
                 ? "أنشئ رابطًا لمرة واحدة لعضو في مؤسستك. لا يمكنك رؤية كلمة مرورهم أو تعيينها — هم من يختارها."
                 : "Create a single-use link for someone in your organisation. You can't see or set their password — they choose it."}
@@ -122,7 +122,7 @@ export const PasswordManager = ({ open, onClose, lang, currentUserRole }) => {
               <div className="rounded-xl p-4" style={glass(0.4)}>
                 <div className="flex gap-2">
                   <input value={resetEmail} onChange={e => setResetEmail(e.target.value)} placeholder="colleague@company.com" className={inputCls} style={{ padding: "10px 12px", fontSize: "13px" }} data-testid="reset-email" />
-                  <button onClick={createReset} disabled={creating || !resetEmail.trim()} className="px-4 py-2 rounded-lg text-xs font-semibold shrink-0 disabled:opacity-40" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, color: DEEP }} data-testid="create-reset">
+                  <button onClick={createReset} disabled={creating || !resetEmail.trim()} className="px-4 py-2 rounded-lg text-xs font-semibold shrink-0 disabled:opacity-40" style={{ background: GRAD_ACCENT, color: DEEP }} data-testid="create-reset">
                     {creating ? "..." : (isAr ? "إنشاء رابط" : "Create link")}
                   </button>
                 </div>
@@ -138,12 +138,12 @@ export const PasswordManager = ({ open, onClose, lang, currentUserRole }) => {
                   return (
                     <div key={r.id} className="flex items-center gap-3 p-2.5 rounded-lg" style={glass(0.3)}>
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs text-gray-200 truncate">{r.email}</div>
-                        {r.expires_at && <div className="text-[10px] text-gray-600 mt-0.5">{isAr ? "ينتهي" : "expires"} {new Date(r.expires_at).toLocaleString()}</div>}
+                        <div className="text-xs text-ink-2 truncate">{r.email}</div>
+                        {r.expires_at && <div className="text-[10px] text-ink-faint mt-0.5">{isAr ? "ينتهي" : "expires"} {new Date(r.expires_at).toLocaleString()}</div>}
                       </div>
                       <span className={`text-[10px] font-medium shrink-0 ${st.cls}`}>{st.label}</span>
                       {pending && (
-                        <button onClick={() => PasswordAPI.revokeReset(r.id).then(loadResets)} className="text-[10px] text-gray-600 hover:text-red-400 transition px-2 py-1 rounded hover:bg-red-500/10 shrink-0" data-testid={`revoke-reset-${r.id}`}>
+                        <button onClick={() => PasswordAPI.revokeReset(r.id).then(loadResets)} className="text-[10px] text-ink-faint hover:text-red-400 transition px-2 py-1 rounded hover:bg-red-500/10 shrink-0" data-testid={`revoke-reset-${r.id}`}>
                           {isAr ? "إلغاء" : "Revoke"}
                         </button>
                       )}

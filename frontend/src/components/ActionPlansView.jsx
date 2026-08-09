@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { ActionPlansAPI } from "../api";
-import { GOLD, GOLD_L, DEEP, BORDER, glass, typeColors, typeIcons } from "../constants";
+import { BORDER, GOLD, GRAD_ACCENT_90, HUE, INK_3, INK_MUTED, OK, glass, tint, typeColors, typeIcons } from "../constants";
 import { Markdown } from "./Markdown";
 import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
 import { logoUrl, printDocument } from "../exportUtils";
@@ -10,8 +10,8 @@ import { ViewHeader } from "./ViewHeader";
 // ═══ PDF EXPORT HELPERS ═══
 const pdfStyles = `@page{margin:20mm 15mm}*{box-sizing:border-box;margin:0;padding:0}body{background:#fff;color:#1e293b;font-family:'Segoe UI',system-ui,sans-serif;line-height:1.5}table{width:100%;border-collapse:collapse}thead th{text-align:left;padding:10px 8px;border-bottom:2px solid #B8904A;color:#B8904A;font-size:11px;text-transform:uppercase;font-weight:600}.section{margin-top:24px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;color:#B8904A;font-size:16px;font-weight:700}.footer{text-align:center;margin-top:30px;padding-top:16px;border-top:1px solid #e5e7eb;color:#94a3b8;font-size:10px}.header{padding-bottom:16px;border-bottom:2px solid #B8904A;margin-bottom:20px}`;
 
-const priorityColor = p => ({ High: "#dc2626", Medium: "#d97706", Low: "#059669" }[p] || "#64748b");
-const typeColor = t => ({ vision: "#7c3aed", objective: "#2563eb", key_result: "#059669", initiative: "#d97706", task: "#64748b" }[t] || "#64748b");
+const priorityColor = p => ({ High: HUE.red, Medium: HUE.amber, Low: HUE.green }[p] || INK_MUTED);
+const typeColor = t => ({ vision: HUE.violet, objective: HUE.blue, key_result: HUE.green, initiative: HUE.amber, task: INK_MUTED }[t] || INK_MUTED);
 
 const buildTaskRows = (taskList) => taskList.map(t => `
   <tr style="border-bottom:1px solid #e5e7eb">
@@ -213,7 +213,7 @@ export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
         <ViewHeader title={isAr ? "خطط العمل" : "Action Plans"} />
       <div className="flex items-center gap-2 py-12 justify-center">
         <div className="flex gap-1">{[0, 1, 2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-amber-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
-        <span className="text-gray-500 text-xs">{isAr ? "جاري تحميل خطط العمل..." : "Loading action plans..."}</span>
+        <span className="text-ink-muted text-xs">{isAr ? "جاري تحميل خطط العمل..." : "Loading action plans..."}</span>
       </div>
       </div>
     );
@@ -234,8 +234,8 @@ export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
         <ViewHeader title={isAr ? "خطط العمل" : "Action Plans"} />
       <div className="text-center py-16">
         <div className="text-4xl mb-4">📋</div>
-        <h3 className="text-white text-lg font-semibold mb-2">{isAr ? "لا توجد خطط عمل بعد" : "No Action Plans Yet"}</h3>
-        <p className="text-gray-500 text-sm max-w-md mx-auto">
+        <h3 className="text-ink text-lg font-semibold mb-2">{isAr ? "لا توجد خطط عمل بعد" : "No Action Plans Yet"}</h3>
+        <p className="text-ink-muted text-sm max-w-md mx-auto">
           {isAr
             ? "عندما تنشئ خطط عمل في غرفة التنفيذ لأي خطوة، ستظهر هنا تلقائياً."
             : "When you generate action plans in the Execution Room for any stair step, they will appear here automatically."}
@@ -250,13 +250,13 @@ export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
   return (
     <div>
       <ViewHeader title={isAr ? "خطط العمل" : "Action Plans"} right={<>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-ink-muted">
             {planGroups.length} {isAr ? "خطوة" : planGroups.length === 1 ? "stair" : "stairs"}
           </span>
           <button
             onClick={() => exportAllPlans(planGroups, strategyContext, isAr)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]"
-            style={{ borderColor: `${GOLD}60`, color: GOLD, background: `${GOLD}15` }}
+            style={{ borderColor: `${tint(GOLD, 38)}`, color: GOLD, background: `${tint(GOLD, 8)}` }}
             title={isAr ? `تصدير ${totalPlans} خطة عمل` : `Export all ${totalPlans} plans`}
           >
             ↓ {isAr ? "تصدير جميع الخطط" : "Export All Plans"}
@@ -269,7 +269,7 @@ export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
       <div className="space-y-3">
         {planGroups.map((group, gi) => {
           const isExpanded = expandedStair === group.stair_id;
-          const color = typeColors[group.element_type] || "#94a3b8";
+          const color = typeColors[group.element_type] || INK_3;
           const recProgress = getProgress(group.recommended_task_count, group.recommended_completed);
           const custProgress = getProgress(group.customized_task_count, group.customized_completed);
 
@@ -278,7 +278,7 @@ export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
               {/* Stair header — always visible */}
               <button
                 onClick={() => setExpandedStair(isExpanded ? null : group.stair_id)}
-                className="w-full text-left px-5 py-4 flex items-center gap-4 hover:bg-white/[0.02] transition"
+                className="w-full text-left px-5 py-4 flex items-center gap-4 hover:bg-lift/[0.02] transition"
               >
                 <div className="flex items-center gap-2 shrink-0">
                   <span style={{ color, fontSize: 14 }}>{typeIcons[group.element_type] || "•"}</span>
@@ -286,13 +286,13 @@ export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <div className="text-white text-sm font-medium truncate">
-                    {group.stair_code && <span className="text-gray-500 font-mono text-xs mr-1.5">{group.stair_code}</span>}
+                  <div className="text-ink text-sm font-medium truncate">
+                    {group.stair_code && <span className="text-ink-muted font-mono text-xs mr-1.5">{group.stair_code}</span>}
                     {isAr && group.stair_title_ar ? group.stair_title_ar : group.stair_title}
                   </div>
                   <div className="flex items-center gap-3 mt-1">
                     {group.has_recommended && (
-                      <span className="text-[10px] text-gray-500">
+                      <span className="text-[10px] text-ink-muted">
                         📋 {isAr ? "موصى بها" : "Recommended"} · {formatDate(group.latest_recommended_at)}
                       </span>
                     )}
@@ -307,10 +307,10 @@ export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
                 <div className="flex items-center gap-3 shrink-0">
                   {group.has_recommended && group.recommended_task_count > 0 && (
                     <div className="flex items-center gap-2">
-                      <div className="w-16 h-1.5 rounded-full bg-[#1e3a5f] overflow-hidden">
+                      <div className="w-16 h-1.5 rounded-full bg-hairline-strong overflow-hidden">
                         <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${recProgress}%` }} />
                       </div>
-                      <span className="text-[10px] text-gray-500 w-8">{recProgress}%</span>
+                      <span className="text-[10px] text-ink-muted w-8">{recProgress}%</span>
                     </div>
                   )}
                   {group.has_customized && (
@@ -318,7 +318,7 @@ export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
                       ✨
                     </span>
                   )}
-                  <span className={`text-gray-500 text-sm transition-transform ${isExpanded ? "rotate-180" : ""}`}>▾</span>
+                  <span className={`text-ink-muted text-sm transition-transform ${isExpanded ? "rotate-180" : ""}`}>▾</span>
                 </div>
               </button>
 
@@ -326,7 +326,7 @@ export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
               {isExpanded && (
                 <div className="border-t px-5 py-4" style={{ borderColor: BORDER }}>
                   {group.plans.length === 0 ? (
-                    <p className="text-gray-600 text-xs">{isAr ? "لا توجد خطط" : "No plans found"}</p>
+                    <p className="text-ink-faint text-xs">{isAr ? "لا توجد خطط" : "No plans found"}</p>
                   ) : (
                     <div className="space-y-3">
                       {group.plans.map((plan) => {
@@ -337,35 +337,35 @@ export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
                         const isCustom = plan.plan_type === "customized";
 
                         return (
-                          <div key={plan.id} className="rounded-lg overflow-hidden" style={{ ...glass(0.3), borderLeft: isCustom ? `3px solid ${GOLD}60` : undefined }}>
+                          <div key={plan.id} className="rounded-lg overflow-hidden" style={{ ...glass(0.3), borderLeft: isCustom ? `3px solid ${tint(GOLD, 38)}` : undefined }}>
                             <button
                               onClick={() => setExpandedPlan(isPlanExpanded ? null : plan.id)}
-                              className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-white/[0.02] transition"
+                              className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-lift/[0.02] transition"
                             >
                               <span className="text-sm">{isCustom ? "✨" : "📋"}</span>
                               <div className="flex-1 min-w-0">
-                                <span className={`text-xs font-medium ${isCustom ? "text-amber-300" : "text-white"}`}>
+                                <span className={`text-xs font-medium ${isCustom ? "text-amber-300" : "text-ink"}`}>
                                   {isCustom ? (isAr ? "خطة مخصصة" : "Customized Plan") : (isAr ? "خطة موصى بها" : "Recommended Plan")}
                                 </span>
-                                <span className="text-[10px] text-gray-600 ml-2">{formatDate(plan.created_at)}</span>
+                                <span className="text-[10px] text-ink-faint ml-2">{formatDate(plan.created_at)}</span>
                               </div>
                               {planTasks.length > 0 && (
                                 <div className="flex items-center gap-2 shrink-0">
-                                  <div className="w-12 h-1.5 rounded-full bg-[#1e3a5f] overflow-hidden">
-                                    <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: isCustom ? GOLD : "#10b981" }} />
+                                  <div className="w-12 h-1.5 rounded-full bg-hairline-strong overflow-hidden">
+                                    <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: isCustom ? GOLD : OK }} />
                                   </div>
-                                  <span className="text-[10px] text-gray-500">{doneCount}/{planTasks.length}</span>
+                                  <span className="text-[10px] text-ink-muted">{doneCount}/{planTasks.length}</span>
                                 </div>
                               )}
                               <button
                                 onClick={(e) => { e.stopPropagation(); exportSinglePlan(group, plan, strategyContext, isAr); }}
                                 className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium border transition hover:scale-[1.02] shrink-0"
-                                style={{ borderColor: `${GOLD}40`, color: GOLD, background: `${GOLD}10` }}
+                                style={{ borderColor: `${tint(GOLD, 25)}`, color: GOLD, background: `${tint(GOLD, 6)}` }}
                                 title={isAr ? "تصدير هذه الخطة" : "Export this plan as PDF"}
                               >
                                 ↓ PDF
                               </button>
-                              <span className={`text-gray-600 text-xs transition-transform ${isPlanExpanded ? "rotate-180" : ""}`}>▾</span>
+                              <span className={`text-ink-faint text-xs transition-transform ${isPlanExpanded ? "rotate-180" : ""}`}>▾</span>
                             </button>
 
                             {isPlanExpanded && (
@@ -382,13 +382,13 @@ export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
                                         </button>
                                         <div className="flex-1 min-w-0">
                                           <div className="flex items-center gap-2 flex-wrap">
-                                            <span className={`text-xs font-medium ${t.done ? "line-through text-gray-500" : "text-white"}`}>{t.name}</span>
+                                            <span className={`text-xs font-medium ${t.done ? "line-through text-ink-muted" : "text-ink"}`}>{t.name}</span>
                                             {t.priority && <PriorityBadge priority={t.priority} />}
                                           </div>
-                                          {t.details && <div className="text-gray-500 text-[11px] mt-0.5">{t.details}</div>}
+                                          {t.details && <div className="text-ink-muted text-[11px] mt-0.5">{t.details}</div>}
                                           <div className="flex items-center gap-3 mt-1">
-                                            {t.owner && <span className="text-[10px] text-gray-600">👤 {t.owner}</span>}
-                                            {t.timeline && <span className="text-[10px] text-gray-600">⏱ {t.timeline}</span>}
+                                            {t.owner && <span className="text-[10px] text-ink-faint">👤 {t.owner}</span>}
+                                            {t.timeline && <span className="text-[10px] text-ink-faint">⏱ {t.timeline}</span>}
                                           </div>
                                         </div>
                                       </div>
@@ -403,10 +403,10 @@ export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
 
                                 {planTasks.length > 0 && (
                                   <div className="mt-3 flex items-center gap-2">
-                                    <div className="flex-1 h-1.5 rounded-full bg-[#1e3a5f] overflow-hidden">
-                                      <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: isCustom ? `linear-gradient(90deg, ${GOLD}, ${GOLD_L})` : "#10b981" }} />
+                                    <div className="flex-1 h-1.5 rounded-full bg-hairline-strong overflow-hidden">
+                                      <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: isCustom ? GRAD_ACCENT_90 : OK }} />
                                     </div>
-                                    <span className="text-[10px] text-gray-500">{progress}% {isAr ? "مكتمل" : "complete"}</span>
+                                    <span className="text-[10px] text-ink-muted">{progress}% {isAr ? "مكتمل" : "complete"}</span>
                                   </div>
                                 )}
                               </div>

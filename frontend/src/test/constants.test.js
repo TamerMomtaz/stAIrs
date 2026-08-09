@@ -10,12 +10,21 @@ describe('Constants', () => {
     expect(API).toBe('https://stairs-production.up.railway.app');
   });
 
-  it('exports color constants', () => {
-    expect(GOLD).toBe('#B8904A');
-    expect(GOLD_L).toBe('#e8b94a');
-    expect(TEAL).toBe('#2A5C5C');
-    expect(CHAMPAGNE).toBe('#F7E7CE');
-    expect(DEEP).toBe('#0a1628');
+  // Colour constants hold a token reference, not a value. Asserting the hex
+  // would pin the palette to one theme and make stage 3 a test rewrite; what
+  // matters is that every one of them resolves through tokens.css, because a
+  // literal that slipped back in is exactly the regression this guards.
+  it('exposes colours as tokens, never as literals', () => {
+    for (const [name, value] of Object.entries({ GOLD, GOLD_L, TEAL, CHAMPAGNE, DEEP, BORDER })) {
+      expect(value, name).toMatch(/^(var\(--|rgb\(var\(--)/);
+      expect(value, name).not.toMatch(/#[0-9a-f]{3}/i);
+    }
+  });
+
+  it('names its accent tokens by role, not by colour', () => {
+    expect(GOLD).toBe('var(--accent)');
+    expect(GOLD_L).toBe('var(--accent-hi)');
+    expect(DEEP).toBe('var(--surface-app)');
   });
 
   it('has all element type colors', () => {

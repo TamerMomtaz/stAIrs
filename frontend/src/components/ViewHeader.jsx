@@ -14,8 +14,8 @@
 export const ViewHeader = ({ title, subtitle, right }) => (
   <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
     <div className="min-w-0">
-      <h2 className="text-lg font-semibold text-white">{title}</h2>
-      {subtitle && <p className="text-gray-500 text-xs mt-1">{subtitle}</p>}
+      <h2 className="text-lg font-semibold text-ink">{title}</h2>
+      {subtitle && <p className="text-ink-muted text-xs mt-1">{subtitle}</p>}
     </div>
     {right && <div className="flex items-center gap-3 flex-wrap shrink-0">{right}</div>}
   </div>

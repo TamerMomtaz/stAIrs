@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api, ArtifactsAPI, ARTIFACT, stairScope } from "../api";
-import { GOLD, GOLD_L, TEAL, DEEP, typeColors, typeIcons } from "../constants";
+import { BORDER_STRONG, DEEP, GOLD, GRAD_ACCENT, INK, INK_3, TEAL, pal, tint, typeColors, typeIcons } from "../constants";
 import { HealthBadge } from "./SharedUI";
 import { Markdown } from "./Markdown";
 import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
@@ -12,15 +12,15 @@ import LoadFailed from "./LoadFailed";
 import { ViewHeader } from "./ViewHeader";
 
 const typeTextStyle = {
-  vision: { fontSize: 18, fontWeight: 700, color: "#fff" },
-  objective: { fontSize: 16, fontWeight: 700, color: "#fff" },
-  key_result: { fontSize: 14, fontWeight: 600, color: "#fff" },
-  initiative: { fontSize: 14, fontWeight: 400, color: "#fff" },
-  task: { fontSize: 13, fontWeight: 400, color: "#94a3b8" },
+  vision: { fontSize: 18, fontWeight: 700, color: INK },
+  objective: { fontSize: 16, fontWeight: 700, color: INK },
+  key_result: { fontSize: 14, fontWeight: 600, color: INK },
+  initiative: { fontSize: 14, fontWeight: 400, color: INK },
+  task: { fontSize: 13, fontWeight: 400, color: INK_3 },
 };
 
 const NotStartedBadge = () => (
-  <span className="text-[10px] px-2 py-0.5 rounded-full border font-medium whitespace-nowrap bg-slate-500/20 text-slate-300 border-slate-500/40">○ NOT STARTED</span>
+  <span className="text-[10px] px-2 py-0.5 rounded-full border font-medium whitespace-nowrap bg-slate-500/20 text-ink-3 border-slate-500/40">○ NOT STARTED</span>
 );
 
 export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, strategyContext, onSaveNote, onExecutionRoom, onMatrixClick, failed, retrying, onRetry }) => {
@@ -110,16 +110,16 @@ export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, str
     return <span className="text-[10px] text-emerald-400/80 px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20" title={d.toLocaleString()}>✓ {isAr ? "محفوظ" : "Saved"} {d.toLocaleDateString()}</span>;
   };
   const renderStair = (node, depth=0, si=0, sc=1) => {
-    const s = node.stair, color = typeColors[s.element_type]||"#94a3b8", isExp = expanded===s.id, result = aiResult[s.id], isLd = aiLoading&&aiAction?.id===s.id;
+    const s = node.stair, color = typeColors[s.element_type]||INK_3, isExp = expanded===s.id, result = aiResult[s.id], isLd = aiLoading&&aiAction?.id===s.id;
     const work = savedWork[String(s.id)];
     return (
       <div key={s.id} style={{ marginLeft: depth*24 }}>
-        <div className={`group rounded-xl my-1.5 transition-all ${isExp?"ring-1":""}`} style={{ borderLeft:`3px solid ${color}`, ...(isExp?{ringColor:`${color}40`,background:"rgba(22,37,68,0.4)"}:{}) }}>
-          <div className="flex items-center gap-2 p-3 cursor-pointer hover:bg-white/[0.03] rounded-xl transition" onClick={() => setExpanded(prev => { const next = prev===s.id?null:s.id; if (next===s.id) fireGuidance("stair_expanded", { name: isAr&&s.title_ar?s.title_ar:s.title }); return next; })}>
-            <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition shrink-0"><button onClick={e => {e.stopPropagation();onMove(s.id,"up");}} disabled={si===0} className="text-gray-600 hover:text-white text-[10px] disabled:opacity-20 p-0.5">▲</button><button onClick={e => {e.stopPropagation();onMove(s.id,"down");}} disabled={si>=sc-1} className="text-gray-600 hover:text-white text-[10px] disabled:opacity-20 p-0.5">▼</button></div>
-            <span className={`text-gray-600 text-[10px] transition-transform ${isExp?"rotate-90":""}`}>▶</span>
+        <div className={`group rounded-xl my-1.5 transition-all ${isExp?"ring-1":""}`} style={{ borderLeft:`3px solid ${color}`, ...(isExp?{ringColor:`${tint(color, 25)}`,background:"rgb(var(--surface-raised-rgb) / 0.4)"}:{}) }}>
+          <div className="flex items-center gap-2 p-3 cursor-pointer hover:bg-lift/[0.03] rounded-xl transition" onClick={() => setExpanded(prev => { const next = prev===s.id?null:s.id; if (next===s.id) fireGuidance("stair_expanded", { name: isAr&&s.title_ar?s.title_ar:s.title }); return next; })}>
+            <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition shrink-0"><button onClick={e => {e.stopPropagation();onMove(s.id,"up");}} disabled={si===0} className="text-ink-faint hover:text-ink text-[10px] disabled:opacity-20 p-0.5">▲</button><button onClick={e => {e.stopPropagation();onMove(s.id,"down");}} disabled={si>=sc-1} className="text-ink-faint hover:text-ink text-[10px] disabled:opacity-20 p-0.5">▼</button></div>
+            <span className={`text-ink-faint text-[10px] transition-transform ${isExp?"rotate-90":""}`}>▶</span>
             <span style={{color,fontSize:16}}>{typeIcons[s.element_type]||"•"}</span>
-            <div className="flex-1 min-w-0"><div className="flex items-center gap-2"><span className="text-xs font-mono opacity-40" style={{color}}>{s.code}</span><span className="truncate" style={typeTextStyle[s.element_type]||{fontSize:14,fontWeight:500,color:"#fff"}}>{isAr&&s.title_ar?s.title_ar:s.title}</span></div>{s.description&&!isExp&&<div className="text-gray-600 text-xs mt-0.5 truncate max-w-md">{s.description}</div>}{work&&work.withWork>0&&(
+            <div className="flex-1 min-w-0"><div className="flex items-center gap-2"><span className="text-xs font-mono opacity-40" style={{color}}>{s.code}</span><span className="truncate" style={typeTextStyle[s.element_type]||{fontSize:14,fontWeight:500,color:INK}}>{isAr&&s.title_ar?s.title_ar:s.title}</span></div>{s.description&&!isExp&&<div className="text-ink-faint text-xs mt-0.5 truncate max-w-md">{s.description}</div>}{work&&work.withWork>0&&(
               <button
                 onClick={e => { e.stopPropagation(); if (onExecutionRoom) onExecutionRoom(s); }}
                 className="text-[11px] mt-1 text-emerald-400/80 hover:text-emerald-300 transition"
@@ -133,27 +133,27 @@ export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, str
             {(!s.progress_percent && (s.health==="off_track"||!s.health)) ? <NotStartedBadge/> : <HealthBadge health={s.health}/>}<div className="w-14 text-right shrink-0"><div className="text-xs font-medium" style={{color}}>{s.progress_percent}%</div><div className="h-1 rounded-full bg-[#1e3a5f] mt-0.5 overflow-hidden"><div className="h-full rounded-full" style={{width:`${s.progress_percent}%`,background:color,transition:"width 0.6s ease"}}/></div></div>
           </div>
           {isExp && (
-            <div className="px-4 pb-4 pt-1 space-y-3" style={{ borderTop:`1px solid ${color}15` }}>
-              {s.description && <div className="text-gray-400 text-sm leading-relaxed">{s.description}</div>}
+            <div className="px-4 pb-4 pt-1 space-y-3" style={{ borderTop:`1px solid ${tint(color, 8)}` }}>
+              {s.description && <div className="text-ink-3 text-sm leading-relaxed">{s.description}</div>}
               <div className="flex items-center gap-2 flex-wrap" data-tutorial="staircase-actions">
-                {onExecutionRoom && <button onClick={e => {e.stopPropagation();onExecutionRoom(s);}} data-tutorial="execution-room" className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition hover:scale-[1.02]" style={{background:`linear-gradient(135deg, ${GOLD}, ${GOLD_L})`,color:DEEP}}>🚀 {isAr?"غرفة التنفيذ":"Execution Room"}</button>}
-                <button onClick={e => {e.stopPropagation();handleAI(s,"explain");}} disabled={isLd} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-transparent transition hover:scale-[1.02]" style={{borderColor:`${TEAL}60`,color:"#5eead4"}}>{isLd&&aiAction?.type==="explain"?<span className="animate-spin">⟳</span>:"💡"} {isAr?"شرح":"Explain"}</button>
-                <button onClick={e => {e.stopPropagation();handleAI(s,"enhance");}} disabled={isLd} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-transparent transition hover:scale-[1.02]" style={{borderColor:`${GOLD}60`,color:GOLD}}>{isLd&&aiAction?.type==="enhance"?<span className="animate-spin">⟳</span>:"✨"} {isAr?"تحسين":"Enhance"}</button>
-                <button onClick={e => {e.stopPropagation();onEdit(s);}} className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-gray-500 hover:text-white underline-offset-2 hover:underline transition">✎ {isAr?"تعديل":"Edit"}</button>
+                {onExecutionRoom && <button onClick={e => {e.stopPropagation();onExecutionRoom(s);}} data-tutorial="execution-room" className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition hover:scale-[1.02]" style={{background:GRAD_ACCENT,color:DEEP}}>🚀 {isAr?"غرفة التنفيذ":"Execution Room"}</button>}
+                <button onClick={e => {e.stopPropagation();handleAI(s,"explain");}} disabled={isLd} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-transparent transition hover:scale-[1.02]" style={{borderColor:`${tint(TEAL, 38)}`,color:pal("teal-300")}}>{isLd&&aiAction?.type==="explain"?<span className="animate-spin">⟳</span>:"💡"} {isAr?"شرح":"Explain"}</button>
+                <button onClick={e => {e.stopPropagation();handleAI(s,"enhance");}} disabled={isLd} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-transparent transition hover:scale-[1.02]" style={{borderColor:`${tint(GOLD, 38)}`,color:GOLD}}>{isLd&&aiAction?.type==="enhance"?<span className="animate-spin">⟳</span>:"✨"} {isAr?"تحسين":"Enhance"}</button>
+                <button onClick={e => {e.stopPropagation();onEdit(s);}} className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-ink-muted hover:text-ink underline-offset-2 hover:underline transition">✎ {isAr?"تعديل":"Edit"}</button>
               </div>
               {isLd && <div className="flex items-center gap-2 py-3"><div className="flex gap-1">{[0,1,2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-amber-500/40 animate-bounce" style={{animationDelay:`${i*0.15}s`}} />)}</div><span className="text-gray-500 text-xs">{retryMsg || (aiAction?.type==="explain"?"Analyzing...":"Generating...")}</span></div>}
               {result?.explain_failure && !isLd && <AiUnavailable compact kind={result.explain_failure} lang={lang} onRetry={() => handleAI(s, "explain")} />}
               {result?.enhance_failure && !isLd && <AiUnavailable compact kind={result.enhance_failure} lang={lang} onRetry={() => handleAI(s, "enhance")} />}
-              {result?.explain && <div className="p-3 rounded-lg" style={{background:`${TEAL}10`,border:`1px solid ${TEAL}25`}}><div className="flex items-center justify-between gap-2 mb-2 flex-wrap"><span className="flex items-center gap-2 flex-wrap"><span className="text-xs font-semibold text-teal-300 uppercase tracking-wider">💡 Explanation</span><SaveState stair={s} action="explain" result={result} /></span>{onSaveNote&&<button onClick={() => onSaveNote(`💡 ${s.title} — Explain`, result.explain, "ai_explain")} className="text-[10px] text-gray-600 hover:text-teal-300 transition px-1.5 py-0.5 rounded hover:bg-teal-500/10">📌 Save</button>}</div><div className="text-sm"><Markdown text={result.explain} onMatrixClick={onMatrixClick}/><LoadMatrixButtons text={result.explain} onLoadMatrix={onMatrixClick}/></div></div>}
-              {result?.enhance && <div className="p-3 rounded-lg" style={{background:`${GOLD}08`,border:`1px solid ${GOLD}20`}}><div className="flex items-center justify-between gap-2 mb-2 flex-wrap"><span className="flex items-center gap-2 flex-wrap"><span className="text-xs font-semibold text-amber-300 uppercase tracking-wider">✨ Enhancement</span><SaveState stair={s} action="enhance" result={result} /></span>{onSaveNote&&<button onClick={() => onSaveNote(`✨ ${s.title} — Enhance`, result.enhance, "ai_enhance")} className="text-[10px] text-gray-600 hover:text-amber-300 transition px-1.5 py-0.5 rounded hover:bg-amber-500/10">📌 Save</button>}</div><div className="text-sm"><Markdown text={result.enhance} onMatrixClick={onMatrixClick}/><LoadMatrixButtons text={result.enhance} onLoadMatrix={onMatrixClick}/></div></div>}
+              {result?.explain && <div className="p-3 rounded-lg" style={{background:`${tint(TEAL, 6)}`,border:`1px solid ${tint(TEAL, 15)}`}}><div className="flex items-center justify-between gap-2 mb-2 flex-wrap"><span className="flex items-center gap-2 flex-wrap"><span className="text-xs font-semibold text-teal-300 uppercase tracking-wider">💡 Explanation</span><SaveState stair={s} action="explain" result={result} /></span>{onSaveNote&&<button onClick={() => onSaveNote(`💡 ${s.title} — Explain`, result.explain, "ai_explain")} className="text-[10px] text-ink-faint hover:text-teal-300 transition px-1.5 py-0.5 rounded hover:bg-teal-500/10">📌 Save</button>}</div><div className="text-sm"><Markdown text={result.explain} onMatrixClick={onMatrixClick}/><LoadMatrixButtons text={result.explain} onLoadMatrix={onMatrixClick}/></div></div>}
+              {result?.enhance && <div className="p-3 rounded-lg" style={{background:`${tint(GOLD, 3)}`,border:`1px solid ${tint(GOLD, 13)}`}}><div className="flex items-center justify-between gap-2 mb-2 flex-wrap"><span className="flex items-center gap-2 flex-wrap"><span className="text-xs font-semibold text-amber-300 uppercase tracking-wider">✨ Enhancement</span><SaveState stair={s} action="enhance" result={result} /></span>{onSaveNote&&<button onClick={() => onSaveNote(`✨ ${s.title} — Enhance`, result.enhance, "ai_enhance")} className="text-[10px] text-ink-faint hover:text-amber-300 transition px-1.5 py-0.5 rounded hover:bg-amber-500/10">📌 Save</button>}</div><div className="text-sm"><Markdown text={result.enhance} onMatrixClick={onMatrixClick}/><LoadMatrixButtons text={result.enhance} onLoadMatrix={onMatrixClick}/></div></div>}
               {(result?.explain || result?.enhance) && !isLd && (
-                <div className="rounded-xl p-4 flex items-center gap-4 flex-wrap" style={{background:`${GOLD}10`,border:`1px solid ${GOLD}33`}}>
+                <div className="rounded-xl p-4 flex items-center gap-4 flex-wrap" style={{background:`${tint(GOLD, 6)}`,border:`1px solid ${tint(GOLD, 20)}`}}>
                   <div className="flex-1 min-w-[180px]">
-                    <div className="text-white text-sm font-semibold">{isAr?"جاهز للتنفيذ؟":"Ready to execute?"}</div>
-                    <div className="text-gray-400 text-xs mt-0.5">{isAr?"حوّل هذه الرؤى إلى خطة عمل قابلة للتنفيذ.":"Turn these insights into an actionable plan."}</div>
+                    <div className="text-ink text-sm font-semibold">{isAr?"جاهز للتنفيذ؟":"Ready to execute?"}</div>
+                    <div className="text-ink-3 text-xs mt-0.5">{isAr?"حوّل هذه الرؤى إلى خطة عمل قابلة للتنفيذ.":"Turn these insights into an actionable plan."}</div>
                   </div>
-                  {onExecutionRoom && <button onClick={e => {e.stopPropagation();onExecutionRoom(s);}} className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-semibold transition hover:scale-[1.02]" style={{background:`linear-gradient(135deg, ${GOLD}, ${GOLD_L})`,color:DEEP}}>🚀 {isAr?"افتح غرفة التنفيذ":"Open Execution Room"}</button>}
-                  {onSaveNote && <button onClick={e => {e.stopPropagation(); const parts=[]; if(result?.explain)parts.push(`## 💡 Explain\n\n${result.explain}`); if(result?.enhance)parts.push(`## ✨ Enhance\n\n${result.enhance}`); onSaveNote(`${s.title} — AI Insights`, parts.join("\n\n---\n\n"), "ai_insight");}} className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium border bg-transparent transition hover:scale-[1.02]" style={{borderColor:`${GOLD}40`,color:GOLD}}>📌 {isAr?"حفظ في الملاحظات":"Save to Notes"}</button>}
+                  {onExecutionRoom && <button onClick={e => {e.stopPropagation();onExecutionRoom(s);}} className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-semibold transition hover:scale-[1.02]" style={{background:GRAD_ACCENT,color:DEEP}}>🚀 {isAr?"افتح غرفة التنفيذ":"Open Execution Room"}</button>}
+                  {onSaveNote && <button onClick={e => {e.stopPropagation(); const parts=[]; if(result?.explain)parts.push(`## 💡 Explain\n\n${result.explain}`); if(result?.enhance)parts.push(`## ✨ Enhance\n\n${result.enhance}`); onSaveNote(`${s.title} — AI Insights`, parts.join("\n\n---\n\n"), "ai_insight");}} className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium border bg-transparent transition hover:scale-[1.02]" style={{borderColor:`${tint(GOLD, 25)}`,color:GOLD}}>📌 {isAr? "حفظ في الملاحظات":"Save to Notes"}</button>}
                 </div>
               )}
             </div>
@@ -166,9 +166,9 @@ export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, str
   return (
     <div>
       <ViewHeader title={isAr ? "السلم" : "Staircase"} />
-      <div className="flex items-center gap-3 mb-4"><button onClick={onAdd} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-[1.02]" style={{background:`${GOLD}22`,border:`1px solid ${GOLD}33`,color:GOLD}}>+ {isAr?"إضافة":"Add Element"}</button><div className="flex-1"/><button onClick={onExport} data-tutorial="export-btn" className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition" style={{border:`1px solid rgba(30, 58, 95, 0.5)`}}>↓ {isAr?"تصدير":"Export"}</button></div>
+      <div className="flex items-center gap-3 mb-4"><button onClick={onAdd} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-[1.02]" style={{background:`${tint(GOLD, 13)}`,border:`1px solid ${tint(GOLD, 20)}`,color:GOLD}}>+ {isAr? "إضافة":"Add Element"}</button><div className="flex-1"/><button onClick={onExport} data-tutorial="export-btn" className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-ink-3 hover:text-ink transition" style={{border:`1px solid ${tint(BORDER_STRONG, 50)}`}}>↓ {isAr? "تصدير":"Export"}</button></div>
       {failed && <div className={tree?.length ? "mb-3" : "py-12"}><LoadFailed compact={!!tree?.length} what={isAr ? "السلم" : "your staircase"} lang={lang} onRetry={onRetry} retrying={retrying} /></div>}
-      {!failed && !tree?.length && <div className="text-gray-500 text-center py-12">{isAr?"لا توجد عناصر بعد.":"No elements yet. Add your first or use AI Advisor."}</div>}
+      {!failed && !tree?.length && <div className="text-ink-muted text-center py-12">{isAr?"لا توجد عناصر بعد.":"No elements yet. Add your first or use AI Advisor."}</div>}
       {!!tree?.length && <div className="space-y-0.5">{tree.map((n,i) => renderStair(n,0,i,tree.length))}</div>}
     </div>
   );

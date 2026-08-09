@@ -1,0 +1,398 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Stairs — design tokens
+
+   One place for every colour, surface, border, radius and shadow in the
+   application. Before this file there were 105 distinct hex literals, 40
+   distinct rgba() values and 31 greys spread across 29 files, and no way
+   to change any of them without editing components.
+
+   HOW IT IS ORGANISED
+   ───────────────────
+   Tokens are named for the ROLE they play, never for the colour they
+   currently hold. `--surface-raised` survives a repaint; `--navy-panel`
+   would not. Both themes define the same role set with different values,
+   so a theme is a value swap and nothing else — no component knows which
+   theme is active.
+
+     :root                       the default, currently dark, so a
+                                 document with no data-theme still renders
+     :root[data-theme="dark"]    explicit dark
+     :root[data-theme="light"]   explicit light
+
+   COLOUR FORM
+   ───────────
+   Surfaces and accents that need per-use opacity are stored as bare
+   "R G B" triplets so a component can say rgb(var(--x-rgb) / 0.4). Roles
+   used at a single opacity are stored as finished colours.
+
+   THE LIGHT VALUES BELOW ARE PROVISIONAL. Stage 2 is the plumbing; stage 3
+   applies the validated palette. They are derived from EXPORT_STYLES in
+   exportUtils.js — the light document language the app already prints to —
+   so the mechanism can be proved end to end before the real palette lands.
+   Expect every value under [data-theme="light"] to be replaced wholesale.
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root,
+:root[data-theme="dark"] {
+  /* ── Surfaces ── */
+  --surface-app: #0a1628;              /* page base */
+  --surface-app-deep: #0a0e1a;         /* the welcome slideshow's darker ground */
+  --surface-app-mid: #0f1f3a;          /* midpoint of the page gradient */
+  --surface-raised-rgb: 22 37 68;      /* panels, cards, the glass() helper */
+  --surface-modal: rgba(15, 25, 50, 0.97);
+  --surface-sidebar: rgba(10, 22, 40, 0.95);
+  --surface-dropdown: rgba(22, 37, 68, 0.97);
+  --surface-input: rgba(10, 22, 40, 0.85);
+  --surface-hover-rgb: 255 255 255;    /* the faint lift on hover */
+  --scrim: rgba(0, 0, 0, 0.6);
+  --scrim-strong: rgba(2, 6, 23, 0.82);   /* the tutorial spotlight mask */
+  --shadow-rgb: 0 0 0;                    /* what a cast shadow is made of */
+
+  /* ── Ink ── */
+  --ink: #ffffff;                      /* headings, primary values */
+  --ink-2: #d1d5dc;                    /* body */
+  --ink-3: #99a1af;                    /* secondary */
+  --ink-muted: #6a7282;                /* labels, metadata */
+  --ink-faint: #4a5565;                /* de-emphasised detail */
+  --ink-ghost: #364153;                /* footers, disabled */
+  --ink-on-accent: #0a1628;            /* text sitting on a gold fill */
+
+  /* ── Accent ── */
+  --accent-rgb: 184 144 74;            /* B8904A — rules, fills, tints */
+  --accent: rgb(var(--accent-rgb));
+  --accent-hi: #e8b94a;                /* the lighter end of gold gradients */
+  --accent-ink: var(--accent);         /* gold used AS TEXT; diverges in light */
+  --accent-teal: #2a5c5c;
+  --accent-champagne: #f7e7ce;
+  /* The welcome slideshow shipped its own gold and its own ground, brighter
+     and darker than the rest of the app. Stage 2 preserves them exactly
+     rather than folding them in — collapsing a colour is a stage 3 decision,
+     not a side effect of plumbing. They are here so that decision is now a
+     two-line edit instead of a hunt through 60 call sites. */
+  --accent-bright: #f5b731;
+  --accent-bright-hi: #ffd666;
+
+  /* ── Lines ── */
+  --border: rgba(30, 58, 95, 0.5);     /* the default hairline */
+  --border-strong: #1e3a5f;            /* input and control outlines */
+  --border-accent: rgb(var(--accent-rgb) / 0.33);
+
+  /* ── Categorical hues ──
+     The palette that charts, quadrants and type maps draw from. These are
+     the one group named for the colour rather than the job, and on purpose:
+     their only requirement is to stay distinguishable from each other, so
+     there is no role to name them after. Everything categorical below
+     resolves through this list, which means retuning the chart palette for
+     a pale ground is twelve edits, not two hundred. */
+  --hue-blue: #60a5fa;
+  --hue-green: #34d399;
+  --hue-amber: #fbbf24;
+  --hue-red: #f87171;
+  --hue-violet: #a78bfa;
+  --hue-slate: #94a3b8;
+  --hue-pink: #f472b6;
+  --hue-orange: #fb923c;
+  --hue-cyan: #22d3ee;
+  --hue-lime: #a3e635;
+  --hue-indigo: #818cf8;
+  --hue-teal: #2dd4bf;
+
+  /* Gradients are a role, not two colours ──
+     A gradient's two stops are one decision: the same hue further along.
+     Written as separate tokens they drift apart, and three of them had
+     already collapsed to a flat fill when both stops resolved to the same
+     hue. One token per gradient keeps the pair together. */
+  --grad-accent: linear-gradient(135deg, var(--accent), var(--accent-hi));
+  --grad-accent-90: linear-gradient(90deg, var(--accent), var(--accent-hi));
+  --grad-violet: linear-gradient(135deg, #8b5cf6, var(--hue-violet));
+  --grad-violet-90: linear-gradient(90deg, #8b5cf6, var(--hue-violet));
+  --grad-indigo: linear-gradient(135deg, var(--hue-indigo), #6366f1);
+  --grad-amber: linear-gradient(135deg, #f59e0b, #d97706);
+  --grad-blue: linear-gradient(135deg, #3b82f6, var(--hue-blue));
+  --grad-accent-bright: linear-gradient(135deg, var(--accent-bright), var(--accent-bright-hi));
+  --grad-accent-bright-90: linear-gradient(90deg, var(--accent-bright), var(--accent-bright-hi));
+
+  /* ── Semantic: health and status ──
+     Each state is a fill, a line and an ink, so a badge is three tokens
+     rather than three hardcoded Tailwind classes. Fill and line derive from
+     the base so a repaint moves all three together; ink is separate because
+     text needs its own contrast decision, not an opacity of the fill. */
+  --ok: var(--hue-green);
+  --ok-fill: color-mix(in srgb, var(--ok) 20%, transparent);
+  --ok-line: color-mix(in srgb, var(--ok) 30%, transparent);
+  --ok-ink: #6ee7b7;
+
+  --warn: var(--hue-amber);
+  --warn-fill: color-mix(in srgb, var(--warn) 20%, transparent);
+  --warn-line: color-mix(in srgb, var(--warn) 30%, transparent);
+  --warn-ink: #fcd34d;
+
+  --bad: var(--hue-red);
+  --bad-fill: color-mix(in srgb, var(--bad) 20%, transparent);
+  --bad-line: color-mix(in srgb, var(--bad) 30%, transparent);
+  --bad-ink: #fca5a5;
+
+  --info: var(--hue-blue);
+  --info-fill: color-mix(in srgb, var(--info) 20%, transparent);
+  --info-line: color-mix(in srgb, var(--info) 30%, transparent);
+  --info-ink: #93c5fd;
+
+  /* ── Element types on the staircase ── */
+  --type-vision: var(--accent);
+  --type-objective: var(--hue-blue);
+  --type-key-result: var(--hue-green);
+  --type-initiative: var(--hue-violet);
+  --type-task: var(--hue-slate);
+  --type-perspective: var(--hue-pink);
+  --type-measure: var(--hue-orange);
+  --type-kpi: var(--hue-cyan);
+  --type-goal: var(--hue-lime);
+
+
+  /* ── The Tailwind palette, as tokens ──
+     578 class attributes still name a Tailwind colour — text-amber-400,
+     bg-red-500/10, border-gray-700. Rewriting all of them was the other
+     option; repointing the palette is one place instead of 578, and it means
+     an existing class themes without being touched. Every shade the app
+     actually uses is listed (48 of them); anything not listed is not in the
+     codebase. The values here ARE the Tailwind defaults, so dark renders
+     byte-identically to before this file existed. */
+  --pal-amber-100: oklch(96.2% 0.059 95.617); --pal-amber-200: oklch(92.4% 0.12 95.746); --pal-amber-300: oklch(87.9% 0.169 91.605); --pal-amber-400: oklch(82.8% 0.189 84.429); --pal-amber-500: oklch(76.9% 0.188 70.08); --pal-amber-700: oklch(55.5% 0.163 48.998); --pal-amber-900: oklch(41.4% 0.112 45.904);
+  --pal-blue-100: oklch(93.2% 0.032 255.585); --pal-blue-300: oklch(80.9% 0.105 251.813); --pal-blue-400: oklch(70.7% 0.165 254.624); --pal-blue-500: oklch(62.3% 0.214 259.815); --pal-blue-700: oklch(48.8% 0.243 264.376); --pal-blue-900: oklch(37.9% 0.146 265.522);
+  --pal-cyan-400: oklch(78.9% 0.154 211.53);
+  --pal-emerald-300: oklch(84.5% 0.143 164.978); --pal-emerald-400: oklch(76.5% 0.177 163.223); --pal-emerald-500: oklch(69.6% 0.17 162.48); --pal-emerald-700: oklch(50.8% 0.118 165.612); --pal-emerald-900: oklch(37.8% 0.077 168.94);
+  --pal-gray-400: oklch(70.7% 0.022 261.325); --pal-gray-500: oklch(55.1% 0.027 264.364); --pal-gray-600: oklch(44.6% 0.03 256.802); --pal-gray-700: oklch(37.3% 0.034 259.733); --pal-gray-800: oklch(27.8% 0.033 256.848); --pal-gray-900: oklch(21% 0.034 264.665);
+  --pal-green-400: oklch(79.2% 0.209 151.711);
+  --pal-indigo-300: oklch(78.5% 0.115 274.713); --pal-indigo-400: oklch(67.3% 0.182 276.935); --pal-indigo-500: oklch(58.5% 0.233 277.117); --pal-indigo-600: oklch(51.1% 0.262 276.966); --pal-indigo-700: oklch(45.7% 0.24 277.023); --pal-indigo-900: oklch(35.9% 0.144 278.697);
+  --pal-pink-400: oklch(71.8% 0.202 349.761);
+  --pal-purple-100: oklch(94.6% 0.033 307.174); --pal-purple-300: oklch(82.7% 0.119 306.383); --pal-purple-400: oklch(71.4% 0.203 305.504); --pal-purple-500: oklch(62.7% 0.265 303.9);
+  --pal-red-200: oklch(88.5% 0.062 18.334); --pal-red-300: oklch(80.8% 0.114 19.571); --pal-red-400: oklch(70.4% 0.191 22.216); --pal-red-500: oklch(63.7% 0.237 25.331); --pal-red-700: oklch(50.5% 0.213 27.518); --pal-red-800: oklch(44.4% 0.177 26.899); --pal-red-900: oklch(39.6% 0.141 25.723);
+  --pal-slate-500: oklch(55.4% 0.046 257.417);
+  --pal-teal-300: oklch(85.5% 0.138 181.071); --pal-teal-400: oklch(77.7% 0.152 181.912); --pal-teal-500: oklch(70.4% 0.14 182.503);
+
+  /* ── Shadows ── */
+  --shadow-sm: 0 6px 20px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 12px 40px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 25px 50px rgba(0, 0, 0, 0.5);
+}
+
+/* PROVISIONAL — replaced wholesale in stage 3. Values traced from
+   EXPORT_STYLES in exportUtils.js, the light document the app already
+   prints. Present so the swap can be proved, not so it can be shipped. */
+:root[data-theme="light"] {
+  --surface-app: #faf8f4;
+  --surface-app-deep: #f4f1ea;
+  --surface-app-mid: #ffffff;
+  --surface-raised-rgb: 255 255 255;
+  --surface-modal: rgba(255, 255, 255, 0.98);
+  --surface-sidebar: rgba(250, 248, 244, 0.96);
+  --surface-dropdown: rgba(255, 255, 255, 0.98);
+  --surface-input: rgba(255, 255, 255, 0.9);
+  --surface-hover-rgb: 15 27 51;
+  --scrim: rgba(15, 27, 51, 0.35);
+  --scrim-strong: rgba(15, 27, 51, 0.55);
+  /* A pure-black shadow on paper reads as dirt. Light casts the ink colour
+     instead, and every composite shadow written as rgb(var(--shadow-rgb)/a)
+     follows without being touched. */
+  --shadow-rgb: 15 27 51;
+
+  --ink: #0f1b33;
+  --ink-2: #1e293b;
+  --ink-3: #334155;
+  --ink-muted: #475569;
+  --ink-faint: #64748b;
+  --ink-ghost: #94a3b8;
+  --ink-on-accent: #0f1b33;
+
+  --accent-rgb: 184 144 74;
+  --accent: rgb(var(--accent-rgb));
+  --accent-hi: #a87f34;
+  /* Gold on a light ground is 2.78:1 — a fill, never a label. Text that
+     wants to read as gold uses this darker cut instead. */
+  --accent-ink: #8a6a2f;
+  --accent-teal: #0d6b6b;
+  --accent-champagne: #7a6844;
+  /* Light does not carry the slideshow's divergence forward: on paper there
+     is one gold. */
+  --accent-bright: var(--accent);
+  --accent-bright-hi: var(--accent-hi);
+
+  --border: rgba(15, 27, 51, 0.12);
+  --border-strong: #d9d3c7;
+  --border-accent: rgb(var(--accent-rgb) / 0.45);
+
+  /* Every hue darkens: a 4.5:1 line on #FAF8F4 rather than a bright one on
+     navy. Because the categorical set is one list, the whole chart palette
+     turns over here. */
+  --hue-blue: #1d4ed8;
+  --hue-green: #047857;
+  --hue-amber: #a16207;
+  --hue-red: #b3261e;
+  --hue-violet: #6d28d9;
+  --hue-slate: #64748b;
+  --hue-pink: #be185d;
+  --hue-orange: #c2410c;
+  --hue-cyan: #0e7490;
+  --hue-lime: #4d7c0f;
+  --hue-indigo: #4338ca;
+  --hue-teal: #0f766e;
+
+  --grad-violet: linear-gradient(135deg, #5b21b6, var(--hue-violet));
+  --grad-violet-90: linear-gradient(90deg, #5b21b6, var(--hue-violet));
+  --grad-indigo: linear-gradient(135deg, var(--hue-indigo), #3730a3);
+  --grad-amber: linear-gradient(135deg, #b45309, #92400e);
+  --grad-blue: linear-gradient(135deg, #1e40af, var(--hue-blue));
+
+  /* Fills are lighter here — a 20% wash of a dark hue on a pale ground is
+     far heavier than the same wash of a bright hue on navy. Ink goes darker
+     than the base, not lighter. */
+  --ok-fill: color-mix(in srgb, var(--ok) 10%, transparent);
+  --ok-line: color-mix(in srgb, var(--ok) 28%, transparent);
+  --ok-ink: #05603a;
+  --warn-fill: color-mix(in srgb, var(--warn) 10%, transparent);
+  --warn-line: color-mix(in srgb, var(--warn) 28%, transparent);
+  --warn-ink: #7c4a06;
+  --bad-fill: color-mix(in srgb, var(--bad) 9%, transparent);
+  --bad-line: color-mix(in srgb, var(--bad) 26%, transparent);
+  --bad-ink: #8c1d18;
+  --info-fill: color-mix(in srgb, var(--info) 9%, transparent);
+  --info-line: color-mix(in srgb, var(--info) 26%, transparent);
+  --info-ink: #1e3a8a;
+
+  --type-vision: var(--accent-ink);
+
+
+  /* The same 48 shades, ramp inverted: shade N takes the value of shade
+     1000−N, 500 unchanged. A -400 that reads as a bright label on navy
+     becomes a -600 that reads as a dark label on paper, and a -900 that was
+     a dark wash becomes a -100 that is a pale one. One mechanical rule, so
+     the provisional theme is predictable rather than hand-tuned — stage 3
+     replaces it. */
+  --pal-amber-100: oklch(41.4% 0.112 45.904); --pal-amber-200: oklch(47.3% 0.137 46.201); --pal-amber-300: oklch(55.5% 0.163 48.998); --pal-amber-400: oklch(66.6% 0.179 58.318); --pal-amber-500: oklch(76.9% 0.188 70.08); --pal-amber-700: oklch(87.9% 0.169 91.605); --pal-amber-900: oklch(96.2% 0.059 95.617);
+  --pal-blue-100: oklch(37.9% 0.146 265.522); --pal-blue-300: oklch(48.8% 0.243 264.376); --pal-blue-400: oklch(54.6% 0.245 262.881); --pal-blue-500: oklch(62.3% 0.214 259.815); --pal-blue-700: oklch(80.9% 0.105 251.813); --pal-blue-900: oklch(93.2% 0.032 255.585);
+  --pal-cyan-400: oklch(60.9% 0.126 221.723);
+  --pal-emerald-300: oklch(50.8% 0.118 165.612); --pal-emerald-400: oklch(59.6% 0.145 163.225); --pal-emerald-500: oklch(69.6% 0.17 162.48); --pal-emerald-700: oklch(84.5% 0.143 164.978); --pal-emerald-900: oklch(95% 0.052 163.051);
+  --pal-gray-400: oklch(44.6% 0.03 256.802); --pal-gray-500: oklch(55.1% 0.027 264.364); --pal-gray-600: oklch(70.7% 0.022 261.325); --pal-gray-700: oklch(87.2% 0.01 258.338); --pal-gray-800: oklch(92.8% 0.006 264.531); --pal-gray-900: oklch(96.7% 0.003 264.542);
+  --pal-green-400: oklch(62.7% 0.194 149.214);
+  --pal-indigo-300: oklch(45.7% 0.24 277.023); --pal-indigo-400: oklch(51.1% 0.262 276.966); --pal-indigo-500: oklch(58.5% 0.233 277.117); --pal-indigo-600: oklch(67.3% 0.182 276.935); --pal-indigo-700: oklch(78.5% 0.115 274.713); --pal-indigo-900: oklch(93% 0.034 272.788);
+  --pal-pink-400: oklch(59.2% 0.249 0.584);
+  --pal-purple-100: oklch(38.1% 0.176 304.987); --pal-purple-300: oklch(49.6% 0.265 301.924); --pal-purple-400: oklch(55.8% 0.288 302.321); --pal-purple-500: oklch(62.7% 0.265 303.9);
+  --pal-red-200: oklch(44.4% 0.177 26.899); --pal-red-300: oklch(50.5% 0.213 27.518); --pal-red-400: oklch(57.7% 0.245 27.325); --pal-red-500: oklch(63.7% 0.237 25.331); --pal-red-700: oklch(80.8% 0.114 19.571); --pal-red-800: oklch(88.5% 0.062 18.334); --pal-red-900: oklch(93.6% 0.032 17.717);
+  --pal-slate-500: oklch(55.4% 0.046 257.417);
+  --pal-teal-300: oklch(51.1% 0.096 186.391); --pal-teal-400: oklch(60% 0.118 184.704); --pal-teal-500: oklch(70.4% 0.14 182.503);
+
+  --shadow-sm: 0 4px 14px rgba(15, 27, 51, 0.07);
+  --shadow-md: 0 10px 30px rgba(15, 27, 51, 0.10);
+  --shadow-lg: 0 20px 44px rgba(15, 27, 51, 0.14);
+}
+
+/* ── Tailwind utilities over the roles ──
+   Exposes the tokens as real utilities (text-ink, bg-raised, border-hairline)
+   that resolve through the variables above, so the same class renders in
+   whichever theme is active. This is what lets 700-odd class attributes stop
+   naming colours. */
+@theme inline {
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-ink-ghost: var(--ink-ghost);
+  --color-ink-on-accent: var(--ink-on-accent);
+
+  --color-accent: var(--accent);
+  --color-accent-hi: var(--accent-hi);
+  --color-accent-ink: var(--accent-ink);
+
+  --color-app: var(--surface-app);
+  --color-raised: rgb(var(--surface-raised-rgb));
+  --color-modal: var(--surface-modal);
+  --color-sidebar: var(--surface-sidebar);
+  --color-dropdown: var(--surface-dropdown);
+  --color-input: var(--surface-input);
+  --color-lift: rgb(var(--surface-hover-rgb));
+  --color-scrim: var(--scrim);
+
+  --color-hairline: var(--border);
+  --color-hairline-strong: var(--border-strong);
+
+  --color-ok: var(--ok);
+  --color-ok-fill: var(--ok-fill);
+  --color-ok-line: var(--ok-line);
+  --color-ok-ink: var(--ok-ink);
+  --color-warn: var(--warn);
+  --color-warn-fill: var(--warn-fill);
+  --color-warn-line: var(--warn-line);
+  --color-warn-ink: var(--warn-ink);
+  --color-bad: var(--bad);
+  --color-bad-fill: var(--bad-fill);
+  --color-bad-line: var(--bad-line);
+  --color-bad-ink: var(--bad-ink);
+  --color-info: var(--info);
+  --color-info-fill: var(--info-fill);
+  --color-info-line: var(--info-line);
+  --color-info-ink: var(--info-ink);
+
+  --color-hue-blue: var(--hue-blue);
+  --color-hue-green: var(--hue-green);
+  --color-hue-amber: var(--hue-amber);
+  --color-hue-red: var(--hue-red);
+  --color-hue-violet: var(--hue-violet);
+  --color-hue-slate: var(--hue-slate);
+  --color-hue-pink: var(--hue-pink);
+  --color-hue-orange: var(--hue-orange);
+  --color-hue-cyan: var(--hue-cyan);
+  --color-hue-lime: var(--hue-lime);
+  --color-hue-indigo: var(--hue-indigo);
+  --color-hue-teal: var(--hue-teal);
+
+  /* The palette bridge. See the --pal- block above. */
+  --color-amber-100: var(--pal-amber-100);
+  --color-amber-200: var(--pal-amber-200);
+  --color-amber-300: var(--pal-amber-300);
+  --color-amber-400: var(--pal-amber-400);
+  --color-amber-500: var(--pal-amber-500);
+  --color-amber-700: var(--pal-amber-700);
+  --color-amber-900: var(--pal-amber-900);
+  --color-blue-100: var(--pal-blue-100);
+  --color-blue-300: var(--pal-blue-300);
+  --color-blue-400: var(--pal-blue-400);
+  --color-blue-500: var(--pal-blue-500);
+  --color-blue-700: var(--pal-blue-700);
+  --color-blue-900: var(--pal-blue-900);
+  --color-cyan-400: var(--pal-cyan-400);
+  --color-emerald-300: var(--pal-emerald-300);
+  --color-emerald-400: var(--pal-emerald-400);
+  --color-emerald-500: var(--pal-emerald-500);
+  --color-emerald-700: var(--pal-emerald-700);
+  --color-emerald-900: var(--pal-emerald-900);
+  --color-gray-400: var(--pal-gray-400);
+  --color-gray-500: var(--pal-gray-500);
+  --color-gray-600: var(--pal-gray-600);
+  --color-gray-700: var(--pal-gray-700);
+  --color-gray-800: var(--pal-gray-800);
+  --color-gray-900: var(--pal-gray-900);
+  --color-green-400: var(--pal-green-400);
+  --color-indigo-300: var(--pal-indigo-300);
+  --color-indigo-400: var(--pal-indigo-400);
+  --color-indigo-500: var(--pal-indigo-500);
+  --color-indigo-600: var(--pal-indigo-600);
+  --color-indigo-700: var(--pal-indigo-700);
+  --color-indigo-900: var(--pal-indigo-900);
+  --color-pink-400: var(--pal-pink-400);
+  --color-purple-100: var(--pal-purple-100);
+  --color-purple-300: var(--pal-purple-300);
+  --color-purple-400: var(--pal-purple-400);
+  --color-purple-500: var(--pal-purple-500);
+  --color-red-200: var(--pal-red-200);
+  --color-red-300: var(--pal-red-300);
+  --color-red-400: var(--pal-red-400);
+  --color-red-500: var(--pal-red-500);
+  --color-red-700: var(--pal-red-700);
+  --color-red-800: var(--pal-red-800);
+  --color-red-900: var(--pal-red-900);
+  --color-slate-500: var(--pal-slate-500);
+  --color-teal-300: var(--pal-teal-300);
+  --color-teal-400: var(--pal-teal-400);
+  --color-teal-500: var(--pal-teal-500);
+}

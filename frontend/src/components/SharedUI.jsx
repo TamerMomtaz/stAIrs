@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { GOLD, BORDER } from "../constants";
+import { BAD, BORDER_STRONG, GOLD, MODAL_SURFACE, OK, SHADOW_LG, WARN, tint } from "../constants";
 import { canSeeAgentTelemetry } from "../api";
 
 // ═══ HEALTH BADGE ═══
 export const HealthBadge = ({ health, size = "sm" }) => {
-  const c = { on_track: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30", at_risk: "bg-amber-500/20 text-amber-300 border-amber-500/30", off_track: "bg-red-500/20 text-red-300 border-red-500/30", achieved: "bg-blue-500/20 text-blue-300 border-blue-500/30" };
+  const c = { on_track: "bg-ok-fill text-ok-ink border-ok-line", at_risk: "bg-warn-fill text-warn-ink border-warn-line", off_track: "bg-bad-fill text-bad-ink border-bad-line", achieved: "bg-info-fill text-info-ink border-info-line" };
   const d = { on_track: "●", at_risk: "●", off_track: "○", achieved: "★" };
   const s = size === "sm" ? "text-[10px] px-2 py-0.5" : "text-xs px-3 py-1";
   return <span className={`${s} rounded-full border font-medium whitespace-nowrap ${c[health] || c.at_risk}`}>{d[health] || "?"} {health?.replace("_", " ").toUpperCase()}</span>;
@@ -13,10 +13,10 @@ export const HealthBadge = ({ health, size = "sm" }) => {
 // ═══ PROGRESS RING ═══
 export const ProgressRing = ({ percent = 0, size = 80, stroke = 6, color }) => {
   const r = (size - stroke) / 2, c = 2 * Math.PI * r, off = c - (percent / 100) * c;
-  const col = color || (percent >= 70 ? "#34d399" : percent >= 40 ? "#fbbf24" : "#f87171");
+  const col = color || (percent >= 70 ? OK : percent >= 40 ? WARN : BAD);
   return (
     <svg width={size} height={size} className="transform -rotate-90">
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#1e3a5f" strokeWidth={stroke} />
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={BORDER_STRONG} strokeWidth={stroke} />
       <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={col} strokeWidth={stroke} strokeDasharray={c} strokeDashoffset={off} strokeLinecap="round" style={{ transition: "stroke-dashoffset 1s ease" }} />
       <text x="50%" y="50%" textAnchor="middle" dy=".35em" fill={col} fontSize={size * 0.22} fontWeight="700" transform={`rotate(90 ${size/2} ${size/2})`}>{Math.round(percent)}%</text>
     </svg>
@@ -44,16 +44,16 @@ export const Modal = ({ open, onClose, title, children, wide, size, footer }) =>
   const s = MODAL_SIZES[key];
   return (
     <div className={`fixed inset-0 z-[100] flex items-center justify-center ${s.shell}`} onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-scrim backdrop-blur-sm" />
       <div className={`${s.panel} flex flex-col overflow-hidden`} data-modal-size={key}
-        style={{ background: "rgba(15, 25, 50, 0.97)", border: `1px solid ${GOLD}33`, boxShadow: "0 25px 50px rgba(0,0,0,0.5)" }} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" style={{ borderBottom: `1px solid ${GOLD}22` }}>
-          <h2 className="text-white font-semibold text-lg">{title}</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-white transition text-xl leading-none p-1">✕</button>
+        style={{ background: MODAL_SURFACE, border: `1px solid ${tint(GOLD, 20)}`, boxShadow: SHADOW_LG }} onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" style={{ borderBottom: `1px solid ${tint(GOLD, 13)}` }}>
+          <h2 className="text-ink font-semibold text-lg">{title}</h2>
+          <button onClick={onClose} className="text-ink-muted hover:text-ink transition text-xl leading-none p-1">✕</button>
         </div>
         <div className="flex-1 min-h-0 overflow-auto px-6 py-5">{children}</div>
         {footer && (
-          <div className="flex-shrink-0 px-6 py-4" style={{ borderTop: `1px solid ${GOLD}22` }}>{footer}</div>
+          <div className="flex-shrink-0 px-6 py-4" style={{ borderTop: `1px solid ${tint(GOLD, 13)}` }}>{footer}</div>
         )}
       </div>
     </div>
@@ -67,9 +67,9 @@ export const ConfidenceBadge = ({ validation, agentsUsed }) => {
   const score = validation.confidence_score;
   const level = score >= 85 ? "high" : score >= 60 ? "medium" : "low";
   const styles = {
-    high: { bg: "bg-emerald-500/15", text: "text-emerald-400", border: "border-emerald-500/30", icon: "\u2713", label: "High Confidence" },
-    medium: { bg: "bg-amber-500/15", text: "text-amber-400", border: "border-amber-500/30", icon: "\u26A1", label: "Medium Confidence" },
-    low: { bg: "bg-red-500/15", text: "text-red-400", border: "border-red-500/30", icon: "\u26A0\uFE0F", label: "Low Confidence" },
+    high: { bg: "bg-ok/15", text: "text-ok", border: "border-ok-line", icon: "\u2713", label: "High Confidence" },
+    medium: { bg: "bg-warn/15", text: "text-warn", border: "border-warn-line", icon: "\u26A1", label: "Medium Confidence" },
+    low: { bg: "bg-bad/15", text: "text-bad", border: "border-bad-line", icon: "\u26A0\uFE0F", label: "Low Confidence" },
   };
   const s = styles[level];
   return (
@@ -82,34 +82,34 @@ export const ConfidenceBadge = ({ validation, agentsUsed }) => {
         {s.icon} {s.label} ({score}%)
       </button>
       {showTooltip && (
-        <div className="absolute z-50 bottom-full left-0 mb-2 w-64 p-3 rounded-lg border border-gray-600/50 bg-[#0f1f3a]/95 backdrop-blur-sm shadow-xl text-xs" data-testid="confidence-tooltip">
+        <div className="absolute z-50 bottom-full left-0 mb-2 w-64 p-3 rounded-lg border border-hairline-strong bg-dropdown backdrop-blur-sm shadow-xl text-xs" data-testid="confidence-tooltip">
           <div className="flex items-center justify-between mb-2">
             <span className={`font-semibold ${s.text}`}>{s.icon} {s.label} ({score}%)</span>
-            <button onClick={() => setShowTooltip(false)} className="text-gray-500 hover:text-white text-xs">\u2715</button>
+            <button onClick={() => setShowTooltip(false)} className="text-ink-muted hover:text-ink text-xs">\u2715</button>
           </div>
           {canSeeAgentTelemetry() && agentsUsed && agentsUsed.length > 0 && (
             <div className="mb-2">
-              <div className="text-gray-500 uppercase tracking-wider text-[9px] mb-1">Agents involved</div>
+              <div className="text-ink-muted uppercase tracking-wider text-[9px] mb-1">Agents involved</div>
               {agentsUsed.map((a, i) => (
-                <div key={i} className="text-gray-300 flex items-center gap-1.5 py-0.5">
-                  <span className="text-amber-400/70">\u2022</span> {a.name}{a.role && <span className="text-gray-600 text-[9px]"> \u2014 {a.role}</span>}
+                <div key={i} className="text-ink-2 flex items-center gap-1.5 py-0.5">
+                  <span className="text-warn/70">\u2022</span> {a.name}{a.role && <span className="text-ink-faint text-[9px]"> \u2014 {a.role}</span>}
                 </div>
               ))}
             </div>
           )}
           {validation.warnings && validation.warnings.length > 0 && (
             <div className="mb-2">
-              <div className="text-gray-500 uppercase tracking-wider text-[9px] mb-1">Validation warnings</div>
+              <div className="text-ink-muted uppercase tracking-wider text-[9px] mb-1">Validation warnings</div>
               {validation.warnings.slice(0, 3).map((w, i) => (
-                <div key={i} className="text-amber-300/80 py-0.5">\u26A0\uFE0F {w}</div>
+                <div key={i} className="text-warn-ink/80 py-0.5">\u26A0\uFE0F {w}</div>
               ))}
             </div>
           )}
           {validation.contradictions && validation.contradictions.length > 0 && (
             <div>
-              <div className="text-gray-500 uppercase tracking-wider text-[9px] mb-1">Contradictions found</div>
+              <div className="text-ink-muted uppercase tracking-wider text-[9px] mb-1">Contradictions found</div>
               {validation.contradictions.slice(0, 3).map((c, i) => (
-                <div key={i} className="text-red-300/80 py-0.5">\u2716 {c}</div>
+                <div key={i} className="text-bad-ink/80 py-0.5">\u2716 {c}</div>
               ))}
             </div>
           )}
@@ -128,10 +128,10 @@ export const ValidationWarnings = ({ validation }) => {
   const total = warnings.length + contradictions.length;
   if (total === 0) return null;
   return (
-    <div className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/5" data-testid="validation-warnings">
+    <div className="mt-2 rounded-lg border border-warn/20 bg-warn/5" data-testid="validation-warnings">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] text-amber-400/90 hover:text-amber-300 transition"
+        className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] text-warn/90 hover:text-warn-ink transition"
       >
         <span>\u26A0\uFE0F Validation Notes ({total} item{total !== 1 ? "s" : ""})</span>
         <span className="text-[9px]">{expanded ? "\u25B2" : "\u25BC"}</span>
@@ -139,12 +139,12 @@ export const ValidationWarnings = ({ validation }) => {
       {expanded && (
         <div className="px-3 pb-2 space-y-1">
           {warnings.map((w, i) => (
-            <div key={`w-${i}`} className="text-[11px] text-amber-300/80 flex items-start gap-1.5">
+            <div key={`w-${i}`} className="text-[11px] text-warn-ink/80 flex items-start gap-1.5">
               <span className="shrink-0 mt-0.5">\u26A0\uFE0F</span><span>{w}</span>
             </div>
           ))}
           {contradictions.map((c, i) => (
-            <div key={`c-${i}`} className="text-[11px] text-red-300/80 flex items-start gap-1.5">
+            <div key={`c-${i}`} className="text-[11px] text-bad-ink/80 flex items-start gap-1.5">
               <span className="shrink-0 mt-0.5">\u2716</span><span>{c}</span>
             </div>
           ))}
@@ -177,10 +177,10 @@ export const AgentActivityIndicator = ({ agentStep }) => {
     <div className="flex items-center gap-2 px-4 py-2" data-testid="agent-activity-indicator">
       <div className="flex gap-1">
         {[0, 1, 2].map(i => (
-          <div key={i} className="w-1.5 h-1.5 rounded-full bg-amber-500/60 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+          <div key={i} className="w-1.5 h-1.5 rounded-full bg-warn/60 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
         ))}
       </div>
-      <span className="text-xs text-amber-400/80">{step.icon} {step.label}</span>
+      <span className="text-xs text-warn/80">{step.icon} {step.label}</span>
     </div>
   );
 };

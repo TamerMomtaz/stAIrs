@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { GOLD, GOLD_L, BORDER, DEEP } from "../constants";
+import { BORDER_STRONG, DEEP, GOLD, GOLD_L, GRAD_ACCENT, GRAD_ACCENT_90, HUE, INFO, INK_FAINT, MODAL_SURFACE, OK, SCRIM_STRONG, cast, tint } from "../constants";
 import {
   tutorialSteps,
   TUTORIAL_VERSION,
@@ -15,7 +15,7 @@ const Particle = ({ delay, x }) => (
     style={{
       left: `${x}%`,
       animationDelay: `${delay}ms`,
-      background: [GOLD, GOLD_L, "#34d399", "#60a5fa", "#a78bfa", "#f472b6"][
+      background: [GOLD, GOLD_L, OK, INFO, HUE.violet, HUE.pink][
         Math.floor(Math.random() * 6)
       ],
     }}
@@ -215,7 +215,7 @@ export const TutorialOverlay = ({ active, onClose, steps: customSteps }) => {
         <rect
           width="100%"
           height="100%"
-          fill="rgba(2, 6, 23, 0.82)"
+          fill={SCRIM_STRONG}
           mask="url(#tutorial-spotlight-mask)"
         />
       </svg>
@@ -233,7 +233,7 @@ export const TutorialOverlay = ({ active, onClose, steps: customSteps }) => {
             height: targetRect.height + 16,
             borderRadius: "12px",
             border: `2px solid ${GOLD}`,
-            boxShadow: `0 0 20px ${GOLD}44, 0 0 40px ${GOLD}22, inset 0 0 20px ${GOLD}11`,
+            boxShadow: `0 0 20px ${tint(GOLD, 27)}, 0 0 40px ${tint(GOLD, 13)}, inset 0 0 20px ${tint(GOLD, 7)}`,
             pointerEvents: "none",
           }}
         />
@@ -254,30 +254,30 @@ export const TutorialOverlay = ({ active, onClose, steps: customSteps }) => {
           <div
             className="rounded-2xl overflow-hidden"
             style={{
-              background: "rgba(15, 25, 50, 0.97)",
-              border: `1px solid ${GOLD}44`,
-              boxShadow: `0 25px 60px rgba(0,0,0,0.6), 0 0 30px ${GOLD}15`,
+              background: MODAL_SURFACE,
+              border: `1px solid ${tint(GOLD, 27)}`,
+              boxShadow: `0 25px 60px ${cast(0.6)}, 0 0 30px ${tint(GOLD, 8)}`,
             }}
           >
             {/* Progress bar */}
             <div className="px-5 pt-4 pb-2">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] text-gray-500 uppercase tracking-widest font-medium">
+                <span className="text-[10px] text-ink-muted uppercase tracking-widest font-medium">
                   Step {currentStep + 1} of {steps.length}
                 </span>
                 <button
                   onClick={handleSkip}
-                  className="text-[10px] text-gray-600 hover:text-gray-400 transition uppercase tracking-wider"
+                  className="text-[10px] text-ink-faint hover:text-ink-3 transition uppercase tracking-wider"
                 >
                   Skip Tutorial
                 </button>
               </div>
-              <div className="w-full h-1 rounded-full bg-[#1e3a5f]/50 overflow-hidden">
+              <div className="w-full h-1 rounded-full bg-hairline-strong/50 overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-500 ease-out"
                   style={{
                     width: `${((currentStep + 1) / steps.length) * 100}%`,
-                    background: `linear-gradient(90deg, ${GOLD}, ${GOLD_L})`,
+                    background: GRAD_ACCENT_90,
                   }}
                 />
               </div>
@@ -295,7 +295,7 @@ export const TutorialOverlay = ({ active, onClose, steps: customSteps }) => {
                 <h3
                   className="text-base font-semibold"
                   style={{
-                    background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`,
+                    background: GRAD_ACCENT,
                     WebkitBackgroundClip: "text",
                     WebkitTextFillColor: "transparent",
                   }}
@@ -303,18 +303,18 @@ export const TutorialOverlay = ({ active, onClose, steps: customSteps }) => {
                   {step.title}
                 </h3>
               </div>
-              <p className="text-sm text-gray-300 leading-relaxed">{step.description}</p>
+              <p className="text-sm text-ink-2 leading-relaxed">{step.description}</p>
             </div>
 
             {/* Navigation */}
             <div
               className="flex items-center justify-between px-5 py-3"
-              style={{ borderTop: `1px solid ${GOLD}15` }}
+              style={{ borderTop: `1px solid ${tint(GOLD, 8)}` }}
             >
               <button
                 onClick={handleBack}
                 disabled={currentStep === 0}
-                className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition disabled:opacity-30 disabled:cursor-default rounded-lg hover:bg-white/5"
+                className="px-3 py-1.5 text-xs text-ink-muted hover:text-ink-2 transition disabled:opacity-30 disabled:cursor-default rounded-lg hover:bg-lift/5"
               >
                 ← Back
               </button>
@@ -324,7 +324,7 @@ export const TutorialOverlay = ({ active, onClose, steps: customSteps }) => {
                     key={i}
                     className="w-1.5 h-1.5 rounded-full transition-all duration-300"
                     style={{
-                      background: i === currentStep ? GOLD : i < currentStep ? `${GOLD}66` : "#1e3a5f",
+                      background: i === currentStep ? GOLD : i < currentStep ? `${tint(GOLD, 40)}` : BORDER_STRONG,
                       transform: i === currentStep ? "scale(1.4)" : "scale(1)",
                     }}
                   />
@@ -334,7 +334,7 @@ export const TutorialOverlay = ({ active, onClose, steps: customSteps }) => {
                 onClick={handleNext}
                 className="px-4 py-1.5 text-xs font-semibold rounded-lg transition"
                 style={{
-                  background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`,
+                  background: GRAD_ACCENT,
                   color: DEEP,
                 }}
               >
@@ -354,23 +354,23 @@ export const TutorialOverlay = ({ active, onClose, steps: customSteps }) => {
           <div
             className="tutorial-completion rounded-2xl p-8 text-center max-w-md mx-4"
             style={{
-              background: "rgba(15, 25, 50, 0.97)",
-              border: `1px solid ${GOLD}44`,
-              boxShadow: `0 25px 60px rgba(0,0,0,0.6), 0 0 40px ${GOLD}20`,
+              background: MODAL_SURFACE,
+              border: `1px solid ${tint(GOLD, 27)}`,
+              boxShadow: `0 25px 60px ${cast(0.6)}, 0 0 40px ${tint(GOLD, 13)}`,
             }}
           >
             <div className="text-5xl mb-4 tutorial-completion-icon">🪜</div>
             <h2
               className="text-2xl font-bold mb-2"
               style={{
-                background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`,
+                background: GRAD_ACCENT,
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
               }}
             >
               You're ready to climb!
             </h2>
-            <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+            <p className="text-ink-3 text-sm mb-6 leading-relaxed">
               You've completed the Stairs tour. Every feature is now at your
               fingertips — go build something strategic.
             </p>
@@ -378,7 +378,7 @@ export const TutorialOverlay = ({ active, onClose, steps: customSteps }) => {
               onClick={finishTutorial}
               className="px-6 py-2.5 rounded-xl text-sm font-semibold transition hover:scale-105"
               style={{
-                background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`,
+                background: GRAD_ACCENT,
                 color: DEEP,
               }}
             >
@@ -410,16 +410,16 @@ export const TutorialUpdatePrompt = ({ onStart, onDismiss }) => (
     <div
       className="rounded-xl p-4"
       style={{
-        background: "rgba(15, 25, 50, 0.97)",
-        border: `1px solid ${GOLD}44`,
-        boxShadow: `0 15px 40px rgba(0,0,0,0.5), 0 0 20px ${GOLD}10`,
+        background: MODAL_SURFACE,
+        border: `1px solid ${tint(GOLD, 27)}`,
+        boxShadow: `0 15px 40px ${cast(0.5)}, 0 0 20px ${tint(GOLD, 6)}`,
       }}
     >
       <div className="flex items-start gap-3">
         <span className="text-xl mt-0.5">🆕</span>
         <div className="flex-1">
-          <h4 className="text-sm font-semibold text-white mb-1">New features added!</h4>
-          <p className="text-xs text-gray-400 leading-relaxed mb-3">
+          <h4 className="text-sm font-semibold text-ink mb-1">New features added!</h4>
+          <p className="text-xs text-ink-3 leading-relaxed mb-3">
             Want a quick tour of what's new?
           </p>
           <div className="flex gap-2">
@@ -427,7 +427,7 @@ export const TutorialUpdatePrompt = ({ onStart, onDismiss }) => (
               onClick={onStart}
               className="px-3 py-1.5 text-xs font-semibold rounded-lg transition"
               style={{
-                background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`,
+                background: GRAD_ACCENT,
                 color: DEEP,
               }}
             >
@@ -435,7 +435,7 @@ export const TutorialUpdatePrompt = ({ onStart, onDismiss }) => (
             </button>
             <button
               onClick={onDismiss}
-              className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 rounded-lg hover:bg-white/5 transition"
+              className="px-3 py-1.5 text-xs text-ink-muted hover:text-ink-2 rounded-lg hover:bg-lift/5 transition"
             >
               Maybe later
             </button>
@@ -466,34 +466,34 @@ export const FeaturesExploredBadge = ({ show, onClose }) => {
       <div
         className="rounded-xl p-4 w-72"
         style={{
-          background: "rgba(15, 25, 50, 0.97)",
-          border: `1px solid ${GOLD}33`,
-          boxShadow: `0 15px 40px rgba(0,0,0,0.4)`,
+          background: MODAL_SURFACE,
+          border: `1px solid ${tint(GOLD, 20)}`,
+          boxShadow: `0 15px 40px ${cast(0.4)}`,
         }}
       >
         <div className="flex items-center justify-between mb-3">
-          <h4 className="text-xs font-semibold text-gray-300 uppercase tracking-wider">
+          <h4 className="text-xs font-semibold text-ink-2 uppercase tracking-wider">
             Features Explored
           </h4>
           <button
             onClick={onClose}
-            className="text-gray-600 hover:text-gray-400 transition text-sm"
+            className="text-ink-faint hover:text-ink-3 transition text-sm"
           >
             ✕
           </button>
         </div>
 
         {/* Progress bar */}
-        <div className="w-full h-1.5 rounded-full bg-[#1e3a5f]/50 overflow-hidden mb-2">
+        <div className="w-full h-1.5 rounded-full bg-hairline-strong/50 overflow-hidden mb-2">
           <div
             className="h-full rounded-full transition-all duration-700 ease-out"
             style={{
               width: `${percent}%`,
-              background: `linear-gradient(90deg, ${GOLD}, ${GOLD_L})`,
+              background: GRAD_ACCENT_90,
             }}
           />
         </div>
-        <div className="flex justify-between text-[10px] text-gray-500 mb-3">
+        <div className="flex justify-between text-[10px] text-ink-muted mb-3">
           <span>
             {usedCount} / {totalFeatures} features
           </span>
@@ -516,14 +516,14 @@ export const FeaturesExploredBadge = ({ show, onClose }) => {
                   <span
                     className="w-4 h-4 flex items-center justify-center rounded-full text-[9px] shrink-0"
                     style={{
-                      background: used ? `${GOLD}22` : "#1e3a5f33",
-                      color: used ? GOLD : "#475569",
-                      border: `1px solid ${used ? `${GOLD}44` : "#1e3a5f"}`,
+                      background: used ? `${tint(GOLD, 13)}` : tint(BORDER_STRONG, 20),
+                      color: used ? GOLD : INK_FAINT,
+                      border: `1px solid ${used ? `${tint(GOLD, 27)}` : BORDER_STRONG}`,
                     }}
                   >
                     {used ? "✓" : "·"}
                   </span>
-                  <span className={used ? "text-gray-300" : "text-gray-600"}>
+                  <span className={used ? "text-ink-2" : "text-ink-faint"}>
                     {s.title}
                   </span>
                 </div>

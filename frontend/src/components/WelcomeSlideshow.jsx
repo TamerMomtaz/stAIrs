@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import { GOLD, GOLD_L, BORDER, FONT_DISPLAY } from "../constants";
-
-const BG = "#0a0e1a";
-const ACCENT = "#f5b731";
-const ACCENT_L = "#ffd666";
+import { ACCENT_BRIGHT, ACCENT_BRIGHT_HI, BAD, BORDER, BORDER_STRONG, DEEPEST, FONT_DISPLAY, GRAD_ACCENT_BRIGHT, GRAD_ACCENT_BRIGHT_90, HUE, INFO, INK, INK_3, INK_GHOST, INK_MUTED, OK, WARN, cast, tint } from "../constants";
+const BG = DEEPEST;
+const ACCENT = ACCENT_BRIGHT;
+const ACCENT_L = ACCENT_BRIGHT_HI;
 const LOGO_SRC = "/devoneers-logo.png";
 
 // ═══ LOCALSTORAGE KEY ═══
@@ -84,12 +83,12 @@ const StepPath = ({ animate }) => {
           >
             <div style={{
               width: "64px", height: "64px", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center",
-              background: `${ACCENT}15`, border: `2px solid ${ACCENT}40`, position: "relative",
+              background: `${tint(ACCENT, 8)}`, border: `2px solid ${tint(ACCENT, 25)}`, position: "relative",
             }}>
               {s.icon}
               <span style={{ position: "absolute", top: "-8px", right: "-8px", width: "22px", height: "22px", borderRadius: "50%", background: ACCENT, color: BG, fontSize: "11px", fontWeight: "800", display: "flex", alignItems: "center", justifyContent: "center" }}>{s.num}</span>
             </div>
-            <span style={{ fontSize: "12px", color: "#94a3b8", textAlign: "center", lineHeight: "1.5", whiteSpace: "pre-line" }}>{s.label}</span>
+            <span style={{ fontSize: "12px", color: INK_3, textAlign: "center", lineHeight: "1.5", whiteSpace: "pre-line" }}>{s.label}</span>
           </div>
           {i < 3 && (
             <div
@@ -110,9 +109,9 @@ const StepPath = ({ animate }) => {
 // ═══ ANIMATED FILE CARDS (Slide 3) ═══
 const FileCards = ({ animate }) => {
   const files = [
-    { name: "Pitch Deck.pdf", icon: "📊", color: "#f472b6" },
-    { name: "Business Plan.docx", icon: "📄", color: "#60a5fa" },
-    { name: "Market Research.xlsx", icon: "📈", color: "#34d399" },
+    { name: "Pitch Deck.pdf", icon: "📊", color: HUE.pink },
+    { name: "Business Plan.docx", icon: "📄", color: INFO },
+    { name: "Market Research.xlsx", icon: "📈", color: OK },
   ];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px", maxWidth: "480px", margin: "0 auto" }}>
@@ -123,7 +122,7 @@ const FileCards = ({ animate }) => {
             className={animate ? "slideshow-fadeUp" : ""}
             style={{
               display: "flex", alignItems: "center", gap: "16px", padding: "14px 20px", borderRadius: "12px",
-              background: "rgba(22, 37, 68, 0.7)", border: `1px solid ${BORDER}`, width: "100%",
+              background: "rgb(var(--surface-raised-rgb) / 0.7)`, border: `1px solid ${BORDER}`, width: `100%",
               opacity: animate ? 0 : 1,
               animationDelay: animate ? `${i * 300 + 200}ms` : undefined,
               animationFillMode: "forwards",
@@ -131,14 +130,14 @@ const FileCards = ({ animate }) => {
           >
             <span style={{ fontSize: "24px" }}>{f.icon}</span>
             <div style={{ flex: 1 }}>
-              <div style={{ color: "#fff", fontSize: "13px", fontWeight: "600" }}>{f.name}</div>
-              <div style={{ color: "#64748b", fontSize: "10px", marginTop: "2px" }}>Uploaded successfully</div>
+              <div style={{ color: INK, fontSize: "13px", fontWeight: "600" }}>{f.name}</div>
+              <div style={{ color: INK_MUTED, fontSize: "10px", marginTop: "2px" }}>Uploaded successfully</div>
             </div>
             <span
               className={animate ? "slideshow-fadeUp" : ""}
               style={{
-                fontSize: "11px", color: "#34d399", fontWeight: "600", padding: "3px 8px", borderRadius: "8px",
-                background: "rgba(52, 211, 153, 0.1)", border: "1px solid rgba(52, 211, 153, 0.2)",
+                fontSize: "11px", color: OK, fontWeight: "600", padding: "3px 8px", borderRadius: "8px",
+                background: tint(OK, 10), border: `1px solid ${tint(OK, 20)}`,
                 opacity: animate ? 0 : 1,
                 animationDelay: animate ? `${i * 300 + 400}ms` : undefined,
                 animationFillMode: "forwards",
@@ -151,7 +150,7 @@ const FileCards = ({ animate }) => {
         className={animate ? "slideshow-fadeUp" : ""}
         style={{
           display: "flex", alignItems: "center", gap: "10px", padding: "10px 16px", borderRadius: "10px",
-          background: `${ACCENT}08`, border: `1px dashed ${ACCENT}30`,
+          background: `${tint(ACCENT, 3)}`, border: `1px dashed ${tint(ACCENT, 19)}`,
           opacity: animate ? 0 : 1,
           animationDelay: animate ? "1200ms" : undefined,
           animationFillMode: "forwards",
@@ -160,7 +159,7 @@ const FileCards = ({ animate }) => {
         <span style={{ fontSize: "16px" }}>🔍</span>
         <div>
           <div style={{ color: ACCENT, fontSize: "11px", fontWeight: "700" }}>Source of Truth</div>
-          <div style={{ color: "#94a3b8", fontSize: "10px" }}>AI extraction feeds verified sources into everything</div>
+          <div style={{ color: INK_3, fontSize: "10px" }}>AI extraction feeds verified sources into everything</div>
         </div>
       </div>
     </div>
@@ -184,7 +183,7 @@ const FrameworkBadges = ({ animate }) => {
             key={i}
             className={animate ? "slideshow-fadeUp" : ""}
             style={{
-              padding: "16px 20px", borderRadius: "14px", background: "rgba(22, 37, 68, 0.7)", border: `1px solid ${BORDER}`,
+              padding: "16px 20px", borderRadius: "14px", background: "rgb(var(--surface-raised-rgb) / 0.7)", border: `1px solid ${BORDER}`,
               display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", width: "160px",
               opacity: animate ? 0 : 1,
               animationDelay: animate ? `${i * 200 + 200}ms` : undefined,
@@ -192,9 +191,9 @@ const FrameworkBadges = ({ animate }) => {
             }}
           >
             <span style={{ fontSize: "28px" }}>{fw.icon}</span>
-            <span style={{ color: "#fff", fontSize: "13px", fontWeight: "600", textAlign: "center" }}>{fw.name}</span>
-            <span style={{ color: "#64748b", fontSize: "10px", textAlign: "center" }}>{fw.desc}</span>
-            <span style={{ fontSize: "10px", color: "#34d399", fontWeight: "600", padding: "3px 8px", borderRadius: "6px", background: "rgba(52, 211, 153, 0.1)", border: "1px solid rgba(52, 211, 153, 0.2)", marginTop: "4px" }}>Auto-populated from your data ✓</span>
+            <span style={{ color: INK, fontSize: "13px", fontWeight: "600", textAlign: "center" }}>{fw.name}</span>
+            <span style={{ color: INK_MUTED, fontSize: "10px", textAlign: "center" }}>{fw.desc}</span>
+            <span style={{ fontSize: "10px", color: OK, fontWeight: "600", padding: "3px 8px", borderRadius: "6px", background: tint(OK, 10), border: `1px solid ${tint(OK, 20)}`, marginTop: "4px" }}>Auto-populated from your data ✓</span>
           </div>
         ))}
       </div>
@@ -208,7 +207,7 @@ const FrameworkBadges = ({ animate }) => {
         }}
       >
         {["Analyze", "Compare", "Export", "AI Insights"].map((chip, i) => (
-          <span key={i} style={{ fontSize: "10px", color: ACCENT, fontWeight: "600", padding: "4px 12px", borderRadius: "8px", background: `${ACCENT}12`, border: `1px solid ${ACCENT}30` }}>{chip}</span>
+          <span key={i} style={{ fontSize: "10px", color: ACCENT, fontWeight: "600", padding: "4px 12px", borderRadius: "8px", background: `${tint(ACCENT, 7)}`, border: `1px solid ${tint(ACCENT, 19)}` }}>{chip}</span>
         ))}
       </div>
     </div>
@@ -218,11 +217,11 @@ const FrameworkBadges = ({ animate }) => {
 // ═══ EXECUTION FLOW (Slide 5) ═══
 const ExecutionFlow = ({ animate }) => {
   const steps = [
-    { label: "Action", icon: "⚡", desc: "Select any action item", color: "#60a5fa" },
-    { label: "Explain", icon: "💡", desc: "AI explains strategic context", color: "#a78bfa" },
-    { label: "Assess Ability", icon: "📏", desc: "Evaluate what's achievable", color: "#0d9488" },
+    { label: "Action", icon: "⚡", desc: "Select any action item", color: INFO },
+    { label: "Explain", icon: "💡", desc: "AI explains strategic context", color: HUE.violet },
+    { label: "Assess Ability", icon: "📏", desc: "Evaluate what's achievable", color: HUE.teal },
     { label: "Customized Plan", icon: "✨", desc: "Tailored to your capacity", color: ACCENT },
-    { label: "Implementation Room", icon: "🚀", desc: "Step-by-step execution", color: "#34d399" },
+    { label: "Implementation Room", icon: "🚀", desc: "Step-by-step execution", color: OK },
   ];
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", flexWrap: "wrap", maxWidth: "800px", margin: "0 auto" }}>
@@ -232,7 +231,7 @@ const ExecutionFlow = ({ animate }) => {
             className={animate ? "slideshow-fadeUp" : ""}
             style={{
               display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", padding: "12px 14px", borderRadius: "14px",
-              background: "rgba(22, 37, 68, 0.7)", border: `1px solid ${BORDER}`, width: "120px",
+              background: "rgb(var(--surface-raised-rgb) / 0.7)`, border: `1px solid ${BORDER}`, width: `120px",
               opacity: animate ? 0 : 1,
               animationDelay: animate ? `${i * 250 + 200}ms` : undefined,
               animationFillMode: "forwards",
@@ -240,7 +239,7 @@ const ExecutionFlow = ({ animate }) => {
           >
             <span style={{ fontSize: "22px" }}>{s.icon}</span>
             <span style={{ color: s.color, fontSize: "11px", fontWeight: "700", textAlign: "center" }}>{s.label}</span>
-            <span style={{ color: "#64748b", fontSize: "9px", textAlign: "center" }}>{s.desc}</span>
+            <span style={{ color: INK_MUTED, fontSize: "9px", textAlign: "center" }}>{s.desc}</span>
           </div>
           {i < steps.length - 1 && (
             <span
@@ -273,7 +272,7 @@ const ManifestPreview = ({ animate }) => {
           className={animate ? "slideshow-fadeUp" : ""}
           style={{
             display: "flex", alignItems: "center", gap: "14px", padding: "14px 18px", borderRadius: "12px",
-            background: "rgba(22, 37, 68, 0.7)", border: `1px solid ${BORDER}`, borderLeft: `3px solid ${ACCENT}60`,
+            background: "rgb(var(--surface-raised-rgb) / 0.7)", border: `1px solid ${BORDER}`, borderLeft: `3px solid ${tint(ACCENT, 38)}`,
             opacity: animate ? 0 : 1,
             animationDelay: animate ? `${i * 300 + 200}ms` : undefined,
             animationFillMode: "forwards",
@@ -281,17 +280,17 @@ const ManifestPreview = ({ animate }) => {
         >
           <span style={{ fontSize: "18px" }}>📦</span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ color: "#fff", fontSize: "12px", fontWeight: "600", marginBottom: "4px" }}>{item.title}</div>
+            <div style={{ color: INK, fontSize: "12px", fontWeight: "600", marginBottom: "4px" }}>{item.title}</div>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ fontSize: "10px", color: "#94a3b8" }}>{item.sections}/4 sections</span>
-              <span style={{ fontSize: "10px", color: "#a78bfa" }}>{item.steps} steps</span>
+              <span style={{ fontSize: "10px", color: INK_3 }}>{item.sections}/4 sections</span>
+              <span style={{ fontSize: "10px", color: HUE.violet }}>{item.steps} steps</span>
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "6px", shrinkFlex: 0 }}>
-            <div style={{ width: "40px", height: "4px", borderRadius: "2px", background: "#1e3a5f", overflow: "hidden" }}>
-              <div style={{ height: "100%", borderRadius: "2px", background: item.pct === 100 ? "#34d399" : `linear-gradient(90deg, ${ACCENT}, ${ACCENT_L})`, width: `${item.pct}%` }} />
+            <div style={{ width: "40px", height: "4px", borderRadius: "2px", background: BORDER_STRONG, overflow: "hidden" }}>
+              <div style={{ height: "100%", borderRadius: "2px", background: item.pct === 100 ? OK : GRAD_ACCENT_BRIGHT_90, width: `${item.pct}%` }} />
             </div>
-            <span style={{ fontSize: "10px", color: item.pct === 100 ? "#34d399" : ACCENT, fontWeight: "600" }}>{item.pct}%</span>
+            <span style={{ fontSize: "10px", color: item.pct === 100 ? OK : ACCENT, fontWeight: "600" }}>{item.pct}%</span>
           </div>
         </div>
       ))}
@@ -305,7 +304,7 @@ const ManifestPreview = ({ animate }) => {
         }}
       >
         {["Export All PDF", "Track Progress", "Source References"].map((chip, i) => (
-          <span key={i} style={{ fontSize: "10px", color: ACCENT, fontWeight: "600", padding: "4px 10px", borderRadius: "8px", background: `${ACCENT}12`, border: `1px solid ${ACCENT}30` }}>{chip}</span>
+          <span key={i} style={{ fontSize: "10px", color: ACCENT, fontWeight: "600", padding: "4px 10px", borderRadius: "8px", background: `${tint(ACCENT, 7)}`, border: `1px solid ${tint(ACCENT, 19)}` }}>{chip}</span>
         ))}
       </div>
     </div>
@@ -315,10 +314,10 @@ const ManifestPreview = ({ animate }) => {
 // ═══ DATA INTEGRITY FLOW (Slide 7) ═══
 const DataIntegrityFlow = ({ animate }) => {
   const protections = [
-    { icon: "🛡️", label: "Quality Gate", desc: "Every upload is checked for relevance before it enters your strategy", color: "#34d399" },
-    { icon: "⚖️", label: "Contradiction Detection", desc: "Conflicts between sources are flagged for your review", color: "#60a5fa" },
-    { icon: "🔍", label: "Confidence Scoring", desc: "Every data point is scored for reliability — agents weight their advice accordingly", color: "#a78bfa" },
-    { icon: "🔒", label: "Quarantine & Impact Tracing", desc: "Remove bad data instantly and see exactly what it affected", color: "#f472b6" },
+    { icon: "🛡️", label: "Quality Gate", desc: "Every upload is checked for relevance before it enters your strategy", color: OK },
+    { icon: "⚖️", label: "Contradiction Detection", desc: "Conflicts between sources are flagged for your review", color: INFO },
+    { icon: "🔍", label: "Confidence Scoring", desc: "Every data point is scored for reliability — agents weight their advice accordingly", color: HUE.violet },
+    { icon: "🔒", label: "Quarantine & Impact Tracing", desc: "Remove bad data instantly and see exactly what it affected", color: HUE.pink },
   ];
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px", maxWidth: "540px", margin: "0 auto" }}>
@@ -328,7 +327,7 @@ const DataIntegrityFlow = ({ animate }) => {
           className={animate ? "slideshow-fadeUp" : ""}
           style={{
             display: "flex", alignItems: "center", gap: "16px", padding: "14px 20px", borderRadius: "14px",
-            background: "rgba(22, 37, 68, 0.7)", border: `1px solid ${BORDER}`, width: "100%",
+            background: "rgb(var(--surface-raised-rgb) / 0.7)`, border: `1px solid ${BORDER}`, width: `100%",
             borderLeft: `3px solid ${p.color}`,
             opacity: animate ? 0 : 1,
             animationDelay: animate ? `${i * 300 + 200}ms` : undefined,
@@ -338,7 +337,7 @@ const DataIntegrityFlow = ({ animate }) => {
           <span style={{ fontSize: "28px", flexShrink: 0 }}>{p.icon}</span>
           <div style={{ flex: 1 }}>
             <div style={{ color: p.color, fontSize: "13px", fontWeight: "700", marginBottom: "2px" }}>{p.label}</div>
-            <div style={{ color: "#94a3b8", fontSize: "11px", lineHeight: "1.5" }}>{p.desc}</div>
+            <div style={{ color: INK_3, fontSize: "11px", lineHeight: "1.5" }}>{p.desc}</div>
           </div>
         </div>
       ))}
@@ -346,7 +345,7 @@ const DataIntegrityFlow = ({ animate }) => {
         className={animate ? "slideshow-fadeUp" : ""}
         style={{
           display: "flex", alignItems: "center", gap: "10px", padding: "10px 16px", borderRadius: "10px",
-          background: `${ACCENT}08`, border: `1px dashed ${ACCENT}30`, marginTop: "4px",
+          background: `${tint(ACCENT, 3)}`, border: `1px dashed ${tint(ACCENT, 19)}`, marginTop: "4px",
           opacity: animate ? 0 : 1,
           animationDelay: animate ? "1500ms" : undefined,
           animationFillMode: "forwards",
@@ -367,36 +366,36 @@ const AlertsKnowledge = ({ animate }) => (
     <div
       className={animate ? "slideshow-fadeUp" : ""}
       style={{
-        flex: "1 1 260px", padding: "18px", borderRadius: "14px", background: "rgba(22, 37, 68, 0.7)", border: `1px solid ${BORDER}`,
+        flex: "1 1 260px", padding: "18px", borderRadius: "14px", background: "rgb(var(--surface-raised-rgb) / 0.7)", border: `1px solid ${BORDER}`,
         opacity: animate ? 0 : 1,
         animationDelay: animate ? "200ms" : undefined,
         animationFillMode: "forwards",
       }}
     >
       <div style={{ fontSize: "24px", marginBottom: "10px" }}>🔔</div>
-      <div style={{ color: "#fff", fontSize: "14px", fontWeight: "700", marginBottom: "6px" }}>Strategy Alerts</div>
-      <div style={{ color: "#94a3b8", fontSize: "11px", lineHeight: "1.6", marginBottom: "10px" }}>Real-time health monitoring across your entire staircase. Get notified when elements go off-track.</div>
+      <div style={{ color: INK, fontSize: "14px", fontWeight: "700", marginBottom: "6px" }}>Strategy Alerts</div>
+      <div style={{ color: INK_3, fontSize: "11px", lineHeight: "1.6", marginBottom: "10px" }}>Real-time health monitoring across your entire staircase. Get notified when elements go off-track.</div>
       <div style={{ display: "flex", gap: "6px" }}>
-        {[{ label: "Critical", color: "#f87171" }, { label: "At Risk", color: "#fbbf24" }, { label: "Info", color: "#60a5fa" }].map((a, i) => (
-          <span key={i} style={{ fontSize: "9px", color: a.color, padding: "2px 8px", borderRadius: "6px", background: `${a.color}15`, border: `1px solid ${a.color}30`, fontWeight: "600" }}>{a.label}</span>
+        {[{ label: "Critical", color: BAD }, { label: "At Risk", color: WARN }, { label: "Info", color: INFO }].map((a, i) => (
+          <span key={i} style={{ fontSize: "9px", color: a.color, padding: "2px 8px", borderRadius: "6px", background: `${tint(a.color, 8)}`, border: `1px solid ${tint(a.color, 19)}`, fontWeight: "600" }}>{a.label}</span>
         ))}
       </div>
     </div>
     <div
       className={animate ? "slideshow-fadeUp" : ""}
       style={{
-        flex: "1 1 260px", padding: "18px", borderRadius: "14px", background: "rgba(22, 37, 68, 0.7)", border: `1px solid ${BORDER}`,
+        flex: "1 1 260px", padding: "18px", borderRadius: "14px", background: "rgb(var(--surface-raised-rgb) / 0.7)", border: `1px solid ${BORDER}`,
         opacity: animate ? 0 : 1,
         animationDelay: animate ? "500ms" : undefined,
         animationFillMode: "forwards",
       }}
     >
       <div style={{ fontSize: "24px", marginBottom: "10px" }}>📖</div>
-      <div style={{ color: "#fff", fontSize: "14px", fontWeight: "700", marginBottom: "6px" }}>Knowledge Library</div>
-      <div style={{ color: "#94a3b8", fontSize: "11px", lineHeight: "1.6", marginBottom: "10px" }}>Curated frameworks, books, failure patterns, and measurement tools to inform your strategy.</div>
+      <div style={{ color: INK, fontSize: "14px", fontWeight: "700", marginBottom: "6px" }}>Knowledge Library</div>
+      <div style={{ color: INK_3, fontSize: "11px", lineHeight: "1.6", marginBottom: "10px" }}>Curated frameworks, books, failure patterns, and measurement tools to inform your strategy.</div>
       <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
         {["Frameworks", "Books", "Patterns", "Tools"].map((k, i) => (
-          <span key={i} style={{ fontSize: "9px", color: ACCENT, padding: "2px 8px", borderRadius: "6px", background: `${ACCENT}12`, border: `1px solid ${ACCENT}30`, fontWeight: "600" }}>{k}</span>
+          <span key={i} style={{ fontSize: "9px", color: ACCENT, padding: "2px 8px", borderRadius: "6px", background: `${tint(ACCENT, 7)}`, border: `1px solid ${tint(ACCENT, 19)}`, fontWeight: "600" }}>{k}</span>
         ))}
       </div>
     </div>
@@ -421,7 +420,7 @@ const slideConfigs = [
         >
           <span style={{
             fontSize: "56px", fontWeight: 400, fontFamily: FONT_DISPLAY,
-            background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_L})`,
+            background: GRAD_ACCENT_BRIGHT,
             WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
           }}>Stairs</span>
         </div>
@@ -429,7 +428,7 @@ const slideConfigs = [
           className={animate ? "slideshow-fadeUp" : ""}
           style={{ opacity: animate ? 0 : 1, animationDelay: "600ms", animationFillMode: "forwards", textAlign: "center" }}
         >
-          <p style={{ color: "#94a3b8", fontSize: "18px", lineHeight: "1.7", maxWidth: "500px", fontStyle: "italic" }}>
+          <p style={{ color: INK_3, fontSize: "18px", lineHeight: "1.7", maxWidth: "500px", fontStyle: "italic" }}>
             Most strategy tools stop at the recommendation.<br />
             <span style={{ color: ACCENT, fontWeight: "700", fontStyle: "normal" }}>We begin there.</span>
           </p>
@@ -445,8 +444,8 @@ const slideConfigs = [
           className={animate ? "slideshow-fadeUp" : ""}
           style={{ textAlign: "center", opacity: animate ? 0 : 1, animationDelay: "100ms", animationFillMode: "forwards" }}
         >
-          <h2 style={{ color: "#fff", fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Your Journey</h2>
-          <p style={{ color: "#64748b", fontSize: "13px" }}>Four simple steps from idea to execution</p>
+          <h2 style={{ color: INK, fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Your Journey</h2>
+          <p style={{ color: INK_MUTED, fontSize: "13px" }}>Four simple steps from idea to execution</p>
         </div>
         <StepPath animate={animate} />
       </div>
@@ -460,8 +459,8 @@ const slideConfigs = [
           className={animate ? "slideshow-fadeUp" : ""}
           style={{ textAlign: "center", opacity: animate ? 0 : 1, animationDelay: "100ms", animationFillMode: "forwards" }}
         >
-          <h2 style={{ color: "#fff", fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Upload & Source of Truth</h2>
-          <p style={{ color: "#64748b", fontSize: "13px" }}>Upload documents, AI extracts insights, verified sources feed everything</p>
+          <h2 style={{ color: INK, fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Upload & Source of Truth</h2>
+          <p style={{ color: INK_MUTED, fontSize: "13px" }}>Upload documents, AI extracts insights, verified sources feed everything</p>
         </div>
         <FileCards animate={animate} />
       </div>
@@ -475,8 +474,8 @@ const slideConfigs = [
           className={animate ? "slideshow-fadeUp" : ""}
           style={{ textAlign: "center", opacity: animate ? 0 : 1, animationDelay: "100ms", animationFillMode: "forwards" }}
         >
-          <h2 style={{ color: "#fff", fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Strategic Frameworks</h2>
-          <p style={{ color: "#64748b", fontSize: "13px" }}>Five powerful matrix tools with quick-action chips, auto-populated from AI</p>
+          <h2 style={{ color: INK, fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Strategic Frameworks</h2>
+          <p style={{ color: INK_MUTED, fontSize: "13px" }}>Five powerful matrix tools with quick-action chips, auto-populated from AI</p>
         </div>
         <FrameworkBadges animate={animate} />
       </div>
@@ -490,8 +489,8 @@ const slideConfigs = [
           className={animate ? "slideshow-fadeUp" : ""}
           style={{ textAlign: "center", opacity: animate ? 0 : 1, animationDelay: "100ms", animationFillMode: "forwards" }}
         >
-          <h2 style={{ color: "#fff", fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Execution & Implementation</h2>
-          <p style={{ color: "#64748b", fontSize: "13px" }}>From action to implementation — a complete execution pipeline</p>
+          <h2 style={{ color: INK, fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Execution & Implementation</h2>
+          <p style={{ color: INK_MUTED, fontSize: "13px" }}>From action to implementation — a complete execution pipeline</p>
         </div>
         <ExecutionFlow animate={animate} />
       </div>
@@ -505,8 +504,8 @@ const slideConfigs = [
           className={animate ? "slideshow-fadeUp" : ""}
           style={{ textAlign: "center", opacity: animate ? 0 : 1, animationDelay: "100ms", animationFillMode: "forwards" }}
         >
-          <h2 style={{ color: "#fff", fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Manifest Room</h2>
-          <p style={{ color: "#64748b", fontSize: "13px" }}>Organized, exportable view of all your implementation threads</p>
+          <h2 style={{ color: INK, fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Manifest Room</h2>
+          <p style={{ color: INK_MUTED, fontSize: "13px" }}>Organized, exportable view of all your implementation threads</p>
         </div>
         <ManifestPreview animate={animate} />
       </div>
@@ -520,8 +519,8 @@ const slideConfigs = [
           className={animate ? "slideshow-fadeUp" : ""}
           style={{ textAlign: "center", opacity: animate ? 0 : 1, animationDelay: "100ms", animationFillMode: "forwards" }}
         >
-          <h2 style={{ color: "#fff", fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Your data. Verified. Validated. Trusted.</h2>
-          <p style={{ color: "#64748b", fontSize: "13px" }}>Four key protections that keep your strategy built on reliable data</p>
+          <h2 style={{ color: INK, fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Your data. Verified. Validated. Trusted.</h2>
+          <p style={{ color: INK_MUTED, fontSize: "13px" }}>Four key protections that keep your strategy built on reliable data</p>
         </div>
         <DataIntegrityFlow animate={animate} />
       </div>
@@ -535,8 +534,8 @@ const slideConfigs = [
           className={animate ? "slideshow-fadeUp" : ""}
           style={{ textAlign: "center", opacity: animate ? 0 : 1, animationDelay: "100ms", animationFillMode: "forwards" }}
         >
-          <h2 style={{ color: "#fff", fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Alerts & Knowledge</h2>
-          <p style={{ color: "#64748b", fontSize: "13px" }}>Strategy health monitoring and curated learning resources</p>
+          <h2 style={{ color: INK, fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>Alerts & Knowledge</h2>
+          <p style={{ color: INK_MUTED, fontSize: "13px" }}>Strategy health monitoring and curated learning resources</p>
         </div>
         <AlertsKnowledge animate={animate} />
       </div>
@@ -558,7 +557,7 @@ const slideConfigs = [
         >
           <span style={{
             fontSize: "48px", fontWeight: 400, fontFamily: FONT_DISPLAY,
-            background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_L})`,
+            background: GRAD_ACCENT_BRIGHT,
             WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
           }}>Stairs</span>
         </div>
@@ -566,11 +565,11 @@ const slideConfigs = [
           className={animate ? "slideshow-fadeUp" : ""}
           style={{ textAlign: "center", opacity: animate ? 0 : 1, animationDelay: "500ms", animationFillMode: "forwards" }}
         >
-          <p style={{ color: "#94a3b8", fontSize: "16px", lineHeight: "1.7", maxWidth: "450px" }}>
+          <p style={{ color: INK_3, fontSize: "16px", lineHeight: "1.7", maxWidth: "450px" }}>
             Where strategy meets execution.<br />
             <span style={{ color: ACCENT, fontWeight: "700", fontSize: "18px" }}>Human IS the Loop.</span>
           </p>
-          <p style={{ color: "#64748b", fontSize: "13px", marginTop: "8px", letterSpacing: "1px" }}>BY DEVONEERS</p>
+          <p style={{ color: INK_MUTED, fontSize: "13px", marginTop: "8px", letterSpacing: "1px" }}>BY DEVONEERS</p>
         </div>
         <div
           className={animate ? "slideshow-fadeUp" : ""}
@@ -582,13 +581,13 @@ const slideConfigs = [
               data-testid="slideshow-get-started"
               style={{
                 padding: "16px 40px", borderRadius: "14px", border: "none", cursor: "pointer",
-                background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_L})`, color: BG,
+                background: GRAD_ACCENT_BRIGHT, color: BG,
                 fontSize: "16px", fontWeight: "700", letterSpacing: "0.5px",
-                boxShadow: `0 0 30px ${ACCENT}40, 0 4px 20px rgba(0,0,0,0.3)`,
+                boxShadow: `0 0 30px ${tint(ACCENT, 25)}, 0 4px 20px ${cast(0.3)}`,
                 transition: "all 0.3s ease",
               }}
-              onMouseEnter={e => { e.target.style.transform = "translateY(-2px) scale(1.02)"; e.target.style.boxShadow = `0 0 40px ${ACCENT}60, 0 8px 30px rgba(0,0,0,0.4)`; }}
-              onMouseLeave={e => { e.target.style.transform = ""; e.target.style.boxShadow = `0 0 30px ${ACCENT}40, 0 4px 20px rgba(0,0,0,0.3)`; }}
+              onMouseEnter={e => { e.target.style.transform = "translateY(-2px) scale(1.02)"; e.target.style.boxShadow = `0 0 40px ${tint(ACCENT, 38)}, 0 8px 30px ${cast(0.4)}`; }}
+              onMouseLeave={e => { e.target.style.transform = ""; e.target.style.boxShadow = `0 0 30px ${tint(ACCENT, 25)}, 0 4px 20px ${cast(0.3)}`; }}
             >
               Get Started — Create Your First Strategy →
             </button>
@@ -599,13 +598,13 @@ const slideConfigs = [
               data-testid="slideshow-skip-dashboard"
               style={{
                 padding: "16px 40px", borderRadius: "14px", border: "none", cursor: "pointer",
-                background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_L})`, color: BG,
+                background: GRAD_ACCENT_BRIGHT, color: BG,
                 fontSize: "16px", fontWeight: "700", letterSpacing: "0.5px",
-                boxShadow: `0 0 30px ${ACCENT}40, 0 4px 20px rgba(0,0,0,0.3)`,
+                boxShadow: `0 0 30px ${tint(ACCENT, 25)}, 0 4px 20px ${cast(0.3)}`,
                 transition: "all 0.3s ease",
               }}
-              onMouseEnter={e => { e.target.style.transform = "translateY(-2px) scale(1.02)"; e.target.style.boxShadow = `0 0 40px ${ACCENT}60, 0 8px 30px rgba(0,0,0,0.4)`; }}
-              onMouseLeave={e => { e.target.style.transform = ""; e.target.style.boxShadow = `0 0 30px ${ACCENT}40, 0 4px 20px rgba(0,0,0,0.3)`; }}
+              onMouseEnter={e => { e.target.style.transform = "translateY(-2px) scale(1.02)"; e.target.style.boxShadow = `0 0 40px ${tint(ACCENT, 38)}, 0 8px 30px ${cast(0.4)}`; }}
+              onMouseLeave={e => { e.target.style.transform = ""; e.target.style.boxShadow = `0 0 30px ${tint(ACCENT, 25)}, 0 4px 20px ${cast(0.3)}`; }}
             >
               Skip to Dashboard →
             </button>
@@ -693,13 +692,13 @@ export const WelcomeSlideshow = ({ open, onClose, onGetStarted, hasStrategies })
       }}
     >
       {/* Progress bar */}
-      <div style={{ height: "3px", background: "rgba(255,255,255,0.05)", flexShrink: 0 }}>
+      <div style={{ height: "3px", background: "rgb(var(--surface-hover-rgb) / 0.05)", flexShrink: 0 }}>
         <div
           data-testid="slideshow-progress"
           style={{
-            height: "100%", background: `linear-gradient(90deg, ${ACCENT}, ${ACCENT_L})`,
+            height: "100%", background: GRAD_ACCENT_BRIGHT_90,
             width: `${progress}%`, transition: "width 0.4s ease",
-            boxShadow: `0 0 8px ${ACCENT}60`,
+            boxShadow: `0 0 8px ${tint(ACCENT, 38)}`,
           }}
         />
       </div>
@@ -710,12 +709,12 @@ export const WelcomeSlideshow = ({ open, onClose, onGetStarted, hasStrategies })
         data-testid="slideshow-close"
         style={{
           position: "absolute", top: "16px", right: "16px", zIndex: 10,
-          background: "none", border: "none", color: "#64748b", fontSize: "20px",
+          background: "none", border: "none", color: INK_MUTED, fontSize: "20px",
           cursor: "pointer", padding: "8px", borderRadius: "8px",
           transition: "all 0.2s",
         }}
-        onMouseEnter={e => { e.target.style.color = "#fff"; e.target.style.background = "rgba(255,255,255,0.05)"; }}
-        onMouseLeave={e => { e.target.style.color = "#64748b"; e.target.style.background = "none"; }}
+        onMouseEnter={e => { e.target.style.color = INK; e.target.style.background = "rgb(var(--surface-hover-rgb) / 0.05)"; }}
+        onMouseLeave={e => { e.target.style.color = INK_MUTED; e.target.style.background = "none"; }}
         aria-label="Close slideshow"
       >✕</button>
 
@@ -726,12 +725,12 @@ export const WelcomeSlideshow = ({ open, onClose, onGetStarted, hasStrategies })
           data-testid="slideshow-skip"
           style={{
             position: "absolute", top: "16px", left: "50%", transform: "translateX(-50%)", zIndex: 10,
-            background: "none", border: `1px solid ${ACCENT}40`, color: ACCENT,
+            background: "none", border: `1px solid ${tint(ACCENT, 25)}`, color: ACCENT,
             fontSize: "12px", fontWeight: "600", cursor: "pointer",
             padding: "6px 16px", borderRadius: "8px",
             transition: "all 0.2s",
           }}
-          onMouseEnter={e => { e.target.style.background = `${ACCENT}15`; }}
+          onMouseEnter={e => { e.target.style.background = `${tint(ACCENT, 8)}`; }}
           onMouseLeave={e => { e.target.style.background = "none"; }}
         >Skip to Dashboard →</button>
       )}
@@ -750,7 +749,7 @@ export const WelcomeSlideshow = ({ open, onClose, onGetStarted, hasStrategies })
           data-testid="slideshow-prev"
           style={{
             padding: "10px 20px", borderRadius: "10px", border: `1px solid ${BORDER}`,
-            background: "rgba(22, 37, 68, 0.6)", color: isFirst ? "#334155" : "#94a3b8",
+            background: "rgb(var(--surface-raised-rgb) / 0.6)", color: isFirst ? INK_GHOST : INK_3,
             fontSize: "13px", fontWeight: "600", cursor: isFirst ? "default" : "pointer",
             transition: "all 0.2s", opacity: isFirst ? 0.4 : 1,
             minWidth: "90px",
@@ -767,7 +766,7 @@ export const WelcomeSlideshow = ({ open, onClose, onGetStarted, hasStrategies })
               aria-label={`Go to slide ${i + 1}`}
               style={{
                 width: i === current ? "24px" : "8px", height: "8px", borderRadius: "4px",
-                background: i === current ? ACCENT : "rgba(255,255,255,0.15)",
+                background: i === current ? ACCENT : "rgb(var(--surface-hover-rgb) / 0.15)",
                 border: "none", cursor: "pointer", padding: 0,
                 transition: "all 0.3s ease",
               }}
@@ -782,10 +781,10 @@ export const WelcomeSlideshow = ({ open, onClose, onGetStarted, hasStrategies })
             data-testid="slideshow-next"
             style={{
               padding: "10px 20px", borderRadius: "10px", border: "none",
-              background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT_L})`, color: BG,
+              background: GRAD_ACCENT_BRIGHT, color: BG,
               fontSize: "13px", fontWeight: "700", cursor: "pointer",
               transition: "all 0.2s", minWidth: "90px",
-              boxShadow: `0 0 20px ${ACCENT}30`,
+              boxShadow: `0 0 20px ${tint(ACCENT, 19)}`,
             }}
           >{hasStrategies ? "Skip to Dashboard →" : "Get Started →"}</button>
         ) : (
@@ -793,8 +792,8 @@ export const WelcomeSlideshow = ({ open, onClose, onGetStarted, hasStrategies })
             onClick={next}
             data-testid="slideshow-next"
             style={{
-              padding: "10px 20px", borderRadius: "10px", border: `1px solid ${ACCENT}40`,
-              background: `${ACCENT}15`, color: ACCENT,
+              padding: "10px 20px", borderRadius: "10px", border: `1px solid ${tint(ACCENT, 25)}`,
+              background: `${tint(ACCENT, 8)}`, color: ACCENT,
               fontSize: "13px", fontWeight: "600", cursor: "pointer",
               transition: "all 0.2s", minWidth: "90px",
             }}

@@ -4,12 +4,100 @@
 // can be repointed at a staging backend as soon as one exists.
 export const API = import.meta.env.VITE_API_URL || "https://stairs-production.up.railway.app";
 
-export const GOLD = "#B8904A";
-export const GOLD_L = "#e8b94a";
-export const TEAL = "#2A5C5C";
-export const CHAMPAGNE = "#F7E7CE";
-export const DEEP = "#0a1628";
-export const BORDER = "rgba(30, 58, 95, 0.5)";
+// Every colour here now reads a token from tokens.css rather than holding a
+// literal. The names are unchanged so the ~200 call sites keep working, but
+// they resolve per theme: `GOLD` is whatever the active theme calls the
+// accent, not #B8904A. A theme change is a variable swap; nothing below moves.
+export const GOLD = "var(--accent)";
+export const GOLD_L = "var(--accent-hi)";
+// Gold as TEXT is a separate role. On a light ground the accent is a 2.78:1
+// fill and must never carry a label, so the light theme points this at a
+// darker cut while GOLD stays the fill.
+export const GOLD_INK = "var(--accent-ink)";
+export const TEAL = "var(--accent-teal)";
+export const CHAMPAGNE = "var(--accent-champagne)";
+// The welcome slideshow's own, brighter gold. Kept distinct on purpose —
+// see the note in tokens.css.
+export const ACCENT_BRIGHT = "var(--accent-bright)";
+export const ACCENT_BRIGHT_HI = "var(--accent-bright-hi)";
+export const DEEPEST = "var(--surface-app-deep)";
+export const DEEP = "var(--surface-app)";
+export const DEEP_MID = "var(--surface-app-mid)";
+export const BORDER = "var(--border)";
+export const BORDER_STRONG = "var(--border-strong)";
+export const INK_ON_ACCENT = "var(--ink-on-accent)";
+
+// Surfaces that sit above the page. Each is one role rather than one rgba()
+// repeated in whichever component happens to draw it.
+export const MODAL_SURFACE = "var(--surface-modal)";
+export const SIDEBAR_SURFACE = "var(--surface-sidebar)";
+export const DROPDOWN_SURFACE = "var(--surface-dropdown)";
+export const INPUT_SURFACE = "var(--surface-input)";
+export const SCRIM = "var(--scrim)";
+export const SCRIM_STRONG = "var(--scrim-strong)";
+// Composite shadows build their own colour: `0 8px 30px ${cast(0.4)}`.
+export const cast = (alpha) => `rgb(var(--shadow-rgb) / ${alpha})`;
+
+// Ink, for the inline styles and SVG fills that can't take a class.
+export const INK = "var(--ink)";
+export const INK_2 = "var(--ink-2)";
+export const INK_3 = "var(--ink-3)";
+export const INK_MUTED = "var(--ink-muted)";
+export const INK_FAINT = "var(--ink-faint)";
+export const INK_GHOST = "var(--ink-ghost)";
+export const RAISED = "rgb(var(--surface-raised-rgb))";
+
+// Health and status. One colour per state; the fill/line/ink cuts live as
+// Tailwind utilities (bg-ok-fill, border-ok-line, text-ok-ink).
+export const OK = "var(--ok)";
+export const WARN = "var(--warn)";
+export const BAD = "var(--bad)";
+export const INFO = "var(--info)";
+export const OK_INK = "var(--ok-ink)";
+export const WARN_INK = "var(--warn-ink)";
+export const BAD_INK = "var(--bad-ink)";
+export const INFO_INK = "var(--info-ink)";
+export const healthColors = { on_track: OK, at_risk: WARN, off_track: BAD, achieved: INFO };
+
+// The categorical palette. Charts, quadrants and the local type maps draw
+// from this rather than from hex, so the whole chart set retunes in one
+// place when the ground changes from navy to paper.
+export const HUE = {
+  blue: "var(--hue-blue)", green: "var(--hue-green)", amber: "var(--hue-amber)",
+  red: "var(--hue-red)", violet: "var(--hue-violet)", slate: "var(--hue-slate)",
+  pink: "var(--hue-pink)", orange: "var(--hue-orange)", cyan: "var(--hue-cyan)",
+  lime: "var(--hue-lime)", indigo: "var(--hue-indigo)", teal: "var(--hue-teal)",
+};
+
+// Tints of the accent. The codebase used to build these by string-concatenating
+// a hex alpha suffix — `${tint(GOLD, 20)}` — which stops working the moment GOLD is a
+// variable. This does the same job in a form that survives theming.
+export const goldTint = (alpha) => `rgb(var(--accent-rgb) / ${alpha})`;
+
+// The codebase tinted colours by concatenating a hex alpha suffix onto a hex
+// string — `${tint(GOLD, 20)}`. That only ever worked because the base was a literal;
+// it produces "var(--accent)33" the moment the base is a token. color-mix
+// accepts a hex, a var() or any other colour, so one form covers the
+// tokenised accents and the colours that still arrive from the database.
+// A shade from the Tailwind palette, read as a token. For the handful of
+// inline styles that need an exact ramp value the roles do not cover.
+export const pal = (shade) => `var(--pal-${shade})`;
+export const tint = (color, pct) => `color-mix(in srgb, ${color} ${pct}%, transparent)`;
+// Gradients. 45 of the 49 sites were the same gold pair written out longhand;
+// as one token the pair can't drift, and stage 3 changes it once.
+export const GRAD_ACCENT = "var(--grad-accent)";
+export const GRAD_ACCENT_90 = "var(--grad-accent-90)";
+export const GRAD_VIOLET = "var(--grad-violet)";
+export const GRAD_VIOLET_90 = "var(--grad-violet-90)";
+export const GRAD_INDIGO = "var(--grad-indigo)";
+export const GRAD_AMBER = "var(--grad-amber)";
+export const GRAD_BLUE = "var(--grad-blue)";
+export const GRAD_ACCENT_BRIGHT = "var(--grad-accent-bright)";
+export const GRAD_ACCENT_BRIGHT_90 = "var(--grad-accent-bright-90)";
+
+export const SHADOW_SM = "var(--shadow-sm)";
+export const SHADOW_MD = "var(--shadow-md)";
+export const SHADOW_LG = "var(--shadow-lg)";
 
 // The two type stacks, in one place. Each names its metric-matched fallback
 // (declared in fonts.css) so the frame before the webfont lands occupies the
@@ -27,10 +115,13 @@ export const FONT_UI_AR = "'Noto Kufi Arabic', 'DM Sans', 'DM Sans Fallback', sy
 export const FONT_DISPLAY = "'Instrument Serif', 'Instrument Serif Fallback', 'Noto Kufi Arabic', Georgia, serif";
 export const fontStack = (isAr) => (isAr ? FONT_UI_AR : FONT_UI);
 
-export const typeColors = { vision: GOLD, objective: "#60a5fa", key_result: "#34d399", initiative: "#a78bfa", task: "#94a3b8", perspective: "#f472b6", strategic_objective: "#38bdf8", measure: "#fb923c", kpi: "#22d3ee", goal: "#a3e635", strategy: GOLD };
+export const typeColors = { vision: "var(--type-vision)", objective: "var(--type-objective)", key_result: "var(--type-key-result)", initiative: "var(--type-initiative)", task: "var(--type-task)", perspective: "var(--type-perspective)", strategic_objective: "var(--type-objective)", measure: "var(--type-measure)", kpi: "var(--type-kpi)", goal: "var(--type-goal)", strategy: "var(--type-vision)" };
 export const typeIcons = { vision: "◆", objective: "▣", key_result: "◎", initiative: "▶", task: "•", perspective: "◈", strategic_objective: "▢", measure: "◉", kpi: "◎", goal: "▣", strategy: "◆" };
 export const typeLabels = { vision: "Vision", objective: "Objective", key_result: "Key Result", initiative: "Initiative", task: "Task" };
 export const typeLabelsAr = { vision: "الرؤية", objective: "الهدف", key_result: "نتيجة رئيسية", initiative: "مبادرة", task: "مهمة" };
-export const glass = (op = 0.6) => ({ background: `rgba(22, 37, 68, ${op})`, border: `1px solid ${BORDER}` });
-export const inputCls = "w-full px-4 py-3.5 rounded-xl bg-[#0a1628]/85 border border-[#1e3a5f] text-white text-[15px] placeholder-gray-600 focus:border-amber-500/45 focus:ring-2 focus:ring-amber-500/10 focus:outline-none transition";
-export const labelCls = "text-gray-400 text-[11px] uppercase tracking-[0.12em] mb-2 block font-medium";
+// 67 call sites. The opacity argument is preserved, so every existing
+// glass(0.4) keeps its relative weight while the underlying surface changes
+// with the theme.
+export const glass = (op = 0.6) => ({ background: `rgb(var(--surface-raised-rgb) / ${op})`, border: `1px solid ${BORDER}` });
+export const inputCls = "w-full px-4 py-3.5 rounded-xl bg-input border border-hairline-strong text-ink text-[15px] placeholder-ink-faint focus:border-accent/45 focus:ring-2 focus:ring-accent/10 focus:outline-none transition";
+export const labelCls = "text-ink-3 text-[11px] uppercase tracking-[0.12em] mb-2 block font-medium";

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { GOLD, GOLD_L, DEEP } from "../constants";
+import { DEEP, GOLD, GRAD_ACCENT, INK_3, cast, tint } from "../constants";
 import { GUIDANCE, GUIDANCE_SEEN_KEY } from "../guidanceConfig";
 
 const AUTO_DISMISS_MS = 8000;
@@ -46,13 +46,13 @@ const GuidanceToast = ({ entry, onAction, onClose }) => {
         maxWidth: 400,
         width: "calc(100vw - 3rem)",
         zIndex: 70,
-        background: "rgba(10, 22, 40, 0.95)",
+        background: tint(DEEP, 95),
         borderLeft: `4px solid ${GOLD}`,
-        border: `1px solid rgba(184, 144, 74, 0.35)`,
+        border: `1px solid ${tint(GOLD, 35)}`,
         borderLeftWidth: 4,
         borderRadius: 14,
         backdropFilter: "blur(20px)",
-        boxShadow: "0 16px 48px rgba(0,0,0,0.55)",
+        boxShadow: `0 16px 48px ${cast(0.55)}`,
         padding: "16px 18px",
         transform: shown ? "translateX(0)" : "translateX(120%)",
         opacity: shown ? 1 : 0,
@@ -63,14 +63,14 @@ const GuidanceToast = ({ entry, onAction, onClose }) => {
         <span style={{ fontSize: 20, lineHeight: 1 }}>{def.icon}</span>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <div className="text-sm font-bold text-white">{def.title(params)}</div>
+            <div className="text-sm font-bold text-ink">{def.title(params)}</div>
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-white transition text-sm leading-none -mt-0.5"
+              className="text-ink-muted hover:text-ink transition text-sm leading-none -mt-0.5"
               aria-label="Dismiss"
             >✕</button>
           </div>
-          <div className="text-xs text-gray-300 mt-1.5 leading-relaxed whitespace-pre-line">
+          <div className="text-xs text-ink-2 mt-1.5 leading-relaxed whitespace-pre-line">
             {def.body(params)}
           </div>
           <div className="flex flex-wrap items-center gap-2 mt-3">
@@ -80,12 +80,12 @@ const GuidanceToast = ({ entry, onAction, onClose }) => {
                 onClick={() => onAction(a)}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium transition hover:scale-[1.03]"
                 style={a.primary ? {
-                  background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`,
+                  background: GRAD_ACCENT,
                   color: DEEP,
                 } : {
-                  background: "rgba(255,255,255,0.04)",
-                  color: "#94a3b8",
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "rgb(var(--surface-hover-rgb) / 0.04)",
+                  color: INK_3,
+                  border: `1px solid "rgb(var(--surface-hover-rgb) / 0.08)"`,
                 }}
               >{a.label}</button>
             ))}

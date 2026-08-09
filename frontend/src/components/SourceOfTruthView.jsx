@@ -1,16 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { SourcesAPI, DataQaAPI } from "../api";
-import { GOLD, GOLD_L, DEEP, BORDER, glass, inputCls } from "../constants";
+import { BAD, BORDER, DEEP, GOLD, GRAD_ACCENT, GRAD_AMBER, GRAD_INDIGO, HUE, INFO, INK, INK_3, OK, WARN, glass, inputCls, tint } from "../constants";
 import LoadFailed from "./LoadFailed";
 import { fireGuidance } from "../guidanceConfig";
 
 const sourceTypeConfig = {
-  questionnaire: { icon: "📋", label: "Questionnaire", labelAr: "استبيان", color: "#60a5fa" },
-  ai_chat: { icon: "🤖", label: "AI Chat", labelAr: "محادثة AI", color: "#a78bfa" },
-  feedback: { icon: "💬", label: "Feedback", labelAr: "ملاحظات", color: "#34d399" },
-  manual_entry: { icon: "📝", label: "Manual Entry", labelAr: "إدخال يدوي", color: "#fbbf24" },
-  document: { icon: "📄", label: "Documents", labelAr: "مستندات", color: "#f472b6" },
-  ai_extraction: { icon: "🔬", label: "AI Extraction", labelAr: "استخراج AI", color: "#818cf8" },
+  questionnaire: { icon: "📋", label: "Questionnaire", labelAr: "استبيان", color: INFO },
+  ai_chat: { icon: "🤖", label: "AI Chat", labelAr: "محادثة AI", color: HUE.violet },
+  feedback: { icon: "💬", label: "Feedback", labelAr: "ملاحظات", color: OK },
+  manual_entry: { icon: "📝", label: "Manual Entry", labelAr: "إدخال يدوي", color: WARN },
+  document: { icon: "📄", label: "Documents", labelAr: "مستندات", color: HUE.pink },
+  ai_extraction: { icon: "🔬", label: "AI Extraction", labelAr: "استخراج AI", color: HUE.indigo },
 };
 
 const sourceTypes = ["questionnaire", "ai_chat", "feedback", "manual_entry", "document", "ai_extraction"];
@@ -134,7 +134,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
       high: "text-emerald-400 bg-emerald-900/30 border-emerald-700/40",
       medium: "text-amber-400 bg-amber-900/30 border-amber-700/40",
       low: "text-red-400 bg-red-900/30 border-red-700/40",
-      quarantined: "text-gray-400 bg-gray-900/30 border-gray-700/40",
+      quarantined: "text-ink-3 bg-gray-900/30 border-gray-700/40",
     };
     const levelLabel = { high: isAr ? "عالي" : "High", medium: isAr ? "متوسط" : "Med", low: isAr ? "منخفض" : "Low", quarantined: isAr ? "محجور" : "Q" };
     const cls = colors[conf.confidence_level] || colors.medium;
@@ -147,7 +147,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
 
   const getVerificationBadge = (source) => {
     const meta = source.metadata || {};
-    if (meta.quarantined) return <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-900/30 text-gray-400 border border-gray-700/40">🚫 {isAr ? "محجور" : "Quarantined"}</span>;
+    if (meta.quarantined) return <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-900/30 text-ink-3 border border-gray-700/40">🚫 {isAr ? "محجور" : "Quarantined"}</span>;
     if (meta.verification_status === "disputed") return <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-900/30 text-red-400 border border-red-700/40">⚠️ {isAr ? "متنازع" : "Disputed"}</span>;
     if (meta.user_verified) return <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-900/30 text-emerald-400 border border-emerald-700/40">✓ {isAr ? "موثق" : "Verified"}</span>;
     return null;
@@ -423,12 +423,12 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
           <div key={idx}>
             <div className="flex items-center gap-2 py-2">
               <div className="flex-1 h-px bg-gray-700/50" />
-              <span className="text-[10px] text-gray-500 font-medium shrink-0">
+              <span className="text-[10px] text-ink-muted font-medium shrink-0">
                 {isAr ? `صفحة ${idx + 1}` : `Page ${idx + 1}`}
               </span>
               <div className="flex-1 h-px bg-gray-700/50" />
             </div>
-            <div className="whitespace-pre-wrap font-mono text-xs text-gray-300 leading-relaxed px-3 py-2 rounded-lg bg-gray-900/30">
+            <div className="whitespace-pre-wrap font-mono text-xs text-ink-2 leading-relaxed px-3 py-2 rounded-lg bg-gray-900/30">
               {pageText.trim() || (isAr ? "(صفحة فارغة)" : "(Empty page)")}
             </div>
           </div>
@@ -455,7 +455,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
         style={glass(isExpanded ? 0.7 : 0.4)}
       >
         <div className="flex items-start gap-3 p-3.5">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 text-base" style={{ background: `${cfg.color}15`, border: `1px solid ${cfg.color}30` }}>
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 text-base" style={{ background: `${tint(cfg.color, 8)}`, border: `1px solid ${tint(cfg.color, 19)}` }}>
             {cfg.icon}
           </div>
 
@@ -464,14 +464,14 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
               <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: cfg.color }}>
                 {isAr ? cfg.labelAr : cfg.label}
               </span>
-              <span className="text-gray-700">·</span>
-              <span className="text-xs text-gray-300 truncate font-medium">{meta.filename || "Document"}</span>
+              <span className="text-ink-ghost">·</span>
+              <span className="text-xs text-ink-2 truncate font-medium">{meta.filename || "Document"}</span>
               {getExtractionQualityBadge(meta)}
               {getConfidenceBadge(source.id)}
               {getVerificationBadge(source)}
             </div>
 
-            <div className="flex items-center gap-3 text-[10px] text-gray-500 mb-1.5">
+            <div className="flex items-center gap-3 text-[10px] text-ink-muted mb-1.5">
               {meta.file_size && <span>{formatFileSize(meta.file_size)}</span>}
               {meta.page_count && <span>{meta.page_count} {isAr ? "صفحة" : (meta.page_count === 1 ? "page" : "pages")}</span>}
               {meta.sheet_count && <span>{meta.sheet_count} {isAr ? "ورقة" : (meta.sheet_count === 1 ? "sheet" : "sheets")}</span>}
@@ -480,7 +480,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
             </div>
 
             {contentPreview && !showFullText && !showPageView && (
-              <div className="text-sm text-gray-400 mb-1">
+              <div className="text-sm text-ink-3 mb-1">
                 <span>{contentPreview}{displayText.length > 200 ? "..." : ""}</span>
               </div>
             )}
@@ -488,7 +488,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
             {showFullText && displayText && displayText !== "extraction_failed" && (
               <div className="mt-2 mb-1 rounded-lg border border-gray-700/50 bg-gray-900/40 overflow-hidden">
                 <div className="max-h-96 overflow-y-auto p-3">
-                  <pre className="whitespace-pre-wrap font-mono text-xs text-gray-300 leading-relaxed">{displayText}</pre>
+                  <pre className="whitespace-pre-wrap font-mono text-xs text-ink-2 leading-relaxed">{displayText}</pre>
                 </div>
               </div>
             )}
@@ -512,7 +512,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                 <button
                   onClick={(e) => { e.stopPropagation(); setPageViewId(null); setFullTextId(showFullText ? null : source.id); }}
                   className="text-[10px] px-2 py-0.5 rounded-full border transition hover:opacity-80"
-                  style={{ borderColor: `${cfg.color}50`, color: cfg.color }}
+                  style={{ borderColor: `${tint(cfg.color, 31)}`, color: cfg.color }}
                 >
                   {showFullText ? (isAr ? "طي" : "Collapse") : (isAr ? "عرض النص الكامل" : "View Full Text")}
                 </button>
@@ -521,7 +521,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                 <button
                   onClick={(e) => { e.stopPropagation(); setFullTextId(null); setPageViewId(showPageView ? null : source.id); }}
                   className="text-[10px] px-2 py-0.5 rounded-full border transition hover:opacity-80"
-                  style={{ borderColor: `${cfg.color}50`, color: cfg.color }}
+                  style={{ borderColor: `${tint(cfg.color, 31)}`, color: cfg.color }}
                 >
                   {showPageView ? (isAr ? "طي" : "Collapse") : (isAr ? "عرض حسب الصفحة" : "Page by Page")}
                 </button>
@@ -531,7 +531,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                   onClick={(e) => handleAnalyze(e, source)}
                   disabled={analyzingId === source.id}
                   className="text-[10px] px-2 py-0.5 rounded-full border transition hover:opacity-80 disabled:opacity-50"
-                  style={{ borderColor: "#818cf850", color: "#818cf8" }}
+                  style={{ borderColor: tint(HUE.indigo, 31), color: HUE.indigo }}
                 >
                   {analyzingId === source.id
                     ? (isAr ? "جاري التحليل..." : "Analyzing...")
@@ -542,7 +542,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
               )}
               <button
                 onClick={(e) => handleDownload(e, source)}
-                className="text-[10px] px-2 py-0.5 rounded-full border border-gray-600 text-gray-400 transition hover:text-white hover:border-gray-400"
+                className="text-[10px] px-2 py-0.5 rounded-full border border-gray-600 text-ink-3 transition hover:text-ink hover:border-gray-400"
               >
                 {isAr ? "تحميل" : "Download"}
               </button>
@@ -610,14 +610,14 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
           <div className="border-t border-gray-700/50 p-3.5">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-white">{isAr ? "مراجعة استخراج AI" : "AI Extraction Review"}</span>
-                <span className="text-[10px] text-gray-500">
+                <span className="text-sm font-medium text-ink">{isAr ? "مراجعة استخراج AI" : "AI Extraction Review"}</span>
+                <span className="text-[10px] text-ink-muted">
                   {totalExtractionItems(source.id)} {isAr ? "عنصر مستخرج" : "items extracted"}
                 </span>
               </div>
               <button
                 onClick={(e) => { e.stopPropagation(); setAnalysisReviewId(null); }}
-                className="text-gray-500 hover:text-gray-300 text-xs px-2 py-0.5"
+                className="text-ink-muted hover:text-ink-2 text-xs px-2 py-0.5"
               >
                 {isAr ? "إغلاق" : "Close"}
               </button>
@@ -638,9 +638,9 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                       className="w-full flex items-center justify-between p-2.5 text-left hover:bg-gray-800/30 transition"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400">{isExpCat ? "▾" : "▸"}</span>
-                        <span className="text-xs font-medium text-white">{category}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-800 text-gray-400">{items.length}</span>
+                        <span className="text-xs text-ink-3">{isExpCat ? "▾" : "▸"}</span>
+                        <span className="text-xs font-medium text-ink">{category}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-800 text-ink-3">{items.length}</span>
                       </div>
                     </button>
                     {isExpCat && (
@@ -655,7 +655,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                             <div key={idx} className={`p-2.5 ${isRejected ? "opacity-40" : ""} transition-opacity`}>
                               <div className="flex items-start gap-2">
                                 <div className="flex-1">
-                                  <div className="text-xs text-gray-300 leading-relaxed">{item.text}</div>
+                                  <div className="text-xs text-ink-2 leading-relaxed">{item.text}</div>
                                   <div className="flex items-center gap-2 mt-1.5">
                                     <span className={`text-[9px] px-1.5 py-0.5 rounded-full border ${confColor}`}>
                                       {item.confidence}
@@ -688,7 +688,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                 onClick={(e) => { e.stopPropagation(); handleApproveAll(source.id); }}
                 disabled={approving || totalExtractionItems(source.id) === 0}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium transition hover:scale-[1.02] disabled:opacity-40"
-                style={{ background: "linear-gradient(135deg, #818cf8, #6366f1)", color: "#fff" }}
+                style={{ background: GRAD_INDIGO, color: INK }}
               >
                 {approving ? (isAr ? "جاري الحفظ..." : "Saving...") : (isAr ? "قبول الكل" : "Approve All")}
               </button>
@@ -701,7 +701,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); setAnalysisReviewId(null); }}
-                className="px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white transition"
+                className="px-3 py-1.5 rounded-lg text-xs text-ink-3 hover:text-ink transition"
               >
                 {isAr ? "إلغاء" : "Cancel"}
               </button>
@@ -717,14 +717,14 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-white">{isAr ? "مصدر الحقيقة" : "Source of Truth"}</h2>
-          <p className="text-xs text-gray-500 mt-0.5">{isAr ? "تتبع مصادر بيانات الاستراتيجية" : "Track every input that shaped this strategy"}</p>
+          <h2 className="text-lg font-semibold text-ink">{isAr ? "مصدر الحقيقة" : "Source of Truth"}</h2>
+          <p className="text-xs text-ink-muted mt-0.5">{isAr ? "تتبع مصادر بيانات الاستراتيجية" : "Track every input that shaped this strategy"}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => fileInputRef.current?.click()}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition hover:scale-[1.02] border"
-            style={{ borderColor: `${sourceTypeConfig.document.color}50`, color: sourceTypeConfig.document.color }}
+            style={{ borderColor: `${tint(sourceTypeConfig.document.color, 31)}`, color: sourceTypeConfig.document.color }}
           >
             📄 {isAr ? "رفع مستند" : "Upload Document"}
           </button>
@@ -738,7 +738,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
           <button
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition hover:scale-[1.02]"
-            style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, color: DEEP }}
+            style={{ background: GRAD_ACCENT, color: DEEP }}
           >
             + {isAr ? "إدخال يدوي" : "Manual Entry"}
           </button>
@@ -754,29 +754,29 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
         className={`relative rounded-xl p-4 text-center cursor-pointer transition-all border-2 border-dashed ${dragOver ? "scale-[1.01]" : "hover:scale-[1.005]"}`}
         style={{
           borderColor: dragOver ? sourceTypeConfig.document.color : `${BORDER}`,
-          background: dragOver ? "rgba(244, 114, 182, 0.05)" : "rgba(22, 37, 68, 0.3)",
+          background: dragOver ? tint(HUE.pink, 5) : "rgb(var(--surface-raised-rgb) / 0.3)",
         }}
       >
         {uploading ? (
           <div className="space-y-2">
-            <div className="text-sm text-gray-400">{isAr ? "جاري الرفع..." : "Uploading..."}</div>
+            <div className="text-sm text-ink-3">{isAr ? "جاري الرفع..." : "Uploading..."}</div>
             <div className="w-full h-2 rounded-full bg-gray-800 overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-300"
                 style={{ width: `${uploadProgress}%`, background: `linear-gradient(90deg, ${sourceTypeConfig.document.color}, ${GOLD})` }}
               />
             </div>
-            <div className="text-[10px] text-gray-500">{uploadProgress}%</div>
+            <div className="text-[10px] text-ink-muted">{uploadProgress}%</div>
           </div>
         ) : (
           <>
             <div className="text-xl mb-1">{dragOver ? "📥" : "📎"}</div>
-            <div className="text-xs text-gray-400">
+            <div className="text-xs text-ink-3">
               {dragOver
                 ? (isAr ? "أفلت الملف هنا" : "Drop file here")
                 : (isAr ? "اسحب وأفلت ملفًا هنا أو انقر للاختيار" : "Drag & drop a file here, or click to browse")}
             </div>
-            <div className="text-[10px] text-gray-600 mt-1">
+            <div className="text-[10px] text-ink-faint mt-1">
               PDF, DOCX, XLSX, CSV, TXT, PNG, JPG — {isAr ? "الحد الأقصى 10MB" : "Max 10MB"}
             </div>
           </>
@@ -813,7 +813,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                 <span className="text-base">{cfg.icon}</span>
                 <span className="text-lg font-bold" style={{ color: cfg.color }}>{count}</span>
               </div>
-              <div className="text-[10px] text-gray-500 uppercase tracking-wider">{isAr ? cfg.labelAr : cfg.label}</div>
+              <div className="text-[10px] text-ink-muted uppercase tracking-wider">{isAr ? cfg.labelAr : cfg.label}</div>
             </button>
           );
         })}
@@ -821,7 +821,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
 
       {/* Search */}
       <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">🔍</span>
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint text-sm">🔍</span>
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
@@ -829,7 +829,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
           className={`${inputCls} pl-9`}
         />
         {search && (
-          <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-300 text-xs">
+          <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-faint hover:text-ink-2 text-xs">
             ✕
           </button>
         )}
@@ -838,7 +838,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
       {/* Active filters indicator */}
       {(filter || searchDebounced) && (
         <div className="flex items-center gap-2 text-xs">
-          <span className="text-gray-500">{isAr ? "تصفية:" : "Filtering:"}</span>
+          <span className="text-ink-muted">{isAr ? "تصفية:" : "Filtering:"}</span>
           {filter && (
             <span className="flex items-center gap-1 px-2 py-1 rounded-full border" style={{ borderColor: sourceTypeConfig[filter].color, color: sourceTypeConfig[filter].color }}>
               {sourceTypeConfig[filter].icon} {isAr ? sourceTypeConfig[filter].labelAr : sourceTypeConfig[filter].label}
@@ -846,12 +846,12 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
             </span>
           )}
           {searchDebounced && (
-            <span className="flex items-center gap-1 px-2 py-1 rounded-full border border-gray-600 text-gray-400">
+            <span className="flex items-center gap-1 px-2 py-1 rounded-full border border-gray-600 text-ink-3">
               "{searchDebounced}"
               <button onClick={() => setSearch("")} className="ml-1 hover:opacity-70">✕</button>
             </span>
           )}
-          <span className="text-gray-600">({sources.length} {isAr ? "نتيجة" : "results"})</span>
+          <span className="text-ink-faint">({sources.length} {isAr ? "نتيجة" : "results"})</span>
         </div>
       )}
 
@@ -865,13 +865,13 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
       ) : sources.length === 0 ? (
         <div className="text-center py-12 rounded-xl" style={glass(0.3)}>
           <div className="text-3xl mb-3">{searchDebounced || filter ? "🔍" : "📭"}</div>
-          <div className="text-gray-400 text-sm">
+          <div className="text-ink-3 text-sm">
             {searchDebounced || filter
               ? (isAr ? "لم يتم العثور على مصادر مطابقة" : "No matching sources found")
               : (isAr ? "لا توجد مصادر بعد. ستتم إضافتها تلقائيًا أثناء عملك." : "No sources yet. They'll be auto-captured as you work.")}
           </div>
           {!searchDebounced && !filter && (
-            <div className="text-gray-600 text-xs mt-2">
+            <div className="text-ink-faint text-xs mt-2">
               {isAr ? "أجوبة الاستبيان، محادثات AI، وملاحظات التنفيذ ستظهر هنا" : "Questionnaire answers, AI chats, and feedback will appear here"}
             </div>
           )}
@@ -896,7 +896,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
               >
                 <div className="flex items-start gap-3 p-3.5">
                   {/* Type icon */}
-                  <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 text-base" style={{ background: `${cfg.color}15`, border: `1px solid ${cfg.color}30` }}>
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 text-base" style={{ background: `${tint(cfg.color, 8)}`, border: `1px solid ${tint(cfg.color, 19)}` }}>
                     {cfg.icon}
                   </div>
 
@@ -908,20 +908,20 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                       </span>
                       {contextLabel && (
                         <>
-                          <span className="text-gray-700">·</span>
-                          <span className="text-[10px] text-gray-500 truncate">{contextLabel}</span>
+                          <span className="text-ink-ghost">·</span>
+                          <span className="text-[10px] text-ink-muted truncate">{contextLabel}</span>
                         </>
                       )}
                     </div>
-                    <div className={`text-sm text-gray-300 ${isExpanded ? "whitespace-pre-wrap" : "line-clamp-2"}`}>
+                    <div className={`text-sm text-ink-2 ${isExpanded ? "whitespace-pre-wrap" : "line-clamp-2"}`}>
                       {source.content}
                     </div>
                     {isExpanded && source.metadata && Object.keys(source.metadata).length > 0 && (
                       <div className="mt-2 pt-2" style={{ borderTop: `1px solid ${BORDER}` }}>
-                        <div className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">{isAr ? "البيانات الوصفية" : "Metadata"}</div>
+                        <div className="text-[10px] text-ink-faint uppercase tracking-wider mb-1">{isAr ? "البيانات الوصفية" : "Metadata"}</div>
                         <div className="flex flex-wrap gap-1.5">
                           {Object.entries(source.metadata).filter(([k]) => !["context"].includes(k)).map(([k, v]) => (
-                            <span key={k} className="text-[10px] px-2 py-0.5 rounded-full bg-gray-800/50 text-gray-500 border border-gray-700/50">
+                            <span key={k} className="text-[10px] px-2 py-0.5 rounded-full bg-gray-800/50 text-ink-muted border border-gray-700/50">
                               {k}: {typeof v === "object" ? JSON.stringify(v).slice(0, 50) : String(v).slice(0, 50)}
                             </span>
                           ))}
@@ -933,7 +933,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                   {/* Timestamp + actions */}
                   <div className="flex flex-col items-end gap-1 shrink-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-gray-600">{formatDate(source.created_at)}</span>
+                      <span className="text-[10px] text-ink-faint">{formatDate(source.created_at)}</span>
                       {getConfidenceBadge(source.id)}
                       {getVerificationBadge(source)}
                     </div>
@@ -948,7 +948,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                         className="text-[9px] px-1.5 py-0.5 rounded text-amber-400 hover:bg-amber-900/20 transition" title={isAr ? "حجر" : "Quarantine"}>🚫</button>
                       {source.source_type === "manual_entry" && (
                         <button onClick={e => { e.stopPropagation(); deleteSource(source.id, false); }}
-                          className="text-gray-600 hover:text-red-400 text-xs transition p-0.5" title={isAr ? "حذف" : "Delete"}>✕</button>
+                          className="text-ink-faint hover:text-red-400 text-xs transition p-0.5" title={isAr ? "حذف" : "Delete"}>✕</button>
                       )}
                     </div>
                   </div>
@@ -961,7 +961,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
 
       {/* Data Health Banner */}
       {dataHealth && dataHealth.health_score < 70 && (
-        <div className="flex items-center gap-2 p-3 rounded-xl border" style={{ borderColor: "rgba(234, 179, 8, 0.3)", background: "rgba(234, 179, 8, 0.06)" }}>
+        <div className="flex items-center gap-2 p-3 rounded-xl border" style={{ borderColor: tint(WARN, 30), background: tint(WARN, 6) }}>
           <span className="text-base">⚠️</span>
           <span className="text-xs text-amber-400 flex-1">{isAr ? "بيانات استراتيجيتك بها تعارضات غير محلولة قد تؤثر على دقة AI." : "Your strategy data has unresolved conflicts that may affect AI accuracy."}</span>
           <span className="text-[10px] text-amber-500 font-bold">{dataHealth.health_score}%</span>
@@ -972,15 +972,15 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
       {dataHealth && (
         <div className="grid grid-cols-5 gap-2">
           {[
-            { label: isAr ? "إجمالي المصادر" : "Total Sources", value: dataHealth.total_sources, color: "#60a5fa" },
-            { label: isAr ? "موثقة" : "Verified", value: dataHealth.verified_sources, color: "#34d399" },
-            { label: isAr ? "متنازع عليها" : "Disputed", value: dataHealth.disputed_sources, color: "#f87171" },
-            { label: isAr ? "محجورة" : "Quarantined", value: dataHealth.quarantined_sources, color: "#9ca3af" },
-            { label: isAr ? "صحة البيانات" : "Data Health", value: `${dataHealth.health_score}%`, color: dataHealth.health_score >= 80 ? "#34d399" : dataHealth.health_score >= 60 ? "#fbbf24" : "#f87171" },
+            { label: isAr ? "إجمالي المصادر" : "Total Sources", value: dataHealth.total_sources, color: INFO },
+            { label: isAr ? "موثقة" : "Verified", value: dataHealth.verified_sources, color: OK },
+            { label: isAr ? "متنازع عليها" : "Disputed", value: dataHealth.disputed_sources, color: BAD },
+            { label: isAr ? "محجورة" : "Quarantined", value: dataHealth.quarantined_sources, color: INK_3 },
+            { label: isAr ? "صحة البيانات" : "Data Health", value: `${dataHealth.health_score}%`, color: dataHealth.health_score >= 80 ? OK : dataHealth.health_score >= 60 ? WARN : BAD },
           ].map((stat, i) => (
             <div key={i} className="p-2.5 rounded-xl text-center" style={glass(0.4)}>
               <div className="text-lg font-bold" style={{ color: stat.color }}>{stat.value}</div>
-              <div className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">{stat.label}</div>
+              <div className="text-[9px] text-ink-muted uppercase tracking-wider mt-0.5">{stat.label}</div>
             </div>
           ))}
         </div>
@@ -990,7 +990,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
       <div className="flex items-center gap-2">
         <button
           onClick={() => { setShowQuarantine(!showQuarantine); if (!showQuarantine) loadQuarantined(); }}
-          className={`text-[10px] px-3 py-1.5 rounded-lg border transition ${showQuarantine ? "border-gray-500 text-white bg-gray-800/50" : "border-gray-700 text-gray-500 hover:text-gray-300"}`}
+          className={`text-[10px] px-3 py-1.5 rounded-lg border transition ${showQuarantine ? "border-gray-500 text-ink bg-gray-800/50" : "border-gray-700 text-ink-muted hover:text-ink-2"}`}
         >
           🚫 {isAr ? "المحجورة" : "Quarantined"} {quarantinedSources.length > 0 ? `(${quarantinedSources.length})` : ""}
         </button>
@@ -999,9 +999,9 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
       {/* Quarantined Sources List */}
       {showQuarantine && (
         <div className="space-y-2">
-          <div className="text-xs text-gray-400 font-medium">{isAr ? "المصادر المحجورة" : "Quarantined Sources"}</div>
+          <div className="text-xs text-ink-3 font-medium">{isAr ? "المصادر المحجورة" : "Quarantined Sources"}</div>
           {quarantinedSources.length === 0 ? (
-            <div className="text-center py-6 text-gray-600 text-xs rounded-xl" style={glass(0.3)}>
+            <div className="text-center py-6 text-ink-faint text-xs rounded-xl" style={glass(0.3)}>
               {isAr ? "لا توجد مصادر محجورة" : "No quarantined sources"}
             </div>
           ) : quarantinedSources.map(src => {
@@ -1011,8 +1011,8 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
               <div key={src.id} className="flex items-center gap-3 p-3 rounded-xl" style={glass(0.3)}>
                 <span className="text-base">{cfg.icon}</span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs text-gray-300 truncate">{src.content?.slice(0, 100)}</div>
-                  <div className="text-[10px] text-gray-600 mt-0.5">
+                  <div className="text-xs text-ink-2 truncate">{src.content?.slice(0, 100)}</div>
+                  <div className="text-[10px] text-ink-faint mt-0.5">
                     {meta.quarantine_reason && <span>{isAr ? "السبب:" : "Reason:"} {meta.quarantine_reason} · </span>}
                     {meta.quarantined_at && formatDate(meta.quarantined_at)}
                   </div>
@@ -1033,20 +1033,20 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
 
       {/* Impact Trace Modal */}
       {impactData && impactSourceId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => { setImpactData(null); setImpactSourceId(null); }}>
-          <div className="w-full max-w-md mx-4 rounded-2xl p-6" style={{ ...glass(0.9), background: "rgba(10, 22, 40, 0.95)" }} onClick={e => e.stopPropagation()}>
-            <h3 className="text-white font-semibold text-base mb-1">🔗 {isAr ? "تتبع الأثر" : "Impact Trace"}</h3>
-            <p className="text-gray-500 text-xs mb-4">{isAr ? "أين تم استخدام هذا المصدر" : "Where this source was referenced"}: <span className="text-gray-300">{impactData.source_label}</span></p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim backdrop-blur-sm" onClick={() => { setImpactData(null); setImpactSourceId(null); }}>
+          <div className="w-full max-w-md mx-4 rounded-2xl p-6" style={{ ...glass(0.9), background: tint(DEEP, 95) }} onClick={e => e.stopPropagation()}>
+            <h3 className="text-ink font-semibold text-base mb-1">🔗 {isAr ? "تتبع الأثر" : "Impact Trace"}</h3>
+            <p className="text-ink-muted text-xs mb-4">{isAr ? "أين تم استخدام هذا المصدر" : "Where this source was referenced"}: <span className="text-ink-2">{impactData.source_label}</span></p>
             {impactData.impacts.length === 0 ? (
-              <div className="text-center py-6 text-gray-500 text-sm">{isAr ? "لم يُستخدم هذا المصدر في أي مخرجات بعد." : "This source has not been referenced in any outputs yet."}</div>
+              <div className="text-center py-6 text-ink-muted text-sm">{isAr ? "لم يُستخدم هذا المصدر في أي مخرجات بعد." : "This source has not been referenced in any outputs yet."}</div>
             ) : (
               <div className="space-y-2 mb-4">
                 {impactData.impacts.map((imp, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 rounded-lg" style={glass(0.4)}>
                     <span className="text-base">{imp.entity_type === "ai_chat" ? "🤖" : imp.entity_type === "action_plan" ? "📋" : imp.entity_type === "ai_extraction" ? "🔬" : "📊"}</span>
                     <div className="flex-1">
-                      <div className="text-xs text-white font-medium">{imp.entity_label}</div>
-                      <div className="text-[10px] text-gray-500">{imp.details}</div>
+                      <div className="text-xs text-ink font-medium">{imp.entity_label}</div>
+                      <div className="text-[10px] text-ink-muted">{imp.details}</div>
                     </div>
                     <span className="text-xs text-amber-400 font-bold">{imp.usage_count}</span>
                   </div>
@@ -1054,8 +1054,8 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
               </div>
             )}
             <div className="flex justify-between items-center pt-3 border-t" style={{ borderColor: BORDER }}>
-              <span className="text-[10px] text-gray-600">{isAr ? "إجمالي المراجع" : "Total references"}: {impactData.total_references}</span>
-              <button onClick={() => { setImpactData(null); setImpactSourceId(null); }} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition">
+              <span className="text-[10px] text-ink-faint">{isAr ? "إجمالي المراجع" : "Total references"}: {impactData.total_references}</span>
+              <button onClick={() => { setImpactData(null); setImpactSourceId(null); }} className="px-4 py-2 rounded-lg text-sm text-ink-3 hover:text-ink transition">
                 {isAr ? "إغلاق" : "Close"}
               </button>
             </div>
@@ -1065,17 +1065,17 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
 
       {/* Quarantine Confirm Modal */}
       {quarantineConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setQuarantineConfirm(null)}>
-          <div className="w-full max-w-sm mx-4 rounded-2xl p-6" style={{ ...glass(0.9), background: "rgba(10, 22, 40, 0.95)" }} onClick={e => e.stopPropagation()}>
-            <h3 className="text-white font-semibold text-base mb-2">🚫 {isAr ? "حجر المصدر" : "Quarantine Source"}</h3>
-            <p className="text-gray-400 text-xs mb-4">{isAr ? "سيتم استبعاد هذا المصدر من سياق جميع الوكلاء فورًا. سيظهر تحذير بجوار أي مخرجات AI استخدمت هذا المصدر." : "This source will be excluded from all agent context immediately. A warning will appear next to any AI output that referenced this source."}</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim backdrop-blur-sm" onClick={() => setQuarantineConfirm(null)}>
+          <div className="w-full max-w-sm mx-4 rounded-2xl p-6" style={{ ...glass(0.9), background: tint(DEEP, 95) }} onClick={e => e.stopPropagation()}>
+            <h3 className="text-ink font-semibold text-base mb-2">🚫 {isAr ? "حجر المصدر" : "Quarantine Source"}</h3>
+            <p className="text-ink-3 text-xs mb-4">{isAr ? "سيتم استبعاد هذا المصدر من سياق جميع الوكلاء فورًا. سيظهر تحذير بجوار أي مخرجات AI استخدمت هذا المصدر." : "This source will be excluded from all agent context immediately. A warning will appear next to any AI output that referenced this source."}</p>
             <input id="quarantine-reason" placeholder={isAr ? "السبب (اختياري)..." : "Reason (optional)..."} className={`${inputCls} mb-4`} />
             <div className="flex justify-end gap-3">
-              <button onClick={() => setQuarantineConfirm(null)} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition">{isAr ? "إلغاء" : "Cancel"}</button>
+              <button onClick={() => setQuarantineConfirm(null)} className="px-4 py-2 rounded-lg text-sm text-ink-3 hover:text-ink transition">{isAr ? "إلغاء" : "Cancel"}</button>
               <button
                 onClick={() => { const reason = document.getElementById("quarantine-reason")?.value || ""; handleQuarantine(quarantineConfirm, reason); }}
                 className="px-5 py-2 rounded-lg text-sm font-semibold transition-all hover:scale-[1.02]"
-                style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)", color: "#0a1628" }}
+                style={{ background: GRAD_AMBER, color: DEEP }}
               >
                 {isAr ? "حجر" : "Quarantine"}
               </button>
@@ -1086,10 +1086,10 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
 
       {/* Manual Entry Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowAddModal(false)}>
-          <div className="w-full max-w-lg mx-4 rounded-2xl p-6" style={{ ...glass(0.9), background: "rgba(10, 22, 40, 0.95)" }} onClick={e => e.stopPropagation()}>
-            <h3 className="text-white font-semibold text-base mb-1">{isAr ? "إضافة مرجع يدوي" : "Add Manual Reference"}</h3>
-            <p className="text-gray-500 text-xs mb-4">{isAr ? 'أضف مرجعًا مثل "بناءً على تقرير ماكنزي Q3 2025"' : 'Add a reference like "Based on McKinsey report Q3 2025"'}</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim backdrop-blur-sm" onClick={() => setShowAddModal(false)}>
+          <div className="w-full max-w-lg mx-4 rounded-2xl p-6" style={{ ...glass(0.9), background: tint(DEEP, 95) }} onClick={e => e.stopPropagation()}>
+            <h3 className="text-ink font-semibold text-base mb-1">{isAr ? "إضافة مرجع يدوي" : "Add Manual Reference"}</h3>
+            <p className="text-ink-muted text-xs mb-4">{isAr ? 'أضف مرجعًا مثل "بناءً على تقرير ماكنزي Q3 2025"' : 'Add a reference like "Based on McKinsey report Q3 2025"'}</p>
             <textarea
               value={newContent}
               onChange={e => setNewContent(e.target.value)}
@@ -1099,14 +1099,14 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
               autoFocus
             />
             <div className="flex justify-end gap-3">
-              <button onClick={() => { setShowAddModal(false); setNewContent(""); }} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white transition">
+              <button onClick={() => { setShowAddModal(false); setNewContent(""); }} className="px-4 py-2 rounded-lg text-sm text-ink-3 hover:text-ink transition">
                 {isAr ? "إلغاء" : "Cancel"}
               </button>
               <button
                 onClick={addManualSource}
                 disabled={!newContent.trim()}
                 className="px-5 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-all hover:scale-[1.02]"
-                style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, color: DEEP }}
+                style={{ background: GRAD_ACCENT, color: DEEP }}
               >
                 {isAr ? "إضافة" : "Add Source"}
               </button>

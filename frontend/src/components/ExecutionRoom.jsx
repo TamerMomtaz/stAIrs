@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api, ActionPlansAPI, SourcesAPI, ManifestStore, ArtifactsAPI, ARTIFACT, stairScope, taskScope, canSeeAgentTelemetry } from "../api";
-import { GOLD, GOLD_L, TEAL, DEEP, BORDER, glass, typeColors, typeIcons } from "../constants";
+import { BORDER, DEEP, DEEP_MID, GOLD, GRAD_ACCENT, GRAD_ACCENT_90, GRAD_BLUE, GRAD_VIOLET, GRAD_VIOLET_90, HUE, INK_3, INK_MUTED, TEAL, cast, glass, tint, typeColors, typeIcons } from "../constants";
 import { HealthBadge, ConfidenceBadge, ValidationWarnings, AgentActivityIndicator } from "./SharedUI";
 import { Markdown } from "./Markdown";
 import { logoUrl, printDocument } from "../exportUtils";
@@ -79,7 +79,7 @@ export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote
   const alive = useRef(true);
 
   const isAr = lang === "ar";
-  const color = typeColors[stair.element_type] || "#94a3b8";
+  const color = typeColors[stair.element_type] || INK_3;
   const manifestStoreRef = useRef(strategyContext?.id ? new ManifestStore(strategyContext.id) : null);
 
   const beginOp = (key) => {
@@ -709,10 +709,10 @@ IMPORTANT: Ground ALL guidance in the user's actual data from Source of Truth. R
 
   // ── Split-view wizard helpers (layout only — all AI logic stays in the toggle/open fns) ──
   const wizardSteps = [
-    { n: 1, key: "understand", label: isAr ? "افهم" : "Understand", icon: "📖", color: "#3b82f6", tutorial: "explain" },
+    { n: 1, key: "understand", label: isAr ? "افهم" : "Understand", icon: "📖", color: HUE.blue, tutorial: "explain" },
     { n: 2, key: "assess", label: isAr ? "قيّم" : "Assess", icon: "🎯", color: TEAL, tutorial: "how-far" },
     { n: 3, key: "customize", label: isAr ? "خصّص" : "Customize", icon: "✨", color: GOLD, tutorial: "custom-plan" },
-    { n: 4, key: "implement", label: isAr ? "نفّذ" : "Implement", icon: "🚀", color: "#8b5cf6", tutorial: "impl-room" },
+    { n: 4, key: "implement", label: isAr ? "نفّذ" : "Implement", icon: "🚀", color: HUE.violet, tutorial: "impl-room" },
   ];
 
   const selectedTask = tasks.find(t => t.id === selectedTaskId) || null;
@@ -723,7 +723,7 @@ IMPORTANT: Ground ALL guidance in the user's actual data from Source of Truth. R
     if (t.done || allStepsDone) return { key: "complete", icon: "✅", label: isAr ? "مكتمل" : "Complete", cls: "text-emerald-400" };
     const started = !!explainChats[t.id] || (actionChats[t.id] || []).some(m => m.role === "user") || !!impl;
     if (started) return { key: "progress", icon: "🟡", label: isAr ? "قيد التنفيذ" : "In progress", cls: "text-amber-400" };
-    return { key: "notstarted", icon: "🔘", label: isAr ? "لم يبدأ" : "Not started", cls: "text-gray-500" };
+    return { key: "notstarted", icon: "🔘", label: isAr ? "لم يبدأ" : "Not started", cls: "text-ink-muted" };
   };
 
   // These guards re-use the existing toggle/open functions without ever toggling a panel closed.
@@ -936,7 +936,7 @@ User question: ${msg}`;
     setShowExportModal(false);
     const w = window.open("", "_blank");
     if (!w) return;
-    const priorityColor = p => ({ High: "#dc2626", Medium: "#d97706", Low: "#059669" }[p] || "#64748b");
+    const priorityColor = p => ({ High: HUE.red, Medium: HUE.amber, Low: HUE.green }[p] || INK_MUTED);
     const buildTaskRows = (taskList) => taskList.map(t => `
       <tr style="border-bottom:1px solid #e5e7eb">
         <td style="padding:10px 8px;text-align:center;vertical-align:middle;font-size:16px">${t.done ? "&#9745;" : "&#9744;"}</td>
@@ -1034,7 +1034,7 @@ User question: ${msg}`;
   const LoadingDots = ({ label }) => (
     <div className="flex items-center gap-2 py-6 justify-center">
       <div className="flex gap-1">{[0, 1, 2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-amber-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
-      <span className="text-gray-500 text-xs">{retryMsg || label}</span>
+      <span className="text-ink-muted text-xs">{retryMsg || label}</span>
     </div>
   );
 
@@ -1058,12 +1058,12 @@ User question: ${msg}`;
 
   // An empty step offers the work rather than doing it unasked.
   const GenerateCard = ({ title, body, cta, onGenerate, busy, accent }) => (
-    <div className="rounded-lg p-4 text-center" style={{ background: `${accent}08`, border: `1px dashed ${accent}40` }}>
-      <div className="text-sm font-medium text-gray-200 mb-1">{title}</div>
-      <p className="text-xs text-gray-500 mb-3 max-w-md mx-auto leading-relaxed">{body}</p>
+    <div className="rounded-lg p-4 text-center" style={{ background: `${tint(accent, 3)}`, border: `1px dashed ${tint(accent, 25)}` }}>
+      <div className="text-sm font-medium text-ink-2 mb-1">{title}</div>
+      <p className="text-xs text-ink-muted mb-3 max-w-md mx-auto leading-relaxed">{body}</p>
       <button onClick={onGenerate} disabled={busy || !loaded}
         className="px-4 py-2 rounded-lg text-xs font-semibold transition hover:scale-[1.02] disabled:opacity-40 disabled:hover:scale-100"
-        style={{ background: `linear-gradient(135deg, ${accent}, ${accent}cc)`, color: DEEP }}>
+        style={{ background: `linear-gradient(135deg, ${accent}, ${tint(accent, 80)})`, color: DEEP }}>
         {busy ? (isAr ? "جاري الإنشاء..." : "Generating...") : cta}
       </button>
     </div>
@@ -1081,19 +1081,19 @@ User question: ${msg}`;
   ];
 
   return (
-    <div className="fixed inset-0 z-[90] flex flex-col" style={{ background: `linear-gradient(180deg, ${DEEP} 0%, #0f1f3a 50%, ${DEEP} 100%)` }}>
+    <div className="fixed inset-0 z-[90] flex flex-col" style={{ background: `linear-gradient(180deg, ${DEEP} 0%, ${DEEP_MID} 50%, ${DEEP} 100%)` }}>
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-3 shrink-0" style={{ borderBottom: `1px solid ${BORDER}` }}>
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition group" title={isAr ? "رجوع" : "Back to Staircase"}>
+          <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-ink-3 hover:text-amber-400 hover:bg-amber-500/10 transition group" title={isAr ? "رجوع" : "Back to Staircase"}>
             <span className="text-lg group-hover:-translate-x-0.5 transition-transform">←</span>
             <span className="text-sm font-medium">{isAr ? "رجوع" : "Back"}</span>
           </button>
-          <span className="text-gray-600">|</span>
+          <span className="text-ink-faint">|</span>
           <span style={{ color, fontSize: 16 }}>{typeIcons[stair.element_type] || "•"}</span>
           <div className="min-w-0">
             <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color }}>{stair.element_type?.replace("_", " ")}</div>
-            <div className="text-white text-sm font-medium truncate">{stair.code && <span className="text-gray-500 font-mono text-xs mr-1.5">{stair.code}</span>}{stair.title}</div>
+            <div className="text-ink text-sm font-medium truncate">{stair.code && <span className="text-ink-muted font-mono text-xs mr-1.5">{stair.code}</span>}{stair.title}</div>
           </div>
           <HealthBadge health={stair.health} />
           <div className="text-xs font-medium" style={{ color }}>{stair.progress_percent || 0}%</div>
@@ -1114,15 +1114,15 @@ User question: ${msg}`;
               somewhere; this says where and takes you there. */}
           {onOpenManifest && savedWorkCount > 0 && (
             <button onClick={onOpenManifest}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium border transition hover:scale-[1.02] text-gray-300 hover:text-white"
-              style={{ borderColor: BORDER, background: "rgba(255,255,255,0.04)" }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium border transition hover:scale-[1.02] text-ink-2 hover:text-ink"
+              style={{ borderColor: BORDER, background: "rgb(var(--surface-hover-rgb) / 0.04)" }}
               title={isAr ? "افتح سجل التنفيذ لرؤية كل ما تم إنشاؤه وحفظه" : "Open the Manifest Room to see everything you've generated and saved"}>
               📦 {isAr
                 ? `${savedWorkCount} عنصر محفوظ — سجل التنفيذ`
                 : `${savedWorkCount} saved ${savedWorkCount === 1 ? "item" : "items"} · Manifest Room`}
             </button>
           )}
-          <button onClick={() => setShowExportModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{ borderColor: `${GOLD}60`, color: GOLD, background: `${GOLD}15` }}>
+          <button onClick={() => setShowExportModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{ borderColor: `${tint(GOLD, 38)}`, color: GOLD, background: `${tint(GOLD, 8)}` }}>
             ↓ {isAr ? "تصدير" : "Export Plan"}
           </button>
         </div>
@@ -1132,13 +1132,13 @@ User question: ${msg}`;
       <nav className="flex items-center gap-1 px-6 py-2 shrink-0" style={{ borderBottom: `1px solid ${BORDER}` }}>
         {tabs.map(t => (
           <button key={t.key} onClick={() => setActiveTab(t.key)}
-            className={`px-3 py-2 rounded-lg text-left whitespace-nowrap transition ${activeTab === t.key ? "bg-amber-500/15 border border-amber-500/20" : "border border-transparent hover:bg-white/5"}`}>
-            <div className={`text-xs font-medium ${activeTab === t.key ? "text-amber-300" : "text-gray-500"}`}>{t.icon} {t.label}</div>
-            <div className={`text-[10px] mt-0.5 ${activeTab === t.key ? "text-amber-300/60" : "text-gray-600"}`}>{t.sub}</div>
+            className={`px-3 py-2 rounded-lg text-left whitespace-nowrap transition ${activeTab === t.key ? "bg-amber-500/15 border border-amber-500/20" : "border border-transparent hover:bg-lift/5"}`}>
+            <div className={`text-xs font-medium ${activeTab === t.key ? "text-amber-300" : "text-ink-muted"}`}>{t.icon} {t.label}</div>
+            <div className={`text-[10px] mt-0.5 ${activeTab === t.key ? "text-amber-300/60" : "text-ink-faint"}`}>{t.sub}</div>
           </button>
         ))}
         <div className="flex-1" />
-        {strategyContext && <span className="text-xs text-gray-600">{strategyContext.icon} {strategyContext.name}</span>}
+        {strategyContext && <span className="text-xs text-ink-faint">{strategyContext.icon} {strategyContext.name}</span>}
       </nav>
 
       {/* Save / load failures — surfaced, never silent */}
@@ -1171,9 +1171,9 @@ User question: ${msg}`;
             {/* Top bar */}
             <div className="flex items-center justify-between px-6 py-3 shrink-0" style={{ borderBottom: `1px solid ${BORDER}` }}>
               <div className="flex items-center gap-3 min-w-0">
-                <h2 className="text-lg font-semibold text-white shrink-0">{isAr ? "خطة العمل" : "Action Plan"}</h2>
+                <h2 className="text-lg font-semibold text-ink shrink-0">{isAr ? "خطة العمل" : "Action Plan"}</h2>
                 {tasks.length > 0 && (
-                  <span className="text-xs text-gray-500 shrink-0">
+                  <span className="text-xs text-ink-muted shrink-0">
                     {tasks.filter(t => t.done).length}/{tasks.length} {isAr ? "مكتمل" : "completed"}
                   </span>
                 )}
@@ -1186,7 +1186,7 @@ User question: ${msg}`;
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 {actionPlan && onSaveNote && (
-                  <button onClick={() => onSaveNote(`📋 Action Plan: ${stair.title}`, actionPlan, "execution_plan")} className="text-xs text-gray-600 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10">
+                  <button onClick={() => onSaveNote(`📋 Action Plan: ${stair.title}`, actionPlan, "execution_plan")} className="text-xs text-ink-faint hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10">
                     📌 {isAr ? "حفظ" : "Save"}
                   </button>
                 )}
@@ -1199,7 +1199,7 @@ User question: ${msg}`;
             </div>
 
             {!loaded ? (
-              <div className="flex-1 flex items-center justify-center text-gray-600 text-sm">
+              <div className="flex-1 flex items-center justify-center text-ink-faint text-sm">
                 {isAr ? "جاري تحميل المحتوى المحفوظ..." : "Loading your saved work..."}
               </div>
             ) : planLoading && !actionPlan ? (
@@ -1227,7 +1227,7 @@ User question: ${msg}`;
               </div>
             ) : tasks.length === 0 && actionPlan ? (
               <div className="flex-1 overflow-y-auto p-6 mx-auto w-full" style={{ maxWidth: 900 }}>
-                <div className="rounded-xl p-5" style={{ ...glass(0.5), borderLeft: "3px solid #14b8a6" }}>
+                <div className="rounded-xl p-5" style={{ ...glass(0.5), borderLeft: `3px solid ${HUE.teal}` }}>
                   <Markdown text={actionPlan} onMatrixClick={onMatrixClick} />
                   <LoadMatrixButtons text={actionPlan} onLoadMatrix={onMatrixClick} />
                 </div>
@@ -1260,11 +1260,11 @@ User question: ${msg}`;
                             </button>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start gap-1.5 justify-between">
-                                <span className={`text-xs font-semibold leading-snug ${t.done ? "line-through text-gray-500" : "text-white"}`}>{t.name}</span>
+                                <span className={`text-xs font-semibold leading-snug ${t.done ? "line-through text-ink-muted" : "text-ink"}`}>{t.name}</span>
                                 <span className="shrink-0"><PriorityBadge priority={t.priority} /></span>
                               </div>
                               <div className="flex items-center gap-3 mt-2 flex-wrap">
-                                <span className="text-[10px] text-[#64748b]"><span className="opacity-70">⏱</span> {t.timeline}</span>
+                                <span className="text-[10px] text-ink-muted"><span className="opacity-70">⏱</span> {t.timeline}</span>
                                 <span className={`text-[10px] font-medium ${st.cls}`}>{st.icon} {st.label}</span>
                               </div>
                             </div>
@@ -1281,8 +1281,8 @@ User question: ${msg}`;
                     {!selectedTask ? (
                       <div className="h-full flex flex-col items-center justify-center text-center px-6">
                         <div className="text-4xl mb-3">👈</div>
-                        <h3 className="text-white text-base font-semibold mb-1">{isAr ? "اختر إجراءً للبدء" : "Select an action to begin"}</h3>
-                        <p className="text-gray-500 text-sm max-w-sm">
+                        <h3 className="text-ink text-base font-semibold mb-1">{isAr ? "اختر إجراءً للبدء" : "Select an action to begin"}</h3>
+                        <p className="text-ink-muted text-sm max-w-sm">
                           {isAr
                             ? "اختر إجراءً من القائمة على اليسار لتمر عبر خطوات الفهم والتقييم والتخصيص والتنفيذ."
                             : "Pick an action from the list to walk through Understand → Assess → Customize → Implement."}
@@ -1294,17 +1294,17 @@ User question: ${msg}`;
                         {isNarrow && (
                           <button
                             onClick={() => setSelectedTaskId(null)}
-                            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-amber-400 transition mb-3 px-2 py-1 rounded hover:bg-amber-500/10"
+                            className="flex items-center gap-1.5 text-xs text-ink-3 hover:text-amber-400 transition mb-3 px-2 py-1 rounded hover:bg-amber-500/10"
                           >
                             <span>←</span> {isAr ? "كل الإجراءات" : "All actions"}
                           </button>
                         )}
                         <div className="mb-5">
                           <div className="flex items-start gap-2 flex-wrap">
-                            <h3 className="text-base font-semibold text-slate-100 leading-snug">{selectedTask.name}</h3>
+                            <h3 className="text-base font-semibold text-ink-2 leading-snug">{selectedTask.name}</h3>
                             <PriorityBadge priority={selectedTask.priority} />
                           </div>
-                          <div className="flex items-center gap-4 mt-2 text-[11px] text-[#64748b]">
+                          <div className="flex items-center gap-4 mt-2 text-[11px] text-ink-muted">
                             <span><span className="opacity-70">👤</span> {selectedTask.owner}</span>
                             <span><span className="opacity-70">⏱</span> {selectedTask.timeline}</span>
                           </div>
@@ -1324,26 +1324,26 @@ User question: ${msg}`;
                                     onClick={() => goToStep(s.n)}
                                     className={`flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full border font-medium transition ${
                                       isActive
-                                        ? "text-white"
+                                        ? "text-ink"
                                         : isDone
-                                          ? "text-gray-400 border-transparent hover:bg-white/5"
-                                          : "text-gray-600 border-transparent hover:bg-white/5"
+                                          ? "text-ink-3 border-transparent hover:bg-lift/5"
+                                          : "text-ink-faint border-transparent hover:bg-lift/5"
                                     }`}
-                                    style={isActive ? { background: `${s.color}25`, borderColor: `${s.color}60`, color: s.color } : {}}
+                                    style={isActive ? { background: `${tint(s.color, 15)}`, borderColor: `${tint(s.color, 38)}`, color: s.color } : {}}
                                   >
                                     <span>{isDone ? "✓" : s.icon}</span> {s.label}
                                   </button>
                                 );
                               })}
                             </div>
-                            <span className="text-xs font-medium text-gray-400 shrink-0">
+                            <span className="text-xs font-medium text-ink-3 shrink-0">
                               {isAr ? `الخطوة ${wizardStep}/4` : `Step ${wizardStep}/4`}
                             </span>
                           </div>
-                          <div className="h-2 rounded-full bg-[#1e3a5f] overflow-hidden">
+                          <div className="h-2 rounded-full bg-hairline-strong overflow-hidden">
                             <div
                               className="h-full rounded-full transition-all duration-500"
-                              style={{ width: `${(wizardStep / 4) * 100}%`, background: `linear-gradient(90deg, ${GOLD}, ${GOLD_L})` }}
+                              style={{ width: `${(wizardStep / 4) * 100}%`, background: GRAD_ACCENT_90 }}
                             />
                           </div>
                         </div>
@@ -1366,7 +1366,7 @@ User question: ${msg}`;
                               {loaded && !explainChats[selectedTaskId] && !explainChatLoading && (
                                 <div className="mb-3">
                                   <GenerateCard
-                                    accent="#3b82f6"
+                                    accent={HUE.blue}
                                     title={isAr ? "لم يُنشأ شرح بعد" : "No explanation yet"}
                                     body={isAr
                                       ? "اطلب شرحًا لهذا الإجراء بلغة بسيطة، مبنيًا على مستنداتك في مصدر الحقيقة. يُحفظ الشرح ويظهر في كل زيارة."
@@ -1381,7 +1381,7 @@ User question: ${msg}`;
                                 {explainChatLoading && !explainChats[selectedTaskId] && (
                                   <div className="flex items-center gap-2 py-6 justify-center">
                                     <div className="flex gap-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-blue-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
-                                    <span className="text-gray-500 text-xs">{retryMsg || (isAr ? "جاري إعداد الشرح..." : "Preparing explanation...")}</span>
+                                    <span className="text-ink-muted text-xs">{retryMsg || (isAr ? "جاري إعداد الشرح..." : "Preparing explanation...")}</span>
                                   </div>
                                 )}
                                 {(explainChats[selectedTaskId] || []).map((m, i) => m.failure ? (
@@ -1393,7 +1393,7 @@ User question: ${msg}`;
                                         ? "bg-blue-500/20 text-blue-100 rounded-br-sm"
                                         : m.error
                                           ? "bg-red-500/10 text-red-300 rounded-bl-sm border border-red-500/20"
-                                          : "bg-[#0a1628]/60 text-gray-300 rounded-bl-sm border border-blue-500/15"
+                                          : "bg-input text-ink-2 rounded-bl-sm border border-blue-500/15"
                                     }`}>
                                       {m.role === "ai" ? <><Markdown text={m.text} onMatrixClick={onMatrixClick} /><LoadMatrixButtons text={m.text} onLoadMatrix={onMatrixClick} /></> : <span className="whitespace-pre-wrap">{m.text}</span>}
                                     </div>
@@ -1422,13 +1422,13 @@ User question: ${msg}`;
                                   onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendExplainChat(selectedTaskId); } }}
                                   placeholder={isAr ? "اسأل لفهم أعمق..." : "Ask to understand more..."}
                                   disabled={explainChatLoading}
-                                  className="flex-1 px-3 py-2 rounded-lg bg-[#0a1628]/60 border border-blue-500/20 text-white placeholder-gray-600 focus:border-blue-500/40 focus:outline-none transition text-xs"
+                                  className="flex-1 px-3 py-2 rounded-lg bg-input border border-blue-500/20 text-ink placeholder-ink-faint focus:border-blue-500/40 focus:outline-none transition text-xs"
                                 />
                                 <button
                                   onClick={() => sendExplainChat(selectedTaskId)}
                                   disabled={explainChatLoading || !explainChatInput.trim()}
                                   className="px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-30 transition-all hover:scale-105"
-                                  style={{ background: "linear-gradient(135deg, #3b82f6, #60a5fa)", color: DEEP }}
+                                  style={{ background: GRAD_BLUE, color: DEEP }}
                                 >
                                   {isAr ? "إرسال" : "Send"}
                                 </button>
@@ -1452,7 +1452,7 @@ User question: ${msg}`;
                                         ? "bg-amber-500/20 text-amber-100 rounded-br-sm"
                                         : m.error
                                           ? "bg-red-500/10 text-red-300 rounded-bl-sm border border-red-500/20"
-                                          : "bg-[#0a1628]/60 text-gray-300 rounded-bl-sm border border-[#1e3a5f]"
+                                          : "bg-input text-ink-2 rounded-bl-sm border border-hairline-strong"
                                     }`}>
                                       {m.role === "ai" ? <><Markdown text={m.text} onMatrixClick={onMatrixClick} /><LoadMatrixButtons text={m.text} onLoadMatrix={onMatrixClick} /></> : <span className="whitespace-pre-wrap">{m.text}</span>}
                                     </div>
@@ -1481,13 +1481,13 @@ User question: ${msg}`;
                                   onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendActionChat(selectedTaskId); } }}
                                   placeholder={isAr ? "أخبرني عن قدرتك وقيودك..." : "Tell me about your ability and constraints..."}
                                   disabled={actionChatLoading}
-                                  className="flex-1 px-3 py-2 rounded-lg bg-[#0a1628]/60 border border-[#1e3a5f] text-white placeholder-gray-600 focus:border-teal-500/40 focus:outline-none transition text-xs"
+                                  className="flex-1 px-3 py-2 rounded-lg bg-input border border-hairline-strong text-ink placeholder-ink-faint focus:border-teal-500/40 focus:outline-none transition text-xs"
                                 />
                                 <button
                                   onClick={() => sendActionChat(selectedTaskId)}
                                   disabled={actionChatLoading || !actionChatInput.trim()}
                                   className="px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-30 transition-all hover:scale-105"
-                                  style={{ background: `linear-gradient(135deg, ${TEAL}, #2dd4bf)`, color: DEEP }}
+                                  style={{ background: `linear-gradient(135deg, ${TEAL}, ${HUE.teal})`, color: DEEP }}
                                 >
                                   {isAr ? "إرسال" : "Send"}
                                 </button>
@@ -1503,7 +1503,7 @@ User question: ${msg}`;
                                 <SavedStamp type="custom_plan" scope={stair.id} />
                               </div>
                               {!hasFeedback() && !customPlan && (
-                                <p className="text-[11px] text-gray-500 mb-3">
+                                <p className="text-[11px] text-ink-muted mb-3">
                                   {isAr
                                     ? "💡 أكمل الخطوة 2 (قيّم) لإضافة ملاحظاتك أولاً حتى يتمكن الذكاء الاصطناعي من تخصيص الخطة."
                                     : "💡 Complete Step 2 (Assess) to add your feedback so the AI can tailor the plan."}
@@ -1514,12 +1514,12 @@ User question: ${msg}`;
                               ) : customPlanFailure ? (
                                 <div className="mb-3"><AiUnavailable compact kind={customPlanFailure} lang={lang} onRetry={generateCustomPlan} retrying={customPlanLoading} /></div>
                               ) : customPlan ? (
-                                <div className="rounded-lg p-3 max-h-[420px] overflow-y-auto bg-[#0a1628]/60 border border-amber-500/15 text-gray-300 text-xs leading-relaxed mb-3">
+                                <div className="rounded-lg p-3 max-h-[420px] overflow-y-auto bg-input border border-amber-500/15 text-ink-2 text-xs leading-relaxed mb-3">
                                   <Markdown text={customPlan} onMatrixClick={onMatrixClick} />
                                   <LoadMatrixButtons text={customPlan} onLoadMatrix={onMatrixClick} />
                                 </div>
                               ) : (
-                                <p className="text-xs text-gray-500 mb-3">
+                                <p className="text-xs text-ink-muted mb-3">
                                   {isAr
                                     ? "بناءً على تقييمك في الخطوة السابقة، سيُنشئ الذكاء الاصطناعي خطة عمل مخصصة تتكيف مع قدراتك وقيودك."
                                     : "Based on your assessment in the previous step, the AI will generate a customized action plan adapted to your capabilities and constraints."}
@@ -1531,8 +1531,8 @@ User question: ${msg}`;
                                   disabled={customPlanLoading || !hasFeedback()}
                                   className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
                                   style={{
-                                    background: hasFeedback() ? `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` : `${GOLD}30`,
-                                    color: hasFeedback() ? DEEP : "#94a3b8",
+                                    background: hasFeedback() ? GRAD_ACCENT : `${tint(GOLD, 19)}`,
+                                    color: hasFeedback() ? DEEP : INK_3,
                                     border: `1px solid ${hasFeedback() ? GOLD : GOLD + "40"}`,
                                   }}
                                   title={!hasFeedback() ? (isAr ? "أضف ملاحظاتك في الخطوة 2 أولاً" : "Add your feedback in Step 2 first") : ""}
@@ -1542,7 +1542,7 @@ User question: ${msg}`;
                                     : <><span className="text-sm">✨</span> {customPlan ? (isAr ? "إعادة إنشاء الخطة المخصصة" : "Regenerate Customized Plan") : (isAr ? "إنشاء خطة عمل مخصصة لي" : "Generate My Customized Plan")}</>}
                                 </button>
                                 {customPlan && onSaveNote && (
-                                  <button onClick={() => onSaveNote(`✨ Customized Plan: ${stair.title}`, customPlan, "custom_plan")} className="text-xs text-gray-600 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10">
+                                  <button onClick={() => onSaveNote(`✨ Customized Plan: ${stair.title}`, customPlan, "custom_plan")} className="text-xs text-ink-faint hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10">
                                     📌 {isAr ? "حفظ في الملاحظات" : "Save to Notes"}
                                   </button>
                                 )}
@@ -1567,7 +1567,7 @@ User question: ${msg}`;
                               </div>
                               {loaded && !implRoomData[selectedTaskId] && !implRoomLoading && (
                                 <GenerateCard
-                                  accent="#8b5cf6"
+                                  accent={HUE.violet}
                                   title={isAr ? "لا يوجد دليل تنفيذ بعد" : "No implementation guide yet"}
                                   body={isAr
                                     ? "احصل على دليل خطوة بخطوة مع المتطلبات والجدول الزمني ومعايير النجاح. يُحفظ الدليل مع قائمة الخطوات وتقدمك."
@@ -1580,13 +1580,13 @@ User question: ${msg}`;
                               {implRoomLoading && !implRoomData[selectedTaskId] && (
                                 <div className="flex items-center gap-2 py-6 justify-center">
                                   <div className="flex gap-1">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-purple-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
-                                  <span className="text-gray-500 text-xs">{retryMsg || (isAr ? "جاري إعداد دليل التنفيذ..." : "Preparing your implementation guide...")}</span>
+                                  <span className="text-ink-muted text-xs">{retryMsg || (isAr ? "جاري إعداد دليل التنفيذ..." : "Preparing your implementation guide...")}</span>
                                 </div>
                               )}
                               {implRoomData[selectedTaskId] && (
                                 <>
                                   {implRoomData[selectedTaskId].steps.length > 0 && (
-                                    <div className="mb-3 p-3 rounded-lg border border-purple-500/15" style={{ background: "rgba(139,92,246,0.05)" }}>
+                                    <div className="mb-3 p-3 rounded-lg border border-purple-500/15" style={{ background: tint(HUE.violet, 5) }}>
                                       <div className="text-[11px] text-purple-300 font-medium mb-2">{isAr ? "تقدم الخطوات" : "Step Progress"} — {implRoomData[selectedTaskId].steps.filter(s => s.done).length}/{implRoomData[selectedTaskId].steps.length}</div>
                                       <div className="space-y-1.5">
                                         {implRoomData[selectedTaskId].steps.map((step, si) => (
@@ -1599,14 +1599,14 @@ User question: ${msg}`;
                                             >
                                               {step.done && "✓"}
                                             </button>
-                                            <span className={`text-[11px] leading-relaxed ${step.done ? "line-through text-gray-600" : "text-gray-300"}`}>
+                                            <span className={`text-[11px] leading-relaxed ${step.done ? "line-through text-ink-faint" : "text-ink-2"}`}>
                                               <span className="text-purple-400/70 font-medium">{si + 1}.</span> {step.label}
                                             </span>
                                           </label>
                                         ))}
                                       </div>
-                                      <div className="mt-2 h-1.5 rounded-full bg-[#1e3a5f] overflow-hidden">
-                                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${implRoomData[selectedTaskId].steps.length ? (implRoomData[selectedTaskId].steps.filter(s => s.done).length / implRoomData[selectedTaskId].steps.length) * 100 : 0}%`, background: "linear-gradient(90deg, #8b5cf6, #a78bfa)" }} />
+                                      <div className="mt-2 h-1.5 rounded-full bg-hairline-strong overflow-hidden">
+                                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${implRoomData[selectedTaskId].steps.length ? (implRoomData[selectedTaskId].steps.filter(s => s.done).length / implRoomData[selectedTaskId].steps.length) * 100 : 0}%`, background: `${GRAD_VIOLET_90}` }} />
                                       </div>
                                     </div>
                                   )}
@@ -1616,7 +1616,7 @@ User question: ${msg}`;
                                     </div>
                                   ) : (
                                     <div className="max-h-80 overflow-y-auto mb-3">
-                                      <div className="rounded-lg px-3 py-2 text-xs leading-relaxed bg-[#0a1628]/60 border border-purple-500/15 text-gray-300">
+                                      <div className="rounded-lg px-3 py-2 text-xs leading-relaxed bg-input border border-purple-500/15 text-ink-2">
                                         <Markdown text={implRoomData[selectedTaskId].content} onMatrixClick={onMatrixClick} />
                                         <LoadMatrixButtons text={implRoomData[selectedTaskId].content} onLoadMatrix={onMatrixClick} />
                                       </div>
@@ -1633,7 +1633,7 @@ User question: ${msg}`;
                                               ? "bg-purple-500/20 text-purple-100 rounded-br-sm"
                                               : m.error
                                                 ? "bg-red-500/10 text-red-300 rounded-bl-sm border border-red-500/20"
-                                                : "bg-[#0a1628]/60 text-gray-300 rounded-bl-sm border border-purple-500/15"
+                                                : "bg-input text-ink-2 rounded-bl-sm border border-purple-500/15"
                                           }`}>
                                             {m.role === "ai" ? <><Markdown text={m.text} onMatrixClick={onMatrixClick} /><LoadMatrixButtons text={m.text} onLoadMatrix={onMatrixClick} /></> : <span className="whitespace-pre-wrap">{m.text}</span>}
                                           </div>
@@ -1653,13 +1653,13 @@ User question: ${msg}`;
                                       onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendImplRoomChat(selectedTaskId); } }}
                                       placeholder={isAr ? "اسأل مرشدك عن أي خطوة..." : "Ask your coach about any step..."}
                                       disabled={implRoomChatLoading}
-                                      className="flex-1 px-3 py-2 rounded-lg bg-[#0a1628]/60 border border-purple-500/20 text-white placeholder-gray-600 focus:border-purple-500/40 focus:outline-none transition text-xs"
+                                      className="flex-1 px-3 py-2 rounded-lg bg-input border border-purple-500/20 text-ink placeholder-ink-faint focus:border-purple-500/40 focus:outline-none transition text-xs"
                                     />
                                     <button
                                       onClick={() => sendImplRoomChat(selectedTaskId)}
                                       disabled={implRoomChatLoading || !implRoomChatInput.trim()}
                                       className="px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-30 transition-all hover:scale-105"
-                                      style={{ background: "linear-gradient(135deg, #8b5cf6, #a78bfa)", color: DEEP }}
+                                      style={{ background: GRAD_VIOLET, color: DEEP }}
                                     >
                                       {isAr ? "إرسال" : "Send"}
                                     </button>
@@ -1676,7 +1676,7 @@ User question: ${msg}`;
                             onClick={() => goToStep(wizardStep - 1)}
                             disabled={wizardStep === 1}
                             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium border transition disabled:opacity-30 disabled:cursor-not-allowed"
-                            style={{ borderColor: BORDER, color: "#94a3b8" }}
+                            style={{ borderColor: BORDER, color: INK_3 }}
                           >
                             <span>←</span> {isAr ? "السابق" : "Back"}
                           </button>
@@ -1684,7 +1684,7 @@ User question: ${msg}`;
                             onClick={() => goToStep(wizardStep + 1)}
                             disabled={wizardStep === 4}
                             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition hover:scale-[1.02] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
-                            style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, color: DEEP }}
+                            style={{ background: GRAD_ACCENT, color: DEEP }}
                           >
                             {isAr ? "التالي" : "Next"} <span>→</span>
                           </button>
@@ -1703,7 +1703,7 @@ User question: ${msg}`;
           <div className="h-full overflow-y-auto px-6 py-5 max-w-5xl mx-auto">
             <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg font-semibold text-white">{isAr ? "التوصيات" : "Recommendations"}</h2>
+                <h2 className="text-lg font-semibold text-ink">{isAr ? "التوصيات" : "Recommendations"}</h2>
                 <SavedStamp type={ARTIFACT.SOLUTIONS} scope={stairScope(stair.id)} />
               </div>
               {solutions && (
@@ -1714,7 +1714,7 @@ User question: ${msg}`;
             </div>
 
             {!loaded ? (
-              <div className="text-gray-600 text-sm text-center py-10">{isAr ? "جاري تحميل المحتوى المحفوظ..." : "Loading your saved work..."}</div>
+              <div className="text-ink-faint text-sm text-center py-10">{isAr ? "جاري تحميل المحتوى المحفوظ..." : "Loading your saved work..."}</div>
             ) : solLoading && !solutions ? (
               <LoadingDots label={isAr ? "جاري إنشاء الحلول..." : "Generating solutions..."} />
             ) : solutionsFailure ? (
@@ -1739,7 +1739,7 @@ User question: ${msg}`;
 
             {solutions && onSaveNote && (
               <div className="mt-4">
-                <button onClick={() => onSaveNote(`💡 Solutions: ${stair.title}`, solutions, "execution_solutions")} className="text-xs text-gray-600 hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10">
+                <button onClick={() => onSaveNote(`💡 Solutions: ${stair.title}`, solutions, "execution_solutions")} className="text-xs text-ink-faint hover:text-amber-400 transition px-2 py-1 rounded hover:bg-amber-500/10">
                   📌 {isAr ? "حفظ في الملاحظات" : "Save to Notes"}
                 </button>
               </div>
@@ -1760,14 +1760,14 @@ User question: ${msg}`;
                       ? "bg-amber-500/20 text-amber-100 rounded-br-md"
                       : m.error
                         ? "bg-red-500/10 text-red-300 rounded-bl-md border border-red-500/20"
-                        : "bg-[#162544] text-gray-200 rounded-bl-md border border-[#1e3a5f]"
+                        : "bg-raised text-ink-2 rounded-bl-md border border-hairline-strong"
                   }`}>
                     {m.role === "ai" ? <><Markdown text={m.text} onMatrixClick={onMatrixClick} /><LoadMatrixButtons text={m.text} onLoadMatrix={onMatrixClick} /></> : <div className="whitespace-pre-wrap">{m.text}</div>}
                     {m.role === "ai" && !m.error && (
                       <div className="flex items-center gap-2 mt-2">
-                        {canSeeAgentTelemetry() && m.tokens > 0 && <span className="text-[10px] text-gray-600">{m.tokens} tokens</span>}
+                        {canSeeAgentTelemetry() && m.tokens > 0 && <span className="text-[10px] text-ink-faint">{m.tokens} tokens</span>}
                         <div className="flex-1" />
-                        {onSaveNote && <button onClick={() => onSaveNote(m.text.slice(0, 60), m.text, "execution_chat")} className="opacity-0 group-hover/msg:opacity-100 text-[10px] text-gray-600 hover:text-amber-400 transition px-1.5 py-0.5 rounded hover:bg-amber-500/10" title="Save to Notes">📌 Save</button>}
+                        {onSaveNote && <button onClick={() => onSaveNote(m.text.slice(0, 60), m.text, "execution_chat")} className="opacity-0 group-hover/msg:opacity-100 text-[10px] text-ink-faint hover:text-amber-400 transition px-1.5 py-0.5 rounded hover:bg-amber-500/10" title="Save to Notes">📌 Save</button>}
                       </div>
                     )}
                   </div>
@@ -1798,9 +1798,9 @@ User question: ${msg}`;
                 placeholder={isAr ? "اسأل عن تنفيذ هذه الخطوة..." : "Ask about executing this step... (Shift+Enter for new line)"}
                 disabled={chatLoading}
                 rows={3}
-                className="flex-1 px-4 py-3 rounded-xl bg-[#0a1628]/60 border border-[#1e3a5f] text-white placeholder-gray-600 focus:border-amber-500/40 focus:outline-none transition text-sm resize-none"
+                className="flex-1 px-4 py-3 rounded-xl bg-input border border-hairline-strong text-ink placeholder-ink-faint focus:border-amber-500/40 focus:outline-none transition text-sm resize-none"
               />
-              <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()} className="px-5 py-3 rounded-xl font-medium text-sm disabled:opacity-30 transition-all hover:scale-105 self-end" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, color: DEEP }}>
+              <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()} className="px-5 py-3 rounded-xl font-medium text-sm disabled:opacity-30 transition-all hover:scale-105 self-end" style={{ background: GRAD_ACCENT, color: DEEP }}>
                 {isAr ? "إرسال" : "Send"}
               </button>
             </div>
@@ -1810,53 +1810,53 @@ User question: ${msg}`;
 
       {/* Export Options Modal */}
       {showExportModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ background: cast(0.6), backdropFilter: "blur(4px)" }}>
           <div className="rounded-2xl border p-6 w-full max-w-md mx-4" style={{ background: DEEP, borderColor: BORDER }}>
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-white text-lg font-semibold">{isAr ? "خيارات التصدير" : "Export Options"}</h3>
-              <button onClick={() => setShowExportModal(false)} className="text-gray-500 hover:text-white transition text-lg">✕</button>
+              <h3 className="text-ink text-lg font-semibold">{isAr ? "خيارات التصدير" : "Export Options"}</h3>
+              <button onClick={() => setShowExportModal(false)} className="text-ink-muted hover:text-ink transition text-lg">✕</button>
             </div>
             <div className="space-y-3">
               <button
                 onClick={() => exportPlan("recommended")}
                 disabled={tasks.length === 0}
                 className="w-full text-left p-4 rounded-xl border transition hover:scale-[1.01] disabled:opacity-30 disabled:cursor-not-allowed"
-                style={{ borderColor: `${BORDER}`, background: "rgba(255,255,255,0.03)" }}
+                style={{ borderColor: `${BORDER}`, background: "rgb(var(--surface-hover-rgb) / 0.03)" }}
               >
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-base">📋</span>
-                  <span className="text-white text-sm font-semibold">{isAr ? "خطة العمل الموصى بها" : "Recommended Action Plan"}</span>
+                  <span className="text-ink text-sm font-semibold">{isAr ? "خطة العمل الموصى بها" : "Recommended Action Plan"}</span>
                 </div>
-                <p className="text-gray-500 text-xs ml-7">{isAr ? "تصدير خطة العمل المقترحة من الذكاء الاصطناعي مع الحلول والملاحظات" : "Export the AI-suggested action plan with solutions and feedback notes"}</p>
+                <p className="text-ink-muted text-xs ml-7">{isAr ? "تصدير خطة العمل المقترحة من الذكاء الاصطناعي مع الحلول والملاحظات" : "Export the AI-suggested action plan with solutions and feedback notes"}</p>
               </button>
               <button
                 onClick={() => exportPlan("customized")}
                 disabled={customTasks.length === 0}
                 className="w-full text-left p-4 rounded-xl border transition hover:scale-[1.01] disabled:opacity-30 disabled:cursor-not-allowed"
-                style={{ borderColor: `${GOLD}40`, background: `${GOLD}08` }}
+                style={{ borderColor: `${tint(GOLD, 25)}`, background: `${tint(GOLD, 3)}` }}
               >
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-base">✨</span>
                   <span className="text-amber-300 text-sm font-semibold">{isAr ? "خطة العمل المخصصة" : "Customized Action Plan"}</span>
                 </div>
-                <p className="text-gray-500 text-xs ml-7">{isAr ? "تصدير خطتك المخصصة بناءً على ملاحظاتك وقدراتك" : "Export your tailored plan based on your feedback and capabilities"}</p>
+                <p className="text-ink-muted text-xs ml-7">{isAr ? "تصدير خطتك المخصصة بناءً على ملاحظاتك وقدراتك" : "Export your tailored plan based on your feedback and capabilities"}</p>
                 {customTasks.length === 0 && <p className="text-amber-500/60 text-[10px] ml-7 mt-1">{isAr ? "أنشئ خطة مخصصة أولاً" : "Generate a customized plan first"}</p>}
               </button>
               <button
                 onClick={() => exportPlan("both")}
                 disabled={tasks.length === 0 || customTasks.length === 0}
                 className="w-full text-left p-4 rounded-xl border transition hover:scale-[1.01] disabled:opacity-30 disabled:cursor-not-allowed"
-                style={{ borderColor: `${BORDER}`, background: "rgba(255,255,255,0.03)" }}
+                style={{ borderColor: `${BORDER}`, background: "rgb(var(--surface-hover-rgb) / 0.03)" }}
               >
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-base">⚖️</span>
-                  <span className="text-white text-sm font-semibold">{isAr ? "مقارنة الخطتين" : "Both — Side-by-Side Comparison"}</span>
+                  <span className="text-ink text-sm font-semibold">{isAr ? "مقارنة الخطتين" : "Both — Side-by-Side Comparison"}</span>
                 </div>
-                <p className="text-gray-500 text-xs ml-7">{isAr ? "تصدير الخطتين جنباً إلى جنب للمقارنة مع الملاحظات والحلول" : "Export both plans side-by-side for comparison with feedback notes and solutions"}</p>
+                <p className="text-ink-muted text-xs ml-7">{isAr ? "تصدير الخطتين جنباً إلى جنب للمقارنة مع الملاحظات والحلول" : "Export both plans side-by-side for comparison with feedback notes and solutions"}</p>
                 {(tasks.length === 0 || customTasks.length === 0) && <p className="text-amber-500/60 text-[10px] ml-7 mt-1">{isAr ? "يتطلب وجود كلتا الخطتين" : "Requires both plans to be generated"}</p>}
               </button>
             </div>
-            <button onClick={() => setShowExportModal(false)} className="w-full mt-4 py-2 rounded-lg text-xs text-gray-500 hover:text-gray-300 transition">
+            <button onClick={() => setShowExportModal(false)} className="w-full mt-4 py-2 rounded-lg text-xs text-ink-muted hover:text-ink-2 transition">
               {isAr ? "إلغاء" : "Cancel"}
             </button>
           </div>

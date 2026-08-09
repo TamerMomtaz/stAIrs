@@ -1,4 +1,4 @@
-import { GOLD } from "../constants";
+import { GOLD, GOLD_INK, SIDEBAR_SURFACE, BORDER, INK_2, INK_MUTED, INK_FAINT, SHADOW_SM, tint } from "../constants";
 
 const SECTIONS = [
   { label: { en: "Core", ar: "الأساسية" }, keys: ["dashboard", "staircase", "ai", "alerts"] },
@@ -18,23 +18,23 @@ const SidebarItem = ({ k, n, active, collapsed, isAr, onSelect }) => (
       padding: collapsed ? "11px 0" : "10px 14px",
       borderLeft: isAr ? "none" : `4px solid ${active ? GOLD : "transparent"}`,
       borderRight: isAr ? `4px solid ${active ? GOLD : "transparent"}` : "none",
-      background: active ? "rgba(184, 144, 74, 0.1)" : "transparent",
-      color: active ? GOLD : "#64748b",
+      background: active ? tint(GOLD, 10) : "transparent",
+      color: active ? GOLD_INK : INK_MUTED,
     }}
-    onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.color = "#e2e8f0"; } }}
-    onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#64748b"; } }}
+    onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = "rgb(var(--surface-hover-rgb) / 0.03)"; e.currentTarget.style.color = INK_2; } }}
+    onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = INK_MUTED; } }}
   >
     <span className="relative shrink-0" style={{ fontSize: 18, lineHeight: 1 }}>
       {n.icon}
       {collapsed && n.badge > 0 && (
-        <span className="absolute -top-1.5 -right-2 px-1 rounded-full text-[8px] font-bold bg-amber-500/30 text-amber-300 border border-amber-500/40">{n.badge}</span>
+        <span className="absolute -top-1.5 -right-2 px-1 rounded-full text-[8px] font-bold bg-warn/30 text-warn-ink border border-warn/40">{n.badge}</span>
       )}
     </span>
     {!collapsed && (
       <>
         <span className="text-xs font-medium whitespace-nowrap flex-1" style={{ textAlign: isAr ? "right" : "left" }}>{n.label}</span>
         {n.badge > 0 && (
-          <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">{n.badge}</span>
+          <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-warn-fill text-warn border border-warn-line">{n.badge}</span>
         )}
       </>
     )}
@@ -45,10 +45,10 @@ const SidebarItem = ({ k, n, active, collapsed, isAr, onSelect }) => (
           [isAr ? "right" : "left"]: "calc(100% + 8px)",
           top: "50%",
           transform: "translateY(-50%)",
-          background: "rgba(10, 22, 40, 0.97)",
-          border: `1px solid ${GOLD}40`,
-          color: "#e2e8f0",
-          boxShadow: "0 6px 20px rgba(0,0,0,0.5)",
+          background: SIDEBAR_SURFACE,
+          border: `1px solid ${tint(GOLD, 25)}`,
+          color: INK_2,
+          boxShadow: SHADOW_SM,
         }}
       >{n.label}{n.badge > 0 ? ` (${n.badge})` : ""}</span>
     )}
@@ -59,7 +59,7 @@ export const Sidebar = ({ navItems, view, onSelect, collapsed, onToggleCollapse,
   return (
     <>
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 bg-black/60 md:hidden" onClick={onMobileClose} />
+        <div className="fixed inset-0 z-40 bg-scrim md:hidden" onClick={onMobileClose} />
       )}
       <aside
         className={`z-50 flex-col shrink-0 transition-all duration-200 md:static md:flex ${
@@ -67,8 +67,8 @@ export const Sidebar = ({ navItems, view, onSelect, collapsed, onToggleCollapse,
         } ${isAr ? "right-0" : "left-0"}`}
         style={{
           width: collapsed ? 56 : 200,
-          background: "rgba(10, 22, 40, 0.95)",
-          [isAr ? "borderLeft" : "borderRight"]: "1px solid rgba(30, 58, 95, 0.5)",
+          background: SIDEBAR_SURFACE,
+          [isAr ? "borderLeft" : "borderRight"]: `1px solid ${BORDER}`,
           backdropFilter: "blur(20px)",
         }}
       >
@@ -79,7 +79,7 @@ export const Sidebar = ({ navItems, view, onSelect, collapsed, onToggleCollapse,
           <button
             onClick={onToggleCollapse}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="p-1.5 rounded-lg text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 transition text-sm"
+            className="p-1.5 rounded-lg text-ink-muted hover:text-warn hover:bg-warn/10 transition text-sm"
           >☰</button>
         </div>
 
@@ -88,12 +88,12 @@ export const Sidebar = ({ navItems, view, onSelect, collapsed, onToggleCollapse,
             <div
               key={si}
               className={si > 0 ? "mt-2 pt-2" : ""}
-              style={si > 0 ? { borderTop: "1px solid rgba(30, 58, 95, 0.5)" } : undefined}
+              style={si > 0 ? { borderTop: `1px solid ${BORDER}` } : undefined}
             >
               {!collapsed && (
                 <div
                   className="px-4 pb-1.5 pt-1"
-                  style={{ color: "#475569", fontSize: 10, textTransform: "uppercase", letterSpacing: 2, textAlign: isAr ? "right" : "left" }}
+                  style={{ color: INK_FAINT, fontSize: 10, textTransform: "uppercase", letterSpacing: 2, textAlign: isAr ? "right" : "left" }}
                 >{isAr ? section.label.ar : section.label.en}</div>
               )}
               {section.keys.map((k) => {
@@ -117,7 +117,7 @@ export const Sidebar = ({ navItems, view, onSelect, collapsed, onToggleCollapse,
 
         <div
           className="shrink-0 text-center py-3"
-          style={{ borderTop: "1px solid rgba(30, 58, 95, 0.5)", color: "#475569", fontSize: 9, letterSpacing: 1 }}
+          style={{ borderTop: `1px solid ${BORDER}`, color: INK_FAINT, fontSize: 9, letterSpacing: 1 }}
         >
           {collapsed ? "&I" : "v3.7.0 · Human IS the Loop"}
         </div>

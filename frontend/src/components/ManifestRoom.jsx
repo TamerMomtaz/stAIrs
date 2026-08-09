@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { ActionPlansAPI, ManifestStore, SourcesAPI, ArtifactsAPI, ARTIFACT } from "../api";
-import { GOLD, GOLD_L, DEEP, BORDER, glass, typeColors, typeIcons } from "../constants";
+import { BORDER, GOLD, GRAD_ACCENT_90, GRAD_VIOLET_90, HUE, INFO, INK_3, INK_MUTED, OK, glass, tint, typeColors, typeIcons } from "../constants";
 import { Markdown } from "./Markdown";
 import { logoUrl, printDocument } from "../exportUtils";
 import LoadFailed from "./LoadFailed";
@@ -9,7 +9,7 @@ import { ViewHeader } from "./ViewHeader";
 // ═══ PDF HELPERS ═══
 const pdfStyles = `@page{margin:20mm 15mm}*{box-sizing:border-box;margin:0;padding:0}html,body{background:#fff}body{color:#1e293b;font-family:'Segoe UI',system-ui,sans-serif;line-height:1.5}.section{margin-top:24px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;color:#B8904A;font-size:16px;font-weight:700}.footer{text-align:center;margin-top:40px;padding-top:20px;border-top:2px solid #B8904A}.brand{color:#B8904A;font-weight:700;letter-spacing:2px}.header{padding-bottom:16px;border-bottom:3px solid #B8904A;margin-bottom:20px}.manifest-card{margin-top:16px;padding:16px;border:1px solid #e2e8f0;border-radius:8px;page-break-inside:avoid}.toc-item{padding:4px 0;font-size:13px;color:#475569}.toc-num{color:#B8904A;font-weight:600;margin-right:8px}.page-break{page-break-before:always}.sec{margin-bottom:12px;padding:10px 14px;border-radius:6px;background:#f8fafc;border:1px solid #e5e7eb;border-left:4px solid #cbd5e1}.sec-explain{border-left-color:#0d9488}.sec-assess{border-left-color:#2563eb}.sec-custom{border-left-color:#B8904A}.sec-impl{border-left-color:#059669}.sec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}.sec-body{font-size:12px;color:#334155;white-space:pre-wrap}.step{display:flex;align-items:flex-start;gap:8px;padding:4px 0;font-size:12px;color:#334155}.cbox{display:inline-block;width:13px;height:13px;border:1.5px solid #94a3b8;border-radius:3px;flex-shrink:0;margin-top:1px;text-align:center;line-height:11px;font-size:10px;font-weight:700;color:#fff}.cbox-done{background:#059669;border-color:#059669}.step-done{color:#94a3b8;text-decoration:line-through}.step-num{font-weight:700;margin-right:2px}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.manifest-card{page-break-inside:avoid}.page-break{page-break-before:always}.no-print{display:none}}`;
 
-const typeColor = t => ({ vision: "#7c3aed", objective: "#2563eb", key_result: "#059669", initiative: "#d97706", task: "#64748b" }[t] || "#64748b");
+const typeColor = t => ({ vision: HUE.violet, objective: HUE.blue, key_result: HUE.green, initiative: HUE.amber, task: INK_MUTED }[t] || INK_MUTED);
 
 const cleanMd = (txt) => (txt || "").replace(/\*\*/g, "").replace(/##\s/g, "").replace(/\n/g, "<br>");
 
@@ -328,7 +328,7 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
         <ViewHeader title={isAr ? "سجل التنفيذ" : "Manifest Room"} />
       <div className="flex items-center gap-2 py-12 justify-center">
         <div className="flex gap-1">{[0, 1, 2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-amber-500/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />)}</div>
-        <span className="text-gray-500 text-xs">{isAr ? "جاري تحميل سجل التنفيذ..." : "Loading manifests..."}</span>
+        <span className="text-ink-muted text-xs">{isAr ? "جاري تحميل سجل التنفيذ..." : "Loading manifests..."}</span>
       </div>
       </div>
     );
@@ -349,8 +349,8 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
         <ViewHeader title={isAr ? "سجل التنفيذ" : "Manifest Room"} />
       <div className="text-center py-16">
         <div className="text-4xl mb-4">📦</div>
-        <h3 className="text-white text-lg font-semibold mb-2">{isAr ? "لا توجد سجلات تنفيذ بعد" : "No Implementation Manifests Yet"}</h3>
-        <p className="text-gray-500 text-sm max-w-md mx-auto">
+        <h3 className="text-ink text-lg font-semibold mb-2">{isAr ? "لا توجد سجلات تنفيذ بعد" : "No Implementation Manifests Yet"}</h3>
+        <p className="text-ink-muted text-sm max-w-md mx-auto">
           {isAr
             ? "عندما تعمل على الإجراءات في غرفة التنفيذ (شرح، تقييم القدرة، خطة مخصصة، دليل التنفيذ)، ستظهر السجلات هنا تلقائياً."
             : "When you work through actions in the Execution Room (explain, assess ability, customize plan, generate implementation guide), manifests will appear here automatically."}
@@ -367,7 +367,7 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
           <button
             onClick={exportAllManifests}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]"
-            style={{ borderColor: `${GOLD}60`, color: GOLD, background: `${GOLD}15` }}
+            style={{ borderColor: `${tint(GOLD, 38)}`, color: GOLD, background: `${tint(GOLD, 8)}` }}
             title={isAr ? "تصدير جميع السجلات كملف PDF" : "Export All as PDF"}
           >
             ↓ {isAr ? "تصدير الكل PDF" : "Export All as PDF"}
@@ -378,7 +378,7 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
         </>} />
 
       {/* Intro */}
-      <p className="text-gray-400 text-sm mb-5 max-w-3xl">
+      <p className="text-ink-3 text-sm mb-5 max-w-3xl">
         {isAr
           ? "ملف تنفيذ استراتيجيتك. كل ما يتم إنشاؤه في غرفة التنفيذ يعيش هنا كسجلك الدائم."
           : "Your strategy execution dossier. Everything generated in the Execution Room lives here as your permanent record."}
@@ -387,25 +387,25 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
       {/* Summary Bar */}
       <div className="grid grid-cols-3 gap-3 mb-5">
         <div className="px-4 py-3 rounded-xl text-center" style={glass(0.4)}>
-          <div className="text-lg font-bold text-white">{totalActions}</div>
-          <div className="text-[10px] text-gray-500 tracking-wider">{isAr ? "بنود الإجراءات" : "Action Items"}</div>
+          <div className="text-lg font-bold text-ink">{totalActions}</div>
+          <div className="text-[10px] text-ink-muted tracking-wider">{isAr ? "بنود الإجراءات" : "Action Items"}</div>
         </div>
         <div className="px-4 py-3 rounded-xl text-center" style={glass(0.4)} title={isAr ? "موثّق = يحتوي على سجل واحد على الأقل" : "Documented = has at least one manifest"}>
           <div className="text-lg font-bold text-amber-400">{actionsWithManifest}</div>
-          <div className="text-[10px] text-gray-500 tracking-wider">{isAr ? "موثّق" : "Documented"} <span className="text-gray-600 cursor-help">ⓘ</span></div>
+          <div className="text-[10px] text-ink-muted tracking-wider">{isAr ? "موثّق" : "Documented"} <span className="text-ink-faint cursor-help">ⓘ</span></div>
         </div>
         <div className="px-4 py-3 rounded-xl text-center" style={glass(0.4)}>
-          <div className="text-lg font-bold" style={{ color: overallProgress >= 70 ? "#10b981" : overallProgress >= 40 ? GOLD : "#94a3b8" }}>{overallProgress}%</div>
-          <div className="text-[10px] text-gray-500 uppercase tracking-wider">{isAr ? "تقدم التنفيذ" : "Implementation Progress"}</div>
+          <div className="text-lg font-bold" style={{ color: overallProgress >= 70 ? OK : overallProgress >= 40 ? GOLD : INK_3 }}>{overallProgress}%</div>
+          <div className="text-[10px] text-ink-muted uppercase tracking-wider">{isAr ? "تقدم التنفيذ" : "Implementation Progress"}</div>
         </div>
       </div>
 
       {/* Overall progress bar */}
       {totalSteps > 0 && (
         <div className="flex items-center gap-3 mb-5 px-4 py-2.5 rounded-xl" style={glass(0.3)}>
-          <span className="text-xs text-gray-400 shrink-0">{doneSteps}/{totalSteps} {isAr ? "خطوات" : "steps"}</span>
-          <div className="flex-1 h-2 rounded-full bg-[#1e3a5f] overflow-hidden">
-            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${overallProgress}%`, background: `linear-gradient(90deg, ${GOLD}, ${GOLD_L})` }} />
+          <span className="text-xs text-ink-3 shrink-0">{doneSteps}/{totalSteps} {isAr ? "خطوات" : "steps"}</span>
+          <div className="flex-1 h-2 rounded-full bg-hairline-strong overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${overallProgress}%`, background: GRAD_ACCENT_90 }} />
           </div>
           <span className="text-xs font-medium" style={{ color: GOLD }}>{overallProgress}%</span>
         </div>
@@ -415,7 +415,7 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
       <div className="space-y-3">
         {manifestGroups.map((group) => {
           const isExpanded = expandedStair === group.stair_id;
-          const color = typeColors[group.element_type] || "#94a3b8";
+          const color = typeColors[group.element_type] || INK_3;
           const groupSteps = group.manifestTasks.reduce((acc, t) => {
             const m = manifestData[t._manifestKey];
             return acc + (m?.impl_steps?.length || 0);
@@ -431,18 +431,18 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
               {/* Group header */}
               <button
                 onClick={() => setExpandedStair(isExpanded ? null : group.stair_id)}
-                className="w-full text-left px-5 py-4 flex items-center gap-4 hover:bg-white/[0.02] transition"
+                className="w-full text-left px-5 py-4 flex items-center gap-4 hover:bg-lift/[0.02] transition"
               >
                 <div className="flex items-center gap-2 shrink-0">
                   <span style={{ color, fontSize: 14 }}>{typeIcons[group.element_type] || "•"}</span>
                   <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color }}>{group.element_type?.replace("_", " ")}</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-white text-sm font-medium truncate">
-                    {group.stair_code && <span className="text-gray-500 font-mono text-xs mr-1.5">{group.stair_code}</span>}
+                  <div className="text-ink text-sm font-medium truncate">
+                    {group.stair_code && <span className="text-ink-muted font-mono text-xs mr-1.5">{group.stair_code}</span>}
                     {isAr && group.stair_title_ar ? group.stair_title_ar : group.stair_title}
                   </div>
-                  <div className="text-[10px] text-gray-500 mt-0.5">
+                  <div className="text-[10px] text-ink-muted mt-0.5">
                     {group.manifestTasks.length} {isAr ? "سجل" : group.manifestTasks.length === 1 ? "manifest" : "manifests"}
                     {groupSteps > 0 && <> · {groupDone}/{groupSteps} {isAr ? "خطوات" : "steps"}</>}
                   </div>
@@ -450,16 +450,16 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
                 <div className="flex items-center gap-3 shrink-0">
                   {groupSteps > 0 && (
                     <div className="flex items-center gap-2">
-                      <div className="w-16 h-1.5 rounded-full bg-[#1e3a5f] overflow-hidden">
-                        <div className="h-full rounded-full transition-all" style={{ width: `${groupPct}%`, background: `linear-gradient(90deg, ${GOLD}, ${GOLD_L})` }} />
+                      <div className="w-16 h-1.5 rounded-full bg-hairline-strong overflow-hidden">
+                        <div className="h-full rounded-full transition-all" style={{ width: `${groupPct}%`, background: GRAD_ACCENT_90 }} />
                       </div>
-                      <span className="text-[10px] text-gray-500 w-8">{groupPct}%</span>
+                      <span className="text-[10px] text-ink-muted w-8">{groupPct}%</span>
                     </div>
                   )}
                   <span className="text-[10px] px-2 py-0.5 rounded-full border font-medium bg-amber-500/15 text-amber-300 border-amber-500/25">
                     📦 {group.manifestTasks.length}
                   </span>
-                  <span className={`text-gray-500 text-sm transition-transform ${isExpanded ? "rotate-180" : ""}`}>▾</span>
+                  <span className={`text-ink-muted text-sm transition-transform ${isExpanded ? "rotate-180" : ""}`}>▾</span>
                 </div>
               </button>
 
@@ -480,15 +480,15 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
                     const sections = completedSections;
 
                     return (
-                      <div key={mk} className="rounded-lg overflow-hidden" style={{ ...glass(0.3), borderLeft: `3px solid ${GOLD}60` }}>
+                      <div key={mk} className="rounded-lg overflow-hidden" style={{ ...glass(0.3), borderLeft: `3px solid ${tint(GOLD, 38)}` }}>
                         {/* Manifest card header (collapsed view) */}
                         <button
                           onClick={() => setExpandedManifest(isManifestExpanded ? null : mk)}
-                          className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-white/[0.02] transition"
+                          className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-lift/[0.02] transition"
                         >
                           <span className="text-sm">📦</span>
                           <div className="flex-1 min-w-0">
-                            <span className="text-xs font-semibold text-white">{task.name || m.task_name || "Action"}</span>
+                            <span className="text-xs font-semibold text-ink">{task.name || m.task_name || "Action"}</span>
                             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                               {[
                                 { label: isAr ? "الشرح" : "Explanation", ok: !!m.explanation },
@@ -496,31 +496,31 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
                                 { label: isAr ? "خطة مخصصة" : "Custom Plan", ok: !!m.customized_plan },
                                 { label: isAr ? "التنفيذ" : "Implementation", ok: !!m.impl_guide },
                               ].map((sec, i) => (
-                                <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded border ${sec.ok ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/25" : "bg-white/[0.02] text-gray-600 border-[#1e3a5f]"}`}>
+                                <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded border ${sec.ok ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/25" : "bg-lift/[0.02] text-ink-faint border-hairline-strong"}`}>
                                   {sec.ok ? "✅" : "❌"} {sec.label}
                                 </span>
                               ))}
-                              <span className="text-[10px] text-gray-600">{completedSections}/4 {isAr ? "أقسام" : "sections"}</span>
+                              <span className="text-[10px] text-ink-faint">{completedSections}/4 {isAr ? "أقسام" : "sections"}</span>
                               {mSteps.length > 0 && <span className="text-[10px] text-purple-400/70">{mDone}/{mSteps.length} {isAr ? "خطوات" : "steps"}</span>}
                             </div>
                           </div>
                           {mSteps.length > 0 && (
                             <div className="flex items-center gap-2 shrink-0">
-                              <div className="w-16 h-1.5 rounded-full bg-[#1e3a5f] overflow-hidden">
-                                <div className="h-full rounded-full transition-all" style={{ width: `${mPct}%`, background: "linear-gradient(90deg, #8b5cf6, #a78bfa)" }} />
+                              <div className="w-16 h-1.5 rounded-full bg-hairline-strong overflow-hidden">
+                                <div className="h-full rounded-full transition-all" style={{ width: `${mPct}%`, background: `${GRAD_VIOLET_90}` }} />
                               </div>
-                              <span className="text-[10px] text-gray-500">{mPct}%</span>
+                              <span className="text-[10px] text-ink-muted">{mPct}%</span>
                             </div>
                           )}
                           <button
                             onClick={(e) => { e.stopPropagation(); exportSingleManifest(m, task, group); }}
                             className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium border transition hover:scale-[1.02] shrink-0"
-                            style={{ borderColor: `${GOLD}40`, color: GOLD, background: `${GOLD}10` }}
+                            style={{ borderColor: `${tint(GOLD, 25)}`, color: GOLD, background: `${tint(GOLD, 6)}` }}
                             title={isAr ? "تصدير هذا السجل" : "Export this manifest as PDF"}
                           >
                             ↓ PDF
                           </button>
-                          <span className={`text-gray-600 text-xs transition-transform ${isManifestExpanded ? "rotate-180" : ""}`}>▾</span>
+                          <span className={`text-ink-faint text-xs transition-transform ${isManifestExpanded ? "rotate-180" : ""}`}>▾</span>
                         </button>
 
                         {/* Expanded manifest content */}
@@ -528,7 +528,7 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
                           <div className="border-t px-4 py-4 space-y-4" style={{ borderColor: BORDER }}>
                             {/* Explanation */}
                             {m.explanation ? (
-                              <div className="rounded-lg p-3 border border-blue-500/15" style={{ background: "rgba(59,130,246,0.03)" }}>
+                              <div className="rounded-lg p-3 border border-blue-500/15" style={{ background: tint(INFO, 3) }}>
                                 <div className="flex items-center gap-2 mb-2">
                                   <span className="text-blue-400 text-xs font-semibold">{isAr ? "الشرح" : "Explanation"}</span>
                                   {m.sources_used?.length > 0 && (
@@ -537,50 +537,50 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-xs leading-relaxed text-gray-300">
+                                <div className="text-xs leading-relaxed text-ink-2">
                                   <Markdown text={m.explanation} />
                                 </div>
                               </div>
                             ) : (
                               <div className="rounded-lg p-3 border border-blue-500/10 opacity-50">
                                 <span className="text-blue-400/60 text-xs font-semibold">{isAr ? "الشرح" : "Explanation"}</span>
-                                <span className="text-[10px] text-gray-600 ml-2">{isAr ? "لم يبدأ بعد" : "Not yet started"}</span>
+                                <span className="text-[10px] text-ink-faint ml-2">{isAr ? "لم يبدأ بعد" : "Not yet started"}</span>
                               </div>
                             )}
 
                             {/* Ability Assessment */}
                             {m.ability_assessment ? (
-                              <div className="rounded-lg p-3 border border-teal-500/15" style={{ background: "rgba(13,148,136,0.03)" }}>
+                              <div className="rounded-lg p-3 border border-teal-500/15" style={{ background: tint(HUE.teal, 3) }}>
                                 <div className="text-teal-400 text-xs font-semibold mb-2">{isAr ? "تقييم القدرة" : "Ability Assessment"}</div>
-                                <div className="text-xs leading-relaxed text-gray-300">
+                                <div className="text-xs leading-relaxed text-ink-2">
                                   <Markdown text={m.ability_assessment} />
                                 </div>
                               </div>
                             ) : (
                               <div className="rounded-lg p-3 border border-teal-500/10 opacity-50">
                                 <span className="text-teal-400/60 text-xs font-semibold">{isAr ? "تقييم القدرة" : "Ability Assessment"}</span>
-                                <span className="text-[10px] text-gray-600 ml-2">{isAr ? "لم يبدأ بعد" : "Not yet started"}</span>
+                                <span className="text-[10px] text-ink-faint ml-2">{isAr ? "لم يبدأ بعد" : "Not yet started"}</span>
                               </div>
                             )}
 
                             {/* Customized Plan */}
                             {m.customized_plan ? (
-                              <div className="rounded-lg p-3 border border-amber-500/15" style={{ background: "rgba(184,144,74,0.03)" }}>
+                              <div className="rounded-lg p-3 border border-amber-500/15" style={{ background: tint(GOLD, 3) }}>
                                 <div className="text-amber-400 text-xs font-semibold mb-2">{isAr ? "الخطة المخصصة" : "Customized Plan"}</div>
-                                <div className="text-xs leading-relaxed text-gray-300">
+                                <div className="text-xs leading-relaxed text-ink-2">
                                   <Markdown text={m.customized_plan} />
                                 </div>
                               </div>
                             ) : (
                               <div className="rounded-lg p-3 border border-amber-500/10 opacity-50">
                                 <span className="text-amber-400/60 text-xs font-semibold">{isAr ? "الخطة المخصصة" : "Customized Plan"}</span>
-                                <span className="text-[10px] text-gray-600 ml-2">{isAr ? "لم يبدأ بعد" : "Not yet started"}</span>
+                                <span className="text-[10px] text-ink-faint ml-2">{isAr ? "لم يبدأ بعد" : "Not yet started"}</span>
                               </div>
                             )}
 
                             {/* Implementation Guide */}
                             {m.impl_guide ? (
-                              <div className="rounded-lg p-3 border border-purple-500/15" style={{ background: "rgba(139,92,246,0.03)" }}>
+                              <div className="rounded-lg p-3 border border-purple-500/15" style={{ background: tint(HUE.violet, 3) }}>
                                 <div className="flex items-center gap-2 mb-2">
                                   <span className="text-purple-400 text-xs font-semibold">{isAr ? "دليل التنفيذ" : "Implementation Guide"}</span>
                                   {m.impl_sources_used?.length > 0 && (
@@ -589,25 +589,25 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-xs leading-relaxed text-gray-300">
+                                <div className="text-xs leading-relaxed text-ink-2">
                                   <Markdown text={m.impl_guide} />
                                 </div>
                               </div>
                             ) : (
                               <div className="rounded-lg p-3 border border-purple-500/10 opacity-50">
                                 <span className="text-purple-400/60 text-xs font-semibold">{isAr ? "دليل التنفيذ" : "Implementation Guide"}</span>
-                                <span className="text-[10px] text-gray-600 ml-2">{isAr ? "لم يبدأ بعد" : "Not yet started"}</span>
+                                <span className="text-[10px] text-ink-faint ml-2">{isAr ? "لم يبدأ بعد" : "Not yet started"}</span>
                               </div>
                             )}
 
                             {/* Step Progress */}
                             {mSteps.length > 0 && (
-                              <div className="rounded-lg p-3 border border-purple-500/15" style={{ background: "rgba(139,92,246,0.05)" }}>
+                              <div className="rounded-lg p-3 border border-purple-500/15" style={{ background: tint(HUE.violet, 5) }}>
                                 <div className="text-[11px] text-purple-300 font-medium mb-2">
                                   {isAr ? "تقدم الخطوات" : "Step Progress"} — {mDone}/{mSteps.length} {isAr ? "مكتمل" : "complete"}
                                 </div>
-                                <div className="h-1.5 rounded-full bg-[#1e3a5f] overflow-hidden mb-3">
-                                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${mPct}%`, background: "linear-gradient(90deg, #8b5cf6, #a78bfa)" }} />
+                                <div className="h-1.5 rounded-full bg-hairline-strong overflow-hidden mb-3">
+                                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${mPct}%`, background: `${GRAD_VIOLET_90}` }} />
                                 </div>
                                 <div className="space-y-1.5">
                                   {mSteps.map((step, si) => (
@@ -620,7 +620,7 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
                                       >
                                         {step.done && "✓"}
                                       </button>
-                                      <span className={`text-[11px] leading-relaxed ${step.done ? "line-through text-gray-600" : "text-gray-300"}`}>
+                                      <span className={`text-[11px] leading-relaxed ${step.done ? "line-through text-ink-faint" : "text-ink-2"}`}>
                                         <span className="text-purple-400/70 font-medium">{si + 1}.</span> {step.label}
                                       </span>
                                     </label>
@@ -631,7 +631,7 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
 
                             {/* Source of Truth References */}
                             {(m.sources_used?.length > 0 || m.impl_sources_used?.length > 0) && (
-                              <div className="rounded-lg p-3 border border-blue-500/15" style={{ background: "rgba(59,130,246,0.02)" }}>
+                              <div className="rounded-lg p-3 border border-blue-500/15" style={{ background: tint(INFO, 2) }}>
                                 <div className="text-blue-400 text-xs font-semibold mb-2">{isAr ? "مراجع مصدر الحقيقة" : "Source of Truth References"}</div>
                                 <div className="flex flex-wrap gap-1.5">
                                   {[...new Set([...(m.sources_used || []), ...(m.impl_sources_used || [])])].map((src, i) => (

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api, ConvStore, SourcesAPI, canSeeAgentTelemetry } from "../api";
-import { GOLD, GOLD_L, DEEP, BORDER, glass } from "../constants";
+import { BORDER, DEEP, GRAD_ACCENT, glass } from "../constants";
 import { Markdown } from "./Markdown";
 import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
 import { buildHeader, openExportWindow } from "../exportUtils";
@@ -14,7 +14,7 @@ const SourcesUsed = ({ sources }) => {
   if (!sources || sources.length === 0) return null;
   return (
     <div className="mt-2 border-t border-gray-700/30 pt-2">
-      <button onClick={() => setOpen(!open)} className="text-[10px] text-gray-500 hover:text-amber-400 transition flex items-center gap-1">
+      <button onClick={() => setOpen(!open)} className="text-[10px] text-ink-muted hover:text-amber-400 transition flex items-center gap-1">
         <span>📎</span> {sources.length} source{sources.length !== 1 ? "s" : ""} used
         <span className="text-[8px]">{open ? "▲" : "▼"}</span>
       </button>
@@ -22,11 +22,11 @@ const SourcesUsed = ({ sources }) => {
         <div className="mt-1.5 space-y-1">
           {sources.map((s, i) => (
             <div key={i} className="text-[10px] flex items-start gap-1.5">
-              <span className={s.cited ? "text-green-400" : "text-gray-600"}>{s.cited ? "✓" : "·"}</span>
+              <span className={s.cited ? "text-green-400" : "text-ink-faint"}>{s.cited ? "✓" : "·"}</span>
               <div>
-                <span className={s.cited ? "text-amber-400/80" : "text-gray-500"}>{s.filename}</span>
+                <span className={s.cited ? "text-amber-400/80" : "text-ink-muted"}>{s.filename}</span>
                 {s.categories && s.categories.length > 0 && (
-                  <span className="text-gray-600 ml-1">({s.categories.join(", ")})</span>
+                  <span className="text-ink-faint ml-1">({s.categories.join(", ")})</span>
                 )}
               </div>
             </div>
@@ -135,15 +135,15 @@ export const AIChatView = ({ lang, userId, strategyContext, onSaveNote, onMatrix
       </div>
       <div className="flex-1 flex flex-col min-w-0">
         <div className="flex items-center gap-2 mb-3">
-          <h2 className="text-lg font-semibold text-white shrink-0">{isAr ? "المستشار" : "AI Advisor"}</h2>
-          <span className="text-gray-700 shrink-0">|</span>
-          <button onClick={() => setShowHist(!showHist)} className={`p-2 rounded-lg transition ${showHist?"bg-amber-500/15 text-amber-400":"text-gray-500 hover:text-gray-300"}`}><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="2" width="14" height="2" rx="1"/><rect x="1" y="7" width="14" height="2" rx="1"/><rect x="1" y="12" width="14" height="2" rx="1"/></svg></button>
-          {activeConv && <span className="text-sm text-gray-400 truncate">{activeConv.title}</span>}<div className="flex-1"/>
+          <h2 className="text-lg font-semibold text-ink shrink-0">{isAr ? "المستشار" : "AI Advisor"}</h2>
+          <span className="text-ink-ghost shrink-0">|</span>
+          <button onClick={() => setShowHist(!showHist)} className={`p-2 rounded-lg transition ${showHist?"bg-amber-500/15 text-amber-400":"text-ink-muted hover:text-ink-2"}`}><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="2" width="14" height="2" rx="1"/><rect x="1" y="7" width="14" height="2" rx="1"/><rect x="1" y="12" width="14" height="2" rx="1"/></svg></button>
+          {activeConv && <span className="text-sm text-ink-3 truncate">{activeConv.title}</span>}<div className="flex-1"/>
           {messages.length > 1 && <button onClick={exportConversation} className="text-xs px-3 py-1.5 rounded-lg text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 transition" style={{ border: `1px solid ${BORDER}` }}>↓ {isAr ? "تصدير" : "Export"}</button>}
           <button onClick={newChat} className="text-xs px-3 py-1.5 rounded-lg text-amber-400/70 border border-amber-500/20 hover:bg-amber-500/10 transition">+ {isAr?"محادثة جديدة":"New Chat"}</button>
         </div>
         <div className="flex-1 overflow-y-auto space-y-3 pb-4 px-1 min-h-0">
-          {messages.length===0 && <div className="text-gray-600 text-center py-12 text-sm">{isAr?"ابدأ محادثة جديدة":"Start a new conversation"}</div>}
+          {messages.length===0 && <div className="text-ink-faint text-center py-12 text-sm">{isAr?"ابدأ محادثة جديدة":"Start a new conversation"}</div>}
           {messages.map((m,i) => m.failure ? <div key={i} className="flex justify-start"><div className="max-w-[74ch] w-full"><AiUnavailable kind={m.failure} lang={lang} onRetry={() => retrySend(i)} retrying={loading} /></div></div> : <div key={i} className={`flex ${m.role==="user"?"justify-end":"justify-start"}`}><div className={`group/msg relative max-w-[74ch] px-[18px] py-[15px] rounded-2xl text-[15px] leading-[1.68] ${m.role==="user"?"bg-amber-500/20 text-amber-100 rounded-br-md":m.error?"bg-red-500/10 text-red-300 rounded-bl-md border border-red-500/20":"bg-[#162544] text-gray-200 rounded-bl-md border border-[#1e3a5f]"}`}>{m.role==="ai"?<><Markdown text={m.text} onMatrixClick={onMatrixClick}/><LoadMatrixButtons text={m.text} onLoadMatrix={onMatrixClick}/></>:<div className="whitespace-pre-wrap">{m.text}</div>}{m.role==="ai"&&!m.error&&<><SourcesUsed sources={m.sources_used} />{m.validation && <ValidationWarnings validation={m.validation} />}<div className="flex items-center gap-2 mt-2 flex-wrap">{m.validation && <ConfidenceBadge validation={m.validation} agentsUsed={m.agents_used} />}{showTelemetry&&m.provider_display&&<span className="text-[10px] text-gray-500 bg-gray-700/30 px-1.5 py-0.5 rounded">{"\u26A1"} {m.provider_display}</span>}{showTelemetry&&m.tokens>0&&<span className="text-[10px] text-gray-600">{m.tokens} tokens</span>}{showTelemetry&&m.agents_used&&m.agents_used.length>0&&<span className="text-[10px] text-gray-600">{m.agents_used.length} agent{m.agents_used.length!==1?"s":""}</span>}<div className="flex-1"/>{onSaveNote&&<button onClick={() => onSaveNote(m.text.slice(0,60), m.text, "ai_chat")} className="opacity-0 group-hover/msg:opacity-100 text-[10px] text-gray-600 hover:text-amber-400 transition px-1.5 py-0.5 rounded hover:bg-amber-500/10" title="Save to Notes">{"\uD83D\uDCCC"} Save</button>}</div></>}</div></div>)}
           {loading && <AgentActivityIndicator agentStep={agentStep} />}
           {loading && retryMsg && <div className="px-4"><span className="text-amber-400/80 text-xs">{retryMsg}</span></div>}
@@ -160,8 +160,8 @@ export const AIChatView = ({ lang, userId, strategyContext, onSaveNote, onMatrix
             </div>
           )}
           <div className="flex gap-2">
-            <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key==="Enter"&&!e.shiftKey) { e.preventDefault(); send(); } }} placeholder={isAr?"اسأل المستشار... (Shift+Enter لسطر جديد)":"Ask the strategy AI... (Shift+Enter for new line)"} disabled={loading} rows={3} className="flex-1 px-4 py-3 rounded-xl bg-[#0a1628]/60 border border-[#1e3a5f] text-white placeholder-gray-600 focus:border-amber-500/40 focus:outline-none transition text-sm resize-none" />
-            <button onClick={send} disabled={loading||!input.trim()} className="px-5 py-3 rounded-xl font-medium text-sm disabled:opacity-30 transition-all hover:scale-105 self-end" style={{ background:`linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, color:DEEP }}>{isAr?"إرسال":"Send"}</button>
+            <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key==="Enter"&&!e.shiftKey) { e.preventDefault(); send(); } }} placeholder={isAr?"اسأل المستشار... (Shift+Enter لسطر جديد)":"Ask the strategy AI... (Shift+Enter for new line)"} disabled={loading} rows={3} className="flex-1 px-4 py-3 rounded-xl bg-input border border-hairline-strong text-ink placeholder-ink-faint focus:border-amber-500/40 focus:outline-none transition text-sm resize-none" />
+            <button onClick={send} disabled={loading||!input.trim()} className="px-5 py-3 rounded-xl font-medium text-sm disabled:opacity-30 transition-all hover:scale-105 self-end" style={{ background:GRAD_ACCENT, color:DEEP }}>{isAr?"إرسال":"Send"}</button>
           </div>
         </div>
       </div>

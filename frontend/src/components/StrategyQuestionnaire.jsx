@@ -1,6 +1,5 @@
 import { useState, useMemo } from "react";
-import { GOLD, GOLD_L, DEEP, BORDER, glass, inputCls } from "../constants";
-
+import { GRAD_ACCENT_90, glass, inputCls } from "../constants";
 export const StrategyQuestionnaire = ({ groups, answers, onAnswer, strategyType, prefilledQuestions }) => {
   const [expandedGroup, setExpandedGroup] = useState(0);
 
@@ -35,7 +34,7 @@ export const StrategyQuestionnaire = ({ groups, answers, onAnswer, strategyType,
               <button key={opt} onClick={() => onAnswer(q.id, opt)}
                 className={`px-3.5 py-2 rounded-lg text-sm transition-all border ${val === opt
                   ? "bg-amber-500/20 border-amber-500/40 text-amber-200"
-                  : "bg-[#0a1628]/60 border-[#1e3a5f] text-gray-400 hover:border-gray-500 hover:text-gray-300"}`}>
+                  : "bg-input border-hairline-strong text-ink-3 hover:border-gray-500 hover:text-ink-2"}`}>
                 {opt}
               </button>
             ))}
@@ -48,7 +47,7 @@ export const StrategyQuestionnaire = ({ groups, answers, onAnswer, strategyType,
               <button key={opt} onClick={() => onAnswer(q.id, opt)}
                 className={`px-5 py-2 rounded-lg text-sm font-medium transition-all border ${val === opt
                   ? "bg-amber-500/20 border-amber-500/40 text-amber-200"
-                  : "bg-[#0a1628]/60 border-[#1e3a5f] text-gray-400 hover:border-gray-500 hover:text-gray-300"}`}>
+                  : "bg-input border-hairline-strong text-ink-3 hover:border-gray-500 hover:text-ink-2"}`}>
                 {opt}
               </button>
             ))}
@@ -57,16 +56,16 @@ export const StrategyQuestionnaire = ({ groups, answers, onAnswer, strategyType,
       case "scale":
         return (
           <div className="flex items-center gap-1 mt-2">
-            <span className="text-[10px] text-gray-600 mr-1">Low</span>
+            <span className="text-[10px] text-ink-faint mr-1">Low</span>
             {["1", "2", "3", "4", "5"].map(n => (
               <button key={n} onClick={() => onAnswer(q.id, n)}
                 className={`w-10 h-10 rounded-full text-sm font-semibold transition-all border ${val === n
                   ? "bg-amber-500/25 border-amber-500/50 text-amber-200 scale-110"
-                  : "bg-[#0a1628]/60 border-[#1e3a5f] text-gray-500 hover:border-gray-500 hover:text-gray-300"}`}>
+                  : "bg-input border-hairline-strong text-ink-muted hover:border-gray-500 hover:text-ink-2"}`}>
                 {n}
               </button>
             ))}
-            <span className="text-[10px] text-gray-600 ml-1">High</span>
+            <span className="text-[10px] text-ink-faint ml-1">High</span>
           </div>
         );
       case "short_text":
@@ -87,11 +86,11 @@ export const StrategyQuestionnaire = ({ groups, answers, onAnswer, strategyType,
     <div className="space-y-4" data-tutorial="questionnaire">
       {/* Progress bar */}
       <div className="flex items-center gap-3 mb-2">
-        <div className="flex-1 h-2 rounded-full bg-[#0a1628]/80 border border-[#1e3a5f] overflow-hidden">
+        <div className="flex-1 h-2 rounded-full bg-input border border-hairline-strong overflow-hidden">
           <div className="h-full rounded-full transition-all duration-500"
-            style={{ width: `${progressPercent}%`, background: `linear-gradient(90deg, ${GOLD}, ${GOLD_L})` }} />
+            style={{ width: `${progressPercent}%`, background: GRAD_ACCENT_90 }} />
         </div>
-        <span className="text-xs text-gray-400 shrink-0 tabular-nums">{totalAnswered}/{totalVisible} answered</span>
+        <span className="text-xs text-ink-3 shrink-0 tabular-nums">{totalAnswered}/{totalVisible} answered</span>
       </div>
 
       {/* Question groups */}
@@ -105,12 +104,12 @@ export const StrategyQuestionnaire = ({ groups, answers, onAnswer, strategyType,
           return (
             <div key={gi} className="rounded-xl overflow-hidden" style={glass(0.4)}>
               <button onClick={() => setExpandedGroup(isExpanded ? -1 : gi)}
-                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/[0.02] transition">
+                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-lift/[0.02] transition">
                 <div className="flex items-center gap-2">
                   <span className="text-amber-400 text-xs">{isExpanded ? "▾" : "▸"}</span>
-                  <span className="text-white text-sm font-semibold">{group.name}</span>
+                  <span className="text-ink text-sm font-semibold">{group.name}</span>
                 </div>
-                <span className="text-[10px] text-gray-500">
+                <span className="text-[10px] text-ink-muted">
                   {groupAnswered}/{visibleQuestions.length}
                 </span>
               </button>
@@ -118,12 +117,12 @@ export const StrategyQuestionnaire = ({ groups, answers, onAnswer, strategyType,
                 <div className="px-4 pb-4 space-y-5">
                   {visibleQuestions.map((q, qi) => (
                     <div key={q.id} className="pl-1">
-                      <div className="text-sm text-gray-200 leading-relaxed">
-                        <span className="text-gray-600 text-xs mr-1.5">{qi + 1}.</span>
+                      <div className="text-sm text-ink-2 leading-relaxed">
+                        <span className="text-ink-faint text-xs mr-1.5">{qi + 1}.</span>
                         {q.question}
                       </div>
                       {q.explanation && (
-                        <div className="text-[11px] text-gray-500 mt-0.5 italic">{q.explanation}</div>
+                        <div className="text-[11px] text-ink-muted mt-0.5 italic">{q.explanation}</div>
                       )}
                       {renderInput(q)}
                       {prefilledQuestions?.has(q.id) && answers[q.id] && (
