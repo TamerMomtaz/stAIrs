@@ -113,6 +113,10 @@
   --grad-blue: linear-gradient(135deg, #3b82f6, var(--hue-blue));
   --grad-accent-bright: linear-gradient(135deg, var(--accent-bright), var(--accent-bright-hi));
   --grad-accent-bright-90: linear-gradient(90deg, var(--accent-bright), var(--accent-bright-hi));
+  /* The slideshow wordmark is TYPE, and the slideshow's chips and rules are
+     FILLS. They were the same token, so fixing one moved the other. Split by
+     purpose, the same way the amber ramp splits text from fills. */
+  --grad-wordmark: linear-gradient(135deg, var(--accent-bright), var(--accent-bright-hi));
 
   /* ── Semantic: health and status ──
      Each state is a fill, a line and an ink, so a badge is three tokens
@@ -240,9 +244,17 @@
   --ink: #0f1b33;                      /* 16.16:1 */
   --ink-2: #5a5750;                    /*  6.79:1 */
   --ink-3: #5a5750;                    /*  6.79:1 — carries body copy, so not the muted cut */
-  --ink-muted: #8a867c;                /*  3.42:1 — labels, metadata, UI only */
-  --ink-faint: #8a867c;
-  --ink-ghost: #8a867c;
+  /* The fourth ink. The palette gives three and the app has six roles, which
+     left labels, metadata and footers all on the 3.42:1 muted cut — fine for
+     large text and UI chrome, and a failure the moment any of them renders at
+     10px, which three of them did. This is the step 60% of the way from the
+     muted cut toward the secondary: a blend of two specified inks rather than
+     a new colour, and the first one that clears 4.5:1 on page, card AND the
+     sunken well. #8a867c survives where it belongs — as --type-task and
+     --hue-slate, which are marks and never text. */
+  --ink-muted: #6d6a62;                /*  4.67:1 worst case */
+  --ink-faint: #6d6a62;
+  --ink-ghost: #6d6a62;
   --ink-on-accent: #0f1b33;            /*  5.82:1 on gold */
 
   /* ── Accent ── */
@@ -290,6 +302,9 @@
   --grad-accent-90: linear-gradient(90deg, var(--accent), var(--accent));
   --grad-accent-bright: var(--grad-accent);
   --grad-accent-bright-90: var(--grad-accent-90);
+  /* 4.34:1 on the slideshow's ground, against 2.78:1 for the fill gold. The
+     fills above are untouched — this pointer exists so they can be. */
+  --grad-wordmark: linear-gradient(135deg, var(--accent-ink), var(--accent-ink));
   --grad-violet: linear-gradient(135deg, #3a2d86, var(--hue-violet));
   --grad-violet-90: linear-gradient(90deg, #3a2d86, var(--hue-violet));
   --grad-indigo: linear-gradient(135deg, var(--hue-indigo), #3a2d86);

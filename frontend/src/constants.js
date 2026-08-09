@@ -97,6 +97,9 @@ export const GRAD_AMBER = "var(--grad-amber)";
 export const GRAD_BLUE = "var(--grad-blue)";
 export const GRAD_ACCENT_BRIGHT = "var(--grad-accent-bright)";
 export const GRAD_ACCENT_BRIGHT_90 = "var(--grad-accent-bright-90)";
+// The wordmark is type, not a fill. Its own pointer so repainting one does
+// not drag the other with it.
+export const GRAD_WORDMARK = "var(--grad-wordmark)";
 
 // The elevation scale. Dark spends nothing on it — its ground is dark
 // enough that a border reads as a lift. Paper cannot do that, so a card

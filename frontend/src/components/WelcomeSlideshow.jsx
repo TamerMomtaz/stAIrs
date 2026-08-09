@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { ACCENT_BRIGHT, ACCENT_BRIGHT_HI, BAD, BORDER, BORDER_STRONG, DEEPEST, FONT_DISPLAY, GRAD_ACCENT_BRIGHT, GRAD_ACCENT_BRIGHT_90, HUE, INFO, INK, INK_3, INK_GHOST, INK_MUTED, OK, WARN, cast, tint } from "../constants";
+import { ACCENT_BRIGHT, ACCENT_BRIGHT_HI, BAD, BORDER, BORDER_STRONG, DEEPEST, FONT_DISPLAY, GRAD_ACCENT_BRIGHT, GRAD_ACCENT_BRIGHT_90, GRAD_WORDMARK, HUE, INFO, INK, INK_3, INK_GHOST, INK_MUTED, OK, WARN, cast, tint } from "../constants";
 const BG = DEEPEST;
 const ACCENT = ACCENT_BRIGHT;
 const ACCENT_L = ACCENT_BRIGHT_HI;
@@ -420,7 +420,7 @@ const slideConfigs = [
         >
           <span style={{
             fontSize: "56px", fontWeight: 400, fontFamily: FONT_DISPLAY,
-            background: GRAD_ACCENT_BRIGHT,
+            background: GRAD_WORDMARK,
             WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
           }}>Stairs</span>
         </div>
@@ -557,7 +557,7 @@ const slideConfigs = [
         >
           <span style={{
             fontSize: "48px", fontWeight: 400, fontFamily: FONT_DISPLAY,
-            background: GRAD_ACCENT_BRIGHT,
+            background: GRAD_WORDMARK,
             WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
           }}>Stairs</span>
         </div>

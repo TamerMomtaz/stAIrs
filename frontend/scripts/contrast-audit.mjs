@@ -35,8 +35,9 @@ const over = (fg, alpha, bg) => rgb(bg).map((b, i) => Math.round(rgb(fg)[i] * al
 const THEMES = {
   light: {
     page: "#faf8f4", card: "#ffffff", sunken: "#f2eee7", sidebar: "#ffffff", modal: "#ffffff",
-    ink: "#0f1b33", ink2: "#5a5750", ink3: "#5a5750", muted: "#8a867c", faint: "#8a867c", ghost: "#8a867c",
+    ink: "#0f1b33", ink2: "#5a5750", ink3: "#5a5750", muted: "#6d6a62", faint: "#6d6a62", ghost: "#6d6a62",
     gold: "#b8904a", goldInk: "#8a6a2f", goldSoft: "#efe6d6", teal: "#2a5c5c", inkOnAccent: "#0f1b33",
+    wordmark: "#8a6a2f", slideGround: "#f2eee7",
     okInk: "#006300", okFill: "#e6f2e6", warnInk: "#8a5a00", warnFill: "#fbf0da",
     badInk: "#b3312f", badFill: "#fae7e6", infoInk: "#1c5cab", infoFill: "#e4edf9",
     ringTrack: "#f2eee7", tint20: over("#b8904a", 0.2, "#ffffff"), tint10: over("#b8904a", 0.1, "#ffffff"),
@@ -46,6 +47,7 @@ const THEMES = {
     sidebar: "#0a1628", modal: "#0f1932",
     ink: "#ffffff", ink2: "#d1d5dc", ink3: "#99a1af", muted: "#6a7282", faint: "#4a5565", ghost: "#364153",
     gold: "#b8904a", goldInk: "#b8904a", goldSoft: "#2a2416", teal: "#2a5c5c", inkOnAccent: "#0a1628",
+    wordmark: "#ffd666", slideGround: "#0a0e1a",
     okInk: "#6ee7b7", okFill: over("#34d399", 0.2, "#0a1628"), warnInk: "#fcd34d", warnFill: over("#fbbf24", 0.2, "#0a1628"),
     badInk: "#fca5a5", badFill: over("#f87171", 0.2, "#0a1628"), infoInk: "#93c5fd", infoFill: over("#60a5fa", 0.2, "#0a1628"),
     ringTrack: "#0d1c33", tint20: over("#b8904a", 0.2, "#0a1628"), tint10: over("#b8904a", 0.1, "#0a1628"),
@@ -61,10 +63,14 @@ const PAIRS = (t) => [
   ["secondary ink on card",            t.ink2,     t.card,     "body"],
   ["tertiary ink on page",             t.ink3,     t.page,     "body"],
   ["tertiary ink on card (was 3.24)",  t.ink3,     t.card,     "body"],
-  ["muted ink — labels",               t.muted,    t.page,     "ui"],
-  ["faint ink — metadata",             t.faint,    t.card,     "ui"],
-  ["ghost ink — page footer (was 1.76)", t.ghost,  t.page,     "ui"],
+  ["muted ink — labels (10px)",         t.muted,    t.page,     "body"],
+  ["faint ink — metadata (10px)",       t.faint,    t.card,     "body"],
+  ["ghost ink — page footer (was 1.76)", t.ghost,  t.page,     "body"],
   ["sidebar inactive item (was 3.81)", t.muted,    t.sidebar,  "ui"],
+  // The collapse control is the character ☰ with no aria-label, so it is
+  // the button's own accessible name: text, held to 4.5:1, not 3:1.
+  ["sidebar collapse glyph ☰ (14px)",  t.muted,    t.sidebar,  "body"],
+  ["slideshow wordmark on its ground", t.wordmark, t.slideGround, "large"],
   ["sidebar section label (was 2.39)", t.faint,    t.sidebar,  "ui"],
   ["modal close button (was 3.60)",    t.muted,    t.modal,    "ui"],
   ["gold as TEXT on page",             t.gold,     t.page,     "never"],
@@ -82,6 +88,7 @@ const PAIRS = (t) => [
   ["at-risk badge",                    t.warnInk,  t.warnFill, "body"],
   ["off-track badge",                  t.badInk,   t.badFill,  "body"],
   ["achieved badge",                   t.infoInk,  t.infoFill, "body"],
+  ["muted ink on the sunken chip",     t.muted,    t.sunken,   "body"],
   // A progress arc is not the only carrier of its value — the ring prints
   // the percentage in its centre at 16.16:1, and every linear meter has the
   // number beside it. Measured anyway, because "it says the number" is a
@@ -90,7 +97,7 @@ const PAIRS = (t) => [
   ["ring fill (at-risk) vs track",      t.warnMark || "#fab219", t.ringTrack, "redundant"],
 ];
 
-const NEED = { body: 4.5, ui: 3.0, never: 0, redundant: 0 };
+const NEED = { body: 4.5, ui: 3.0, large: 3.0, never: 0, redundant: 0 };
 const name = process.argv[2] === "dark" ? "dark" : "light";
 const t = THEMES[name];
 let fails = 0, worst = null;
