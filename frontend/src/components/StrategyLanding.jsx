@@ -65,12 +65,12 @@ export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, user
         <h1 className="text-3xl font-normal text-white mb-3 flex items-center justify-center gap-3" style={{ fontFamily: FONT_DISPLAY }}><img src="/devoneers-logo.png" alt="DEVONEERS" style={{ height: "32px" }} />{isAr ? "استراتيجياتك" : "Your Strategies"}</h1>
         <p className="text-gray-500 text-sm max-w-lg mx-auto">{isAr ? "كل استراتيجية هي سلم مستقل." : "Each strategy is an independent staircase for a company, product, or project."}</p>
       </div>
-      <div className="max-w-5xl mx-auto px-6 pb-12">
+      <div className="max-w-6xl mx-auto px-6 pb-12">
         {loading ? (
           <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" /></div>
         ) : (
           <div className="flex flex-wrap justify-center gap-6">
-            <button onClick={() => setShowWizard(true)} className="group p-8 rounded-2xl border-2 border-dashed border-[#1e3a5f] hover:border-amber-500/40 transition-all hover:scale-[1.02] flex flex-col items-center justify-center gap-4" style={{ width: "320px", minHeight: "260px" }}>
+            <button onClick={() => setShowWizard(true)} className="group p-8 rounded-2xl border-2 border-dashed border-[#1e3a5f] hover:border-amber-500/40 transition-all hover:scale-[1.02] flex flex-col items-center justify-center gap-4" style={{ flex: "1 1 320px", maxWidth: "380px", minHeight: "260px" }}>
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-all group-hover:scale-110" style={{ background: `${GOLD}15`, border: `1px solid ${GOLD}30` }}>+</div>
               <div className="text-center"><div className="text-white font-medium text-sm">{isAr ? "إنشاء استراتيجية جديدة" : "Create New Strategy"}</div><div className="text-gray-600 text-xs mt-1">{isAr ? "سيساعدك الذكاء الاصطناعي" : "AI will help you build the staircase"}</div></div>
             </button>
@@ -78,7 +78,7 @@ export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, user
               const statusLabel = s.source === "server" ? (s.status === "active" ? "● Active" : s.status === "archived" ? "◌ Archived" : "◦ Draft") : "● Local Draft";
               const statusColor = s.source === "server" ? (s.status === "active" ? "#34d399" : s.status === "archived" ? "#94a3b8" : GOLD) : "#a78bfa";
               return (
-                <div key={s.id} className="group relative p-8 rounded-2xl transition-all hover:scale-[1.02] cursor-pointer flex flex-col" style={{ ...glass(0.5), borderColor: `${s.color || GOLD}30`, width: "320px", minHeight: "260px" }} onClick={() => onSelect(s)}>
+                <div key={s.id} className="group relative p-8 rounded-2xl transition-all hover:scale-[1.02] cursor-pointer flex flex-col" style={{ ...glass(0.5), borderColor: `${s.color || GOLD}30`, flex: "1 1 320px", maxWidth: "380px", minHeight: "260px" }} onClick={() => onSelect(s)}>
                   <button onClick={e => { e.stopPropagation(); if (window.confirm(`Delete "${s.name}"?`)) onDelete(s.id); }} className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 text-xs transition p-1.5 rounded-lg hover:bg-red-500/10">✕</button>
                   <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl mb-4" style={{ background: `${s.color || GOLD}20`, border: `1px solid ${s.color || GOLD}30` }}>{s.icon || "🎯"}</div>
                   <div className="flex-1">
