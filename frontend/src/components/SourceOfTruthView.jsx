@@ -134,7 +134,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
       high: "text-emerald-400 bg-emerald-900/30 border-emerald-700/40",
       medium: "text-amber-400 bg-amber-900/30 border-amber-700/40",
       low: "text-red-400 bg-red-900/30 border-red-700/40",
-      quarantined: "text-ink-3 bg-gray-900/30 border-gray-700/40",
+      quarantined: "text-ink-3 bg-sunken border-hairline",
     };
     const levelLabel = { high: isAr ? "عالي" : "High", medium: isAr ? "متوسط" : "Med", low: isAr ? "منخفض" : "Low", quarantined: isAr ? "محجور" : "Q" };
     const cls = colors[conf.confidence_level] || colors.medium;
@@ -147,7 +147,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
 
   const getVerificationBadge = (source) => {
     const meta = source.metadata || {};
-    if (meta.quarantined) return <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-900/30 text-ink-3 border border-gray-700/40">🚫 {isAr ? "محجور" : "Quarantined"}</span>;
+    if (meta.quarantined) return <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-sunken text-ink-3 border border-hairline">🚫 {isAr ? "محجور" : "Quarantined"}</span>;
     if (meta.verification_status === "disputed") return <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-900/30 text-red-400 border border-red-700/40">⚠️ {isAr ? "متنازع" : "Disputed"}</span>;
     if (meta.user_verified) return <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-900/30 text-emerald-400 border border-emerald-700/40">✓ {isAr ? "موثق" : "Verified"}</span>;
     return null;
@@ -422,13 +422,13 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
         {pages.map((pageText, idx) => (
           <div key={idx}>
             <div className="flex items-center gap-2 py-2">
-              <div className="flex-1 h-px bg-gray-700/50" />
+              <div className="flex-1 h-px bg-sunken" />
               <span className="text-[10px] text-ink-muted font-medium shrink-0">
                 {isAr ? `صفحة ${idx + 1}` : `Page ${idx + 1}`}
               </span>
-              <div className="flex-1 h-px bg-gray-700/50" />
+              <div className="flex-1 h-px bg-sunken" />
             </div>
-            <div className="whitespace-pre-wrap font-mono text-xs text-ink-2 leading-relaxed px-3 py-2 rounded-lg bg-gray-900/30">
+            <div className="whitespace-pre-wrap font-mono text-xs text-ink-2 leading-relaxed px-3 py-2 rounded-lg bg-sunken">
               {pageText.trim() || (isAr ? "(صفحة فارغة)" : "(Empty page)")}
             </div>
           </div>
@@ -486,7 +486,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
             )}
 
             {showFullText && displayText && displayText !== "extraction_failed" && (
-              <div className="mt-2 mb-1 rounded-lg border border-gray-700/50 bg-gray-900/40 overflow-hidden">
+              <div className="mt-2 mb-1 rounded-lg border border-hairline bg-sunken overflow-hidden">
                 <div className="max-h-96 overflow-y-auto p-3">
                   <pre className="whitespace-pre-wrap font-mono text-xs text-ink-2 leading-relaxed">{displayText}</pre>
                 </div>
@@ -494,7 +494,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
             )}
 
             {showPageView && (
-              <div className="mt-2 mb-1 rounded-lg border border-gray-700/50 bg-gray-900/40 overflow-hidden">
+              <div className="mt-2 mb-1 rounded-lg border border-hairline bg-sunken overflow-hidden">
                 <div className="max-h-96 overflow-y-auto p-3">
                   {renderPageByPageView(meta)}
                 </div>
@@ -502,7 +502,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
             )}
 
             {source.content === "extraction_failed" && (
-              <div className="text-xs text-amber-500/70 italic">
+              <div className="text-xs text-accent-ink/70 italic">
                 {isAr ? "تعذر استخراج النص" : "Text extraction failed"}
               </div>
             )}
@@ -542,7 +542,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
               )}
               <button
                 onClick={(e) => handleDownload(e, source)}
-                className="text-[10px] px-2 py-0.5 rounded-full border border-gray-600 text-ink-3 transition hover:text-ink hover:border-gray-400"
+                className="text-[10px] px-2 py-0.5 rounded-full border border-hairline-strong text-ink-3 transition hover:text-ink hover:border-hairline-strong"
               >
                 {isAr ? "تحميل" : "Download"}
               </button>
@@ -607,7 +607,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
 
         {/* AI Analysis Review Panel */}
         {analysisReviewId === source.id && analysisData[source.id] && (
-          <div className="border-t border-gray-700/50 p-3.5">
+          <div className="border-t border-hairline p-3.5">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-ink">{isAr ? "مراجعة استخراج AI" : "AI Extraction Review"}</span>
@@ -629,22 +629,22 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                 if (items.length === 0) return null;
                 const isExpCat = expandedCategories[category] !== false;
                 return (
-                  <div key={category} className="rounded-lg border border-gray-700/40 overflow-hidden">
+                  <div key={category} className="rounded-lg border border-hairline overflow-hidden">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setExpandedCategories(prev => ({ ...prev, [category]: !isExpCat }));
                       }}
-                      className="w-full flex items-center justify-between p-2.5 text-left hover:bg-gray-800/30 transition"
+                      className="w-full flex items-center justify-between p-2.5 text-left hover:bg-sunken transition"
                     >
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-ink-3">{isExpCat ? "▾" : "▸"}</span>
                         <span className="text-xs font-medium text-ink">{category}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-800 text-ink-3">{items.length}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-sunken text-ink-3">{items.length}</span>
                       </div>
                     </button>
                     {isExpCat && (
-                      <div className="border-t border-gray-700/30 divide-y divide-gray-800/40">
+                      <div className="border-t border-hairline divide-y divide-hairline">
                         {items.map((item, idx) => {
                           const key = `${category}::${idx}`;
                           const isRejected = !!rejectedItems[key];
@@ -683,7 +683,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
               })}
             </div>
 
-            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-700/40">
+            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-hairline">
               <button
                 onClick={(e) => { e.stopPropagation(); handleApproveAll(source.id); }}
                 disabled={approving || totalExtractionItems(source.id) === 0}
@@ -760,7 +760,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
         {uploading ? (
           <div className="space-y-2">
             <div className="text-sm text-ink-3">{isAr ? "جاري الرفع..." : "Uploading..."}</div>
-            <div className="w-full h-2 rounded-full bg-gray-800 overflow-hidden">
+            <div className="w-full h-2 rounded-full bg-sunken overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-300"
                 style={{ width: `${uploadProgress}%`, background: `linear-gradient(90deg, ${sourceTypeConfig.document.color}, ${GOLD})` }}
@@ -846,7 +846,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
             </span>
           )}
           {searchDebounced && (
-            <span className="flex items-center gap-1 px-2 py-1 rounded-full border border-gray-600 text-ink-3">
+            <span className="flex items-center gap-1 px-2 py-1 rounded-full border border-hairline-strong text-ink-3">
               "{searchDebounced}"
               <button onClick={() => setSearch("")} className="ml-1 hover:opacity-70">✕</button>
             </span>
@@ -921,7 +921,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                         <div className="text-[10px] text-ink-faint uppercase tracking-wider mb-1">{isAr ? "البيانات الوصفية" : "Metadata"}</div>
                         <div className="flex flex-wrap gap-1.5">
                           {Object.entries(source.metadata).filter(([k]) => !["context"].includes(k)).map(([k, v]) => (
-                            <span key={k} className="text-[10px] px-2 py-0.5 rounded-full bg-gray-800/50 text-ink-muted border border-gray-700/50">
+                            <span key={k} className="text-[10px] px-2 py-0.5 rounded-full bg-sunken text-ink-muted border border-hairline">
                               {k}: {typeof v === "object" ? JSON.stringify(v).slice(0, 50) : String(v).slice(0, 50)}
                             </span>
                           ))}
@@ -964,7 +964,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
         <div className="flex items-center gap-2 p-3 rounded-xl border" style={{ borderColor: tint(WARN, 30), background: tint(WARN, 6) }}>
           <span className="text-base">⚠️</span>
           <span className="text-xs text-amber-400 flex-1">{isAr ? "بيانات استراتيجيتك بها تعارضات غير محلولة قد تؤثر على دقة AI." : "Your strategy data has unresolved conflicts that may affect AI accuracy."}</span>
-          <span className="text-[10px] text-amber-500 font-bold">{dataHealth.health_score}%</span>
+          <span className="text-[10px] text-accent-ink font-bold">{dataHealth.health_score}%</span>
         </div>
       )}
 
@@ -990,7 +990,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
       <div className="flex items-center gap-2">
         <button
           onClick={() => { setShowQuarantine(!showQuarantine); if (!showQuarantine) loadQuarantined(); }}
-          className={`text-[10px] px-3 py-1.5 rounded-lg border transition ${showQuarantine ? "border-gray-500 text-ink bg-gray-800/50" : "border-gray-700 text-ink-muted hover:text-ink-2"}`}
+          className={`text-[10px] px-3 py-1.5 rounded-lg border transition ${showQuarantine ? "border-hairline-strong text-ink bg-sunken" : "border-hairline text-ink-muted hover:text-ink-2"}`}
         >
           🚫 {isAr ? "المحجورة" : "Quarantined"} {quarantinedSources.length > 0 ? `(${quarantinedSources.length})` : ""}
         </button>

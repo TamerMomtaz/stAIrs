@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { api, SourcesAPI, extractDocumentText } from "../api";
-import { BAD, BORDER, DEEP, GOLD, GRAD_ACCENT, HUE, INFO, INK_3, OK, TEAL, WARN, glass, inputCls, labelCls, tint, typeColors, typeIcons } from "../constants";
+import { BAD, BORDER, DEEP, GOLD, GOLD_INK, GRAD_ACCENT, HUE, INFO, INK_3, OK, TEAL, WARN, glass, inputCls, labelCls, tint, typeColors, typeIcons } from "../constants";
 import { Markdown } from "./Markdown";
 import { Modal } from "./SharedUI";
 import { StrategyQuestionnaire } from "./StrategyQuestionnaire";
@@ -67,7 +67,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
   // Step 3: AI chat
   // Step 4: Review & create
   const [step, setStep] = useState(0);
-  const [info, setInfo] = useState({ name: "", company: "", industry: "", description: "", strategyType: "", framework: "okr", icon: "🎯", color: GOLD });
+  const [info, setInfo] = useState({ name: "", company: "", industry: "", description: "", strategyType: "", framework: "okr", icon: "🎯", color: GOLD_INK });
   const [aiMessages, setAiMessages] = useState([]); const [aiInput, setAiInput] = useState("");
   const [aiLoading, setAiLoading] = useState(false); const [generatedElements, setGeneratedElements] = useState([]);
   const [questionnaireData, setQuestionnaireData] = useState(null);
@@ -402,7 +402,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
 
   const resetWizard = () => {
     setStep(0);
-    setInfo({ name: "", company: "", industry: "", description: "", strategyType: "", framework: "okr", icon: "🎯", color: GOLD });
+    setInfo({ name: "", company: "", industry: "", description: "", strategyType: "", framework: "okr", icon: "🎯", color: GOLD_INK });
     setAiMessages([]); setGeneratedElements([]);
     setQuestionnaireData(null); setQuestionnaireAnswers({}); setQuestionnaireError(null);
     setUploadedFiles([]); setExtractedTexts([]); setPrefilledQuestionIds(new Set());
@@ -434,7 +434,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
                 <button key={t.value} onClick={() => setInfo(f => ({...f, strategyType: t.value}))}
                   className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-left text-sm transition-all border ${info.strategyType === t.value
                     ? "bg-amber-500/15 border-amber-500/40 text-amber-200"
-                    : "bg-input border-hairline-strong text-ink-3 hover:border-gray-500 hover:text-ink-2"}`}>
+                    : "bg-input border-hairline-strong text-ink-3 hover:border-hairline-strong hover:text-ink-2"}`}>
                   <span className="text-base shrink-0">{t.icon}</span>
                   <span className="truncate text-xs">{t.label}</span>
                 </button>
@@ -530,7 +530,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
             <div className="flex justify-between">
               <button onClick={() => { setStep(0); setUploadedFiles([]); setExtractionError(null); }} className="text-xs text-ink-muted hover:text-ink-2 transition">← Back</button>
               <div className="flex gap-3">
-                <button onClick={handleSkipUpload} disabled={extracting} className="px-6 py-3 rounded-lg text-sm text-ink-muted hover:text-ink-2 border border-transparent hover:border-gray-700 transition disabled:opacity-40">Skip — Fill Manually</button>
+                <button onClick={handleSkipUpload} disabled={extracting} className="px-6 py-3 rounded-lg text-sm text-ink-muted hover:text-ink-2 border border-transparent hover:border-hairline transition disabled:opacity-40">Skip — Fill Manually</button>
                 <button onClick={handleUploadAndContinue} disabled={uploadedFiles.length === 0 || extracting} className="px-6 py-3 rounded-lg text-sm font-semibold text-ink-on-accent disabled:opacity-40 transition-all hover:scale-[1.02]" style={{ background: GRAD_ACCENT }}>Upload & Continue</button>
               </div>
             </div>
@@ -591,14 +591,14 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
           <div className="shrink-0 pt-4 mt-4" style={{ borderTop: `1px solid ${BORDER}` }}>
             {!questionnaireLoading && !questionnaireError && questionnaireData && (
               <div className="flex items-center gap-2 mb-3 p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/10">
-                <span className="text-amber-500/60 text-xs">i</span>
+                <span className="text-accent-ink/60 text-xs">i</span>
                 <span className="text-[11px] text-ink-muted">Answering these questions will make your strategy significantly more accurate.</span>
               </div>
             )}
             <div className="flex justify-between">
               <button onClick={() => { setStep(1); setQuestionnaireData(null); setQuestionnaireAnswers({}); setQuestionnaireError(null); setPrefilledQuestionIds(new Set()); setPrefilling(false); }} className="text-xs text-ink-muted hover:text-ink-2 transition">← Back</button>
               <div className="flex gap-3">
-                <button onClick={skipQuestionnaire} className="px-6 py-3 rounded-lg text-sm text-ink-muted hover:text-ink-2 border border-transparent hover:border-gray-700 transition">Skip questionnaire</button>
+                <button onClick={skipQuestionnaire} className="px-6 py-3 rounded-lg text-sm text-ink-muted hover:text-ink-2 border border-transparent hover:border-hairline transition">Skip questionnaire</button>
                 {!questionnaireLoading && questionnaireData && (
                   <button onClick={goToAIChat} disabled={prefilling} className="px-6 py-3 rounded-lg text-sm font-semibold text-ink-on-accent transition-all hover:scale-[1.02] disabled:opacity-40" style={{ background: GRAD_ACCENT }}>Next → AI Builder</button>
                 )}
@@ -627,7 +627,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
                       />
                     </div>
                   ) : (
-                    <div className={`max-w-[74ch] px-[18px] py-[15px] rounded-2xl text-[15px] leading-[1.68] ${m.role === "user" ? "bg-amber-500/20 text-amber-100 rounded-br-md" : "bg-raised text-ink-2 rounded-bl-md border border-hairline-strong"}`}>
+                    <div className={`max-w-[74ch] px-[18px] py-[15px] rounded-2xl text-[15px] leading-[1.68] ${m.role === "user" ? "bg-amber-500/10 text-amber-100 rounded-br-md" : "bg-raised text-ink-2 rounded-bl-md border border-hairline-strong"}`}>
                       {m.role === "ai" ? <Markdown text={m.text} /> : <div className="whitespace-pre-wrap">{m.text}</div>}
                     </div>
                   )}
@@ -642,7 +642,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
               <div className="lg:hidden flex items-center gap-2 px-3 py-2 mb-2 rounded-lg flex-shrink-0" style={glass(0.3)}>
                 <span className="text-amber-400 text-xs">✓ {generatedElements.length} elements captured</span>
                 <div className="flex-1" />
-                <button onClick={() => setStep(4)} className="text-xs px-3 py-1 rounded-md bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition">Review &amp; Create →</button>
+                <button onClick={() => setStep(4)} className="text-xs px-3 py-1 rounded-md bg-amber-500/10 text-amber-300 hover:bg-amber-500/30 transition">Review &amp; Create →</button>
               </div>
             )}
             {aiMessages.length >= 1 && generatedElements.length === 0 && (

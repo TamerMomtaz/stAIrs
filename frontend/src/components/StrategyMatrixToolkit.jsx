@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { BAD, BORDER, BORDER_STRONG, DEEP, GOLD, GOLD_L, HUE, INFO, INK_3, OK, WARN, glass, inputCls, tint } from "../constants";
+import { BAD, BORDER, BORDER_STRONG, DEEP, GOLD, GOLD_INK, GOLD_L, HUE, INFO, INK_3, OK, WARN, glass, inputCls, tint } from "../constants";
 import { Modal } from "./SharedUI";
 import { buildHeader, buildFooter, openExportWindow, EXPORT_STYLES } from "../exportUtils";
 
@@ -1105,7 +1105,7 @@ const PorterFiveForces = ({ onSave, strategyContext, initialData }) => {
                 return <line key={i} x1={center} y1={center} x2={p.x} y2={p.y} stroke={BORDER_STRONG} strokeWidth={0.5} />;
               })}
               {/* Data polygon */}
-              <polygon points={polygonPoints} fill={`${tint(GOLD, 13)}`} stroke={GOLD} strokeWidth={2} />
+              <polygon points={polygonPoints} fill={`${tint(GOLD, 13)}`} stroke={GOLD_INK} strokeWidth={2} />
               {/* Data points + labels */}
               {forceDefinitions.map((fd, i) => {
                 const p = getPoint(i, forceAvg(fd.key));
@@ -1172,7 +1172,7 @@ export const FrameworkButton = ({ frameworkKey, onClick }) => {
       style={{ borderColor: `${tint(GOLD, 31)}`, color: GOLD_L, background: `${tint(GOLD, 7)}` }}
       title={`Open interactive ${fw.name} worksheet`}
     >
-      {fw.icon} {fw.name} <span className="text-amber-500/50 text-[10px]">→ Interactive</span>
+      {fw.icon} {fw.name} <span className="text-accent-ink/50 text-[10px]">→ Interactive</span>
     </button>
   );
 };

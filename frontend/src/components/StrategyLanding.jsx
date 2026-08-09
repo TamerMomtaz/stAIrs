@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { BORDER, DEEP, DEEP_MID, FONT_DISPLAY, GOLD, GRAD_ACCENT, HUE, INK_3, OK, cast, fontStack, glass, tint } from "../constants";
+import { BORDER, DEEP, DEEP_MID, FONT_DISPLAY, GOLD, GOLD_INK, GRAD_ACCENT, HUE, INK_3, OK, cast, fontStack, glass, tint } from "../constants";
 import { StrategyWizard } from "./StrategyWizard";
 import { WelcomeSlideshow, hasSeenWelcome, markWelcomeSeen } from "./WelcomeSlideshow";
 
-export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, userName, onLogout, onLangToggle, lang, loading, userId, userEmail, userRole }) => {
+export const StrategyLanding = ({ theme, onThemeToggle, strategies, onSelect, onCreate, onDelete, userName, onLogout, onLangToggle, lang, loading, userId, userEmail, userRole }) => {
   const [showWizard, setShowWizard] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -36,10 +36,15 @@ export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, user
           {!isAr && <button onClick={() => setShowWelcome(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-ink-muted hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition uppercase tracking-wider" title="Watch the Stairs introduction" data-testid="watch-intro-btn">
             <span className="text-sm">🎬</span> <span className="hidden sm:inline">Watch Intro</span>
           </button>}
+          {/* Theme. Light is the default; this remembers the other choice. */}
+          <button onClick={onThemeToggle} title={theme === "dark" ? "Switch to light" : "Switch to dark"}
+            className="text-xs text-ink-muted hover:text-accent-ink transition" data-testid="theme-toggle">
+            {theme === "dark" ? (isAr ? "فاتح" : "Light") : (isAr ? "داكن" : "Dark")}
+          </button>
           <button onClick={onLangToggle} className="text-xs text-ink-muted hover:text-amber-400 transition">{isAr ? "EN" : "عربي"}</button>
           <div className="relative">
             <button onClick={() => setShowProfile(v => !v)} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-ink-3 hover:text-amber-400 hover:bg-amber-500/10 transition">
-              <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ background: `${tint(GOLD, 15)}`, color: GOLD, border: `1px solid ${tint(GOLD, 25)}` }}>{(userName || "?")[0].toUpperCase()}</span>
+              <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ background: "transparent", color: GOLD_INK, border: `1px solid ${tint(GOLD, 25)}` }}>{(userName || "?")[0].toUpperCase()}</span>
               <span>{userName}</span>
               <span className="text-[10px]">{showProfile ? "▲" : "▼"}</span>
             </button>

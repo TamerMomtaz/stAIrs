@@ -1,4 +1,4 @@
-import { BAD, GOLD, INFO, WARN, tint } from "../constants";
+import { BAD, GOLD, GOLD_INK, INFO, WARN, tint } from "../constants";
 import { buildHeader, openExportWindow } from "../exportUtils";
 import LoadFailed from "./LoadFailed";
 import { ViewHeader } from "./ViewHeader";
@@ -29,7 +29,7 @@ export const AlertsView = ({ alerts, lang, strategyContext, failed, retrying, on
   return <div className="space-y-3">
     {header}
     {failed && <LoadFailed compact what={isAr ? "أحدث التنبيهات" : "the latest alerts"} lang={lang} onRetry={onRetry} retrying={retrying} />}
-    <div className="flex justify-end mb-2"><button onClick={exportAlerts} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{ borderColor: `${tint(GOLD, 38)}`, color: GOLD, background: `${tint(GOLD, 8)}` }}>↓ {isAr ? "تصدير" : "Export"}</button></div>
+    <div className="flex justify-end mb-2"><button onClick={exportAlerts} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{ borderColor: `${tint(GOLD, 38)}`, color: GOLD_INK, background: "transparent" }}>↓ {isAr ? "تصدير" : "Export"}</button></div>
     {alerts.map((a,i) => { const s = sc[a.severity]||sc.info; return <div key={i} className="p-4 rounded-xl" style={{background:s.bg,border:`1px solid ${s.border}`}}><div className="flex items-start gap-3"><span className="text-lg">{s.icon}</span><div className="flex-1"><div className={`font-medium text-sm ${s.text}`}>{isAr&&a.title_ar?a.title_ar:a.title}</div><div className="text-gray-400 text-xs mt-1">{isAr&&a.description_ar?a.description_ar:a.description}</div></div></div></div>; })}
   </div>;
 };

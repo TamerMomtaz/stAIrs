@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { ActionPlansAPI, ManifestStore, SourcesAPI, ArtifactsAPI, ARTIFACT } from "../api";
-import { BORDER, GOLD, GRAD_ACCENT_90, GRAD_VIOLET_90, HUE, INFO, INK_3, INK_MUTED, OK, glass, tint, typeColors, typeIcons } from "../constants";
+import { BORDER, GOLD, GOLD_INK, GRAD_ACCENT_90, GRAD_VIOLET_90, HUE, INFO, INK_3, INK_MUTED, OK, glass, tint, typeColors, typeIcons } from "../constants";
 import { Markdown } from "./Markdown";
 import { logoUrl, printDocument } from "../exportUtils";
 import LoadFailed from "./LoadFailed";
@@ -367,7 +367,7 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
           <button
             onClick={exportAllManifests}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]"
-            style={{ borderColor: `${tint(GOLD, 38)}`, color: GOLD, background: `${tint(GOLD, 8)}` }}
+            style={{ borderColor: `${tint(GOLD, 38)}`, color: GOLD_INK, background: "transparent" }}
             title={isAr ? "تصدير جميع السجلات كملف PDF" : "Export All as PDF"}
           >
             ↓ {isAr ? "تصدير الكل PDF" : "Export All as PDF"}
@@ -407,7 +407,7 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
           <div className="flex-1 h-2 rounded-full bg-hairline-strong overflow-hidden">
             <div className="h-full rounded-full transition-all duration-500" style={{ width: `${overallProgress}%`, background: GRAD_ACCENT_90 }} />
           </div>
-          <span className="text-xs font-medium" style={{ color: GOLD }}>{overallProgress}%</span>
+          <span className="text-xs font-medium" style={{ color: GOLD_INK }}>{overallProgress}%</span>
         </div>
       )}
 
@@ -515,7 +515,7 @@ export const ManifestRoom = ({ strategyContext, lang, onImplStepToggle }) => {
                           <button
                             onClick={(e) => { e.stopPropagation(); exportSingleManifest(m, task, group); }}
                             className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium border transition hover:scale-[1.02] shrink-0"
-                            style={{ borderColor: `${tint(GOLD, 25)}`, color: GOLD, background: `${tint(GOLD, 6)}` }}
+                            style={{ borderColor: `${tint(GOLD, 25)}`, color: GOLD_INK, background: "transparent" }}
                             title={isAr ? "تصدير هذا السجل" : "Export this manifest as PDF"}
                           >
                             ↓ PDF

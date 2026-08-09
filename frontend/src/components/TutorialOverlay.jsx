@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { BORDER_STRONG, DEEP, GOLD, GOLD_L, GRAD_ACCENT, GRAD_ACCENT_90, HUE, INFO, INK_FAINT, MODAL_SURFACE, OK, SCRIM_STRONG, cast, tint } from "../constants";
+import { BORDER_STRONG, DEEP, GOLD, GOLD_INK, GOLD_L, GRAD_ACCENT, GRAD_ACCENT_90, HUE, INFO, INK_FAINT, MODAL_SURFACE, OK, SCRIM_STRONG, cast, tint } from "../constants";
 import {
   tutorialSteps,
   TUTORIAL_VERSION,
@@ -28,8 +28,8 @@ const StepReward = ({ visible }) => {
   return (
     <div className="tutorial-reward">
       <svg width="32" height="32" viewBox="0 0 32 32" className="tutorial-reward-svg">
-        <circle cx="16" cy="16" r="14" fill="none" stroke={GOLD} strokeWidth="2" className="tutorial-reward-circle" />
-        <path d="M10 16 L14 20 L22 12" fill="none" stroke={GOLD} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="tutorial-reward-check" />
+        <circle cx="16" cy="16" r="14" fill="none" stroke={GOLD_INK} strokeWidth="2" className="tutorial-reward-circle" />
+        <path d="M10 16 L14 20 L22 12" fill="none" stroke={GOLD_INK} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="tutorial-reward-check" />
       </svg>
     </div>
   );

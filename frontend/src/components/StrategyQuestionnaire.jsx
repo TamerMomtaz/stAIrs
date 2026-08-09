@@ -33,8 +33,8 @@ export const StrategyQuestionnaire = ({ groups, answers, onAnswer, strategyType,
             {(q.options || []).map(opt => (
               <button key={opt} onClick={() => onAnswer(q.id, opt)}
                 className={`px-3.5 py-2 rounded-lg text-sm transition-all border ${val === opt
-                  ? "bg-amber-500/20 border-amber-500/40 text-amber-200"
-                  : "bg-input border-hairline-strong text-ink-3 hover:border-gray-500 hover:text-ink-2"}`}>
+                  ? "bg-amber-500/10 border-amber-500/40 text-amber-200"
+                  : "bg-input border-hairline-strong text-ink-3 hover:border-hairline-strong hover:text-ink-2"}`}>
                 {opt}
               </button>
             ))}
@@ -46,8 +46,8 @@ export const StrategyQuestionnaire = ({ groups, answers, onAnswer, strategyType,
             {["Yes", "No"].map(opt => (
               <button key={opt} onClick={() => onAnswer(q.id, opt)}
                 className={`px-5 py-2 rounded-lg text-sm font-medium transition-all border ${val === opt
-                  ? "bg-amber-500/20 border-amber-500/40 text-amber-200"
-                  : "bg-input border-hairline-strong text-ink-3 hover:border-gray-500 hover:text-ink-2"}`}>
+                  ? "bg-amber-500/10 border-amber-500/40 text-amber-200"
+                  : "bg-input border-hairline-strong text-ink-3 hover:border-hairline-strong hover:text-ink-2"}`}>
                 {opt}
               </button>
             ))}
@@ -61,7 +61,7 @@ export const StrategyQuestionnaire = ({ groups, answers, onAnswer, strategyType,
               <button key={n} onClick={() => onAnswer(q.id, n)}
                 className={`w-10 h-10 rounded-full text-sm font-semibold transition-all border ${val === n
                   ? "bg-amber-500/25 border-amber-500/50 text-amber-200 scale-110"
-                  : "bg-input border-hairline-strong text-ink-muted hover:border-gray-500 hover:text-ink-2"}`}>
+                  : "bg-input border-hairline-strong text-ink-muted hover:border-hairline-strong hover:text-ink-2"}`}>
                 {n}
               </button>
             ))}

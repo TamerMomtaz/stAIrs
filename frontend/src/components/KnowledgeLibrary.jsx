@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../api";
-import { BAD, GOLD, HUE, INFO, INK_3, OK, WARN, glass, tint } from "../constants";
+import { BAD, GOLD, GOLD_INK, HUE, INFO, INK_3, OK, WARN, glass, tint } from "../constants";
 import { buildHeader, openExportWindow } from "../exportUtils";
 import LoadFailed from "./LoadFailed";
 import { ViewHeader } from "./ViewHeader";
@@ -69,7 +69,7 @@ export const KnowledgeLibrary = ({ lang, strategyContext }) => {
   };
   return (
     <div className="space-y-6">
-      <div className="flex gap-2 flex-wrap items-center">{tabs.map(t => <button key={t.key} onClick={() => setTab(t.key)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${tab===t.key?"bg-amber-500/15 text-amber-300 border border-amber-500/20":"text-ink-muted hover:text-ink-2 border border-transparent"}`}>{t.icon} {t.label}</button>)}<div className="flex-1" /><button onClick={exportKnowledge} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{ borderColor: `${tint(GOLD, 38)}`, color: GOLD, background: `${tint(GOLD, 8)}` }}>↓ {isAr ? "تصدير" : "Export"}</button></div>
+      <div className="flex gap-2 flex-wrap items-center">{tabs.map(t => <button key={t.key} onClick={() => setTab(t.key)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${tab===t.key?"bg-amber-500/15 text-amber-300 border border-amber-500/20":"text-ink-muted hover:text-ink-2 border border-transparent"}`}>{t.icon} {t.label}</button>)}<div className="flex-1" /><button onClick={exportKnowledge} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{ borderColor: `${tint(GOLD, 38)}`, color: GOLD_INK, background: "transparent" }}>↓ {isAr ? "تصدير" : "Export"}</button></div>
 
       {tab==="overview" && data.stats && (
         <div className="space-y-4">

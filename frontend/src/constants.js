@@ -16,6 +16,8 @@ export const GOLD_L = "var(--accent-hi)";
 export const GOLD_INK = "var(--accent-ink)";
 export const TEAL = "var(--accent-teal)";
 export const CHAMPAGNE = "var(--accent-champagne)";
+// The pale gold behind a meter track or a gold tint. A fill, like GOLD.
+export const GOLD_SOFT = "var(--accent-soft)";
 // The welcome slideshow's own, brighter gold. Kept distinct on purpose —
 // see the note in tokens.css.
 export const ACCENT_BRIGHT = "var(--accent-bright)";
@@ -46,6 +48,7 @@ export const INK_MUTED = "var(--ink-muted)";
 export const INK_FAINT = "var(--ink-faint)";
 export const INK_GHOST = "var(--ink-ghost)";
 export const RAISED = "rgb(var(--surface-raised-rgb))";
+export const SUNKEN = "var(--surface-sunken)";
 
 // Health and status. One colour per state; the fill/line/ink cuts live as
 // Tailwind utilities (bg-ok-fill, border-ok-line, text-ok-ink).
@@ -94,7 +97,15 @@ export const GRAD_AMBER = "var(--grad-amber)";
 export const GRAD_BLUE = "var(--grad-blue)";
 export const GRAD_ACCENT_BRIGHT = "var(--grad-accent-bright)";
 export const GRAD_ACCENT_BRIGHT_90 = "var(--grad-accent-bright-90)";
+// The wordmark is type, not a fill. Its own pointer so repainting one does
+// not drag the other with it.
+export const GRAD_WORDMARK = "var(--grad-wordmark)";
 
+// The elevation scale. Dark spends nothing on it — its ground is dark
+// enough that a border reads as a lift. Paper cannot do that, so a card
+// on light is white + warm border + shadow-1, and glass() applies it.
+export const SHADOW_1 = "var(--shadow-1)";
+export const SHADOW_2 = "var(--shadow-2)";
 export const SHADOW_SM = "var(--shadow-sm)";
 export const SHADOW_MD = "var(--shadow-md)";
 export const SHADOW_LG = "var(--shadow-lg)";
@@ -122,6 +133,15 @@ export const typeLabelsAr = { vision: "الرؤية", objective: "الهدف", k
 // 67 call sites. The opacity argument is preserved, so every existing
 // glass(0.4) keeps its relative weight while the underlying surface changes
 // with the theme.
-export const glass = (op = 0.6) => ({ background: `rgb(var(--surface-raised-rgb) / ${op})`, border: `1px solid ${BORDER}` });
+// 67 call sites. On dark the opacity argument is the whole effect — a
+// translucent panel over a near-black gradient. On paper a translucent
+// card is not a card, so --glass-lift raises every one of them to solid
+// white and the border and shadow carry the elevation instead. The
+// argument is still honoured in dark, so nothing there moves.
+export const glass = (op = 0.6) => ({
+  background: `color-mix(in srgb, rgb(var(--surface-raised-rgb)) calc(${Math.round(op * 100)}% + var(--glass-lift)), transparent)`,
+  border: `1px solid ${BORDER}`,
+  boxShadow: SHADOW_1,
+});
 export const inputCls = "w-full px-4 py-3.5 rounded-xl bg-input border border-hairline-strong text-ink text-[15px] placeholder-ink-faint focus:border-accent/45 focus:ring-2 focus:ring-accent/10 focus:outline-none transition";
 export const labelCls = "text-ink-3 text-[11px] uppercase tracking-[0.12em] mb-2 block font-medium";

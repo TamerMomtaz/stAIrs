@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { ActionPlansAPI } from "../api";
-import { BORDER, GOLD, GRAD_ACCENT_90, HUE, INK_3, INK_MUTED, OK, glass, tint, typeColors, typeIcons } from "../constants";
+import { BORDER, GOLD, GOLD_INK, GRAD_ACCENT_90, HUE, INK_3, INK_MUTED, OK, glass, tint, typeColors, typeIcons } from "../constants";
 import { Markdown } from "./Markdown";
 import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
 import { logoUrl, printDocument } from "../exportUtils";
@@ -203,7 +203,7 @@ export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
   };
 
   const PriorityBadge = ({ priority }) => {
-    const c = { High: "bg-red-500/20 text-red-300 border-red-500/30", Medium: "bg-amber-500/20 text-amber-300 border-amber-500/30", Low: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" };
+    const c = { High: "bg-red-500/20 text-red-300 border-red-500/30", Medium: "bg-amber-500/10 text-amber-300 border-amber-500/30", Low: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" };
     return <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${c[priority] || c.Medium}`}>{priority}</span>;
   };
 
@@ -256,7 +256,7 @@ export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
           <button
             onClick={() => exportAllPlans(planGroups, strategyContext, isAr)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]"
-            style={{ borderColor: `${tint(GOLD, 38)}`, color: GOLD, background: `${tint(GOLD, 8)}` }}
+            style={{ borderColor: `${tint(GOLD, 38)}`, color: GOLD_INK, background: "transparent" }}
             title={isAr ? `تصدير ${totalPlans} خطة عمل` : `Export all ${totalPlans} plans`}
           >
             ↓ {isAr ? "تصدير جميع الخطط" : "Export All Plans"}
@@ -360,7 +360,7 @@ export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
                               <button
                                 onClick={(e) => { e.stopPropagation(); exportSinglePlan(group, plan, strategyContext, isAr); }}
                                 className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium border transition hover:scale-[1.02] shrink-0"
-                                style={{ borderColor: `${tint(GOLD, 25)}`, color: GOLD, background: `${tint(GOLD, 6)}` }}
+                                style={{ borderColor: `${tint(GOLD, 25)}`, color: GOLD_INK, background: "transparent" }}
                                 title={isAr ? "تصدير هذه الخطة" : "Export this plan as PDF"}
                               >
                                 ↓ PDF
@@ -376,7 +376,7 @@ export const ActionPlansView = ({ strategyContext, lang, onMatrixClick }) => {
                                       <div key={ti} className={`flex items-start gap-2.5 py-2 ${t.done ? "opacity-50" : ""}`}>
                                         <button
                                           onClick={() => toggleTask(gi, plan.id, ti)}
-                                          className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 text-[10px] cursor-pointer transition hover:border-amber-500/50 ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-gray-600"}`}
+                                          className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 text-[10px] cursor-pointer transition hover:border-amber-500/50 ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-hairline-strong"}`}
                                         >
                                           {t.done && "✓"}
                                         </button>

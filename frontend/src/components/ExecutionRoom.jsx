@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api, ActionPlansAPI, SourcesAPI, ManifestStore, ArtifactsAPI, ARTIFACT, stairScope, taskScope, canSeeAgentTelemetry } from "../api";
-import { BORDER, DEEP, DEEP_MID, GOLD, GRAD_ACCENT, GRAD_ACCENT_90, GRAD_BLUE, GRAD_VIOLET, GRAD_VIOLET_90, HUE, INK_3, INK_MUTED, TEAL, cast, glass, tint, typeColors, typeIcons } from "../constants";
+import { BORDER, DEEP, DEEP_MID, GOLD, GOLD_INK, GRAD_ACCENT, GRAD_ACCENT_90, GRAD_BLUE, GRAD_VIOLET, GRAD_VIOLET_90, HUE, INK_3, INK_MUTED, TEAL, cast, glass, tint, typeColors, typeIcons } from "../constants";
 import { HealthBadge, ConfidenceBadge, ValidationWarnings, AgentActivityIndicator } from "./SharedUI";
 import { Markdown } from "./Markdown";
 import { logoUrl, printDocument } from "../exportUtils";
@@ -711,7 +711,7 @@ IMPORTANT: Ground ALL guidance in the user's actual data from Source of Truth. R
   const wizardSteps = [
     { n: 1, key: "understand", label: isAr ? "افهم" : "Understand", icon: "📖", color: HUE.blue, tutorial: "explain" },
     { n: 2, key: "assess", label: isAr ? "قيّم" : "Assess", icon: "🎯", color: TEAL, tutorial: "how-far" },
-    { n: 3, key: "customize", label: isAr ? "خصّص" : "Customize", icon: "✨", color: GOLD, tutorial: "custom-plan" },
+    { n: 3, key: "customize", label: isAr ? "خصّص" : "Customize", icon: "✨", color: GOLD_INK, tutorial: "custom-plan" },
     { n: 4, key: "implement", label: isAr ? "نفّذ" : "Implement", icon: "🚀", color: HUE.violet, tutorial: "impl-room" },
   ];
 
@@ -1070,7 +1070,7 @@ User question: ${msg}`;
   );
 
   const PriorityBadge = ({ priority }) => {
-    const c = { High: "bg-red-500/20 text-red-300 border-red-500/30", Medium: "bg-amber-500/20 text-amber-300 border-amber-500/30", Low: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" };
+    const c = { High: "bg-red-500/20 text-red-300 border-red-500/30", Medium: "bg-amber-500/10 text-amber-300 border-amber-500/30", Low: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" };
     return <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${c[priority] || c.Medium}`}>{priority}</span>;
   };
 
@@ -1122,7 +1122,7 @@ User question: ${msg}`;
                 : `${savedWorkCount} saved ${savedWorkCount === 1 ? "item" : "items"} · Manifest Room`}
             </button>
           )}
-          <button onClick={() => setShowExportModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{ borderColor: `${tint(GOLD, 38)}`, color: GOLD, background: `${tint(GOLD, 8)}` }}>
+          <button onClick={() => setShowExportModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{ borderColor: `${tint(GOLD, 38)}`, color: GOLD_INK, background: "transparent" }}>
             ↓ {isAr ? "تصدير" : "Export Plan"}
           </button>
         </div>
@@ -1254,7 +1254,7 @@ User question: ${msg}`;
                           <div className="flex items-start gap-2.5">
                             <button
                               onClick={(e) => { e.stopPropagation(); toggleTask(t.id); }}
-                              className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition text-[10px] ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-gray-600 hover:border-amber-500/50"}`}
+                              className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition text-[10px] ${t.done ? "bg-emerald-500/30 border-emerald-500/50 text-emerald-300" : "border-hairline-strong hover:border-amber-500/50"}`}
                             >
                               {t.done && "✓"}
                             </button>
@@ -1449,7 +1449,7 @@ User question: ${msg}`;
                                   <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                                     <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed ${
                                       m.role === "user"
-                                        ? "bg-amber-500/20 text-amber-100 rounded-br-sm"
+                                        ? "bg-amber-500/10 text-amber-100 rounded-br-sm"
                                         : m.error
                                           ? "bg-red-500/10 text-red-300 rounded-bl-sm border border-red-500/20"
                                           : "bg-input text-ink-2 rounded-bl-sm border border-hairline-strong"
@@ -1757,7 +1757,7 @@ User question: ${msg}`;
                 <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div className={`group/msg relative max-w-[74ch] px-[18px] py-[15px] rounded-2xl text-[15px] leading-[1.68] ${
                     m.role === "user"
-                      ? "bg-amber-500/20 text-amber-100 rounded-br-md"
+                      ? "bg-amber-500/10 text-amber-100 rounded-br-md"
                       : m.error
                         ? "bg-red-500/10 text-red-300 rounded-bl-md border border-red-500/20"
                         : "bg-raised text-ink-2 rounded-bl-md border border-hairline-strong"
@@ -1840,7 +1840,7 @@ User question: ${msg}`;
                   <span className="text-amber-300 text-sm font-semibold">{isAr ? "خطة العمل المخصصة" : "Customized Action Plan"}</span>
                 </div>
                 <p className="text-ink-muted text-xs ml-7">{isAr ? "تصدير خطتك المخصصة بناءً على ملاحظاتك وقدراتك" : "Export your tailored plan based on your feedback and capabilities"}</p>
-                {customTasks.length === 0 && <p className="text-amber-500/60 text-[10px] ml-7 mt-1">{isAr ? "أنشئ خطة مخصصة أولاً" : "Generate a customized plan first"}</p>}
+                {customTasks.length === 0 && <p className="text-accent-ink/60 text-[10px] ml-7 mt-1">{isAr ? "أنشئ خطة مخصصة أولاً" : "Generate a customized plan first"}</p>}
               </button>
               <button
                 onClick={() => exportPlan("both")}
@@ -1853,7 +1853,7 @@ User question: ${msg}`;
                   <span className="text-ink text-sm font-semibold">{isAr ? "مقارنة الخطتين" : "Both — Side-by-Side Comparison"}</span>
                 </div>
                 <p className="text-ink-muted text-xs ml-7">{isAr ? "تصدير الخطتين جنباً إلى جنب للمقارنة مع الملاحظات والحلول" : "Export both plans side-by-side for comparison with feedback notes and solutions"}</p>
-                {(tasks.length === 0 || customTasks.length === 0) && <p className="text-amber-500/60 text-[10px] ml-7 mt-1">{isAr ? "يتطلب وجود كلتا الخطتين" : "Requires both plans to be generated"}</p>}
+                {(tasks.length === 0 || customTasks.length === 0) && <p className="text-accent-ink/60 text-[10px] ml-7 mt-1">{isAr ? "يتطلب وجود كلتا الخطتين" : "Requires both plans to be generated"}</p>}
               </button>
             </div>
             <button onClick={() => setShowExportModal(false)} className="w-full mt-4 py-2 rounded-lg text-xs text-ink-muted hover:text-ink-2 transition">

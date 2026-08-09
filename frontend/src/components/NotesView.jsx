@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { NotesStore, NotesAPI } from "../api";
-import { GOLD, GRAD_ACCENT, glass, inputCls, tint } from "../constants";
+import { GOLD, GOLD_INK, GRAD_ACCENT, glass, inputCls, tint } from "../constants";
 import { logoUrl, printDocument } from "../exportUtils";
 import { ViewHeader } from "./ViewHeader";
 
@@ -97,7 +97,7 @@ export const NotesView = ({ lang, userId, strategyName }) => {
     <div className="space-y-4">
       <ViewHeader title={isAr ? "ملاحظات" : "Notes"} />
       <div className="flex items-center gap-3 flex-wrap">
-        <button onClick={startNew} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-[1.02]" style={{ background: `${tint(GOLD, 13)}`, border: `1px solid ${tint(GOLD, 20)}`, color: GOLD }}>+ {isAr ? "ملاحظة جديدة" : "New Note"}</button>
+        <button onClick={startNew} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-[1.02]" style={{ background: "transparent", border: `1px solid ${tint(GOLD, 20)}`, color: GOLD_INK }}>+ {isAr ? "ملاحظة جديدة" : "New Note"}</button>
         <div className="flex-1" />
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder={isAr ? "بحث..." : "Search notes..."} className={inputCls} style={{ padding: "8px 14px", fontSize: "13px", maxWidth: "240px" }} />
         <span className="text-ink-faint text-xs">{notes.length} {isAr ? "ملاحظة" : "notes"}</span>
