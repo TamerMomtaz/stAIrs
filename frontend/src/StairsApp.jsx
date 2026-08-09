@@ -544,11 +544,12 @@ export default function App() {
 
       <StairEditor open={showEditor} onClose={() => { setShowEditor(false); setEditStair(null); }} stair={editStair} allStairs={stairTree} onSave={saveStair} onDelete={deleteStair} lang={lang} />
 
-      {/* onOpenManifest is only a navigation. The room closes because the hash
-          stops naming it, which is what #72 made true — the setter this used to
-          call was deleted in that same commit and left a ReferenceError behind,
-          so the chip threw on every click. */}
-      {execRoomStair && <ExecutionRoom stair={execRoomStair} strategyContext={activeStrat} lang={lang} onBack={() => go({ strategyId: route.strategyId, view: "execroom" })} onSaveNote={saveToNotes} onMatrixClick={openMatrix} onOpenManifest={() => goToView("manifest")} />}
+      {/* Every exit from the room is one navigation, through the same goToView
+          the sidebar uses. The room closes because the hash stops naming it,
+          which is what #72 made true — the setter onOpenManifest used to call
+          was deleted in that same commit and left a ReferenceError behind, so
+          the chip threw on every click. */}
+      {execRoomStair && <ExecutionRoom stair={execRoomStair} strategyContext={activeStrat} lang={lang} onNavigate={goToView} onSaveNote={saveToNotes} onMatrixClick={openMatrix} onOpenManifest={() => goToView("manifest")} />}
 
       <StrategyMatrixToolkit open={matrixToolkit.open} matrixKey={matrixToolkit.key} onClose={closeMatrix} onSave={saveMatrixResult} strategyContext={activeStrat} initialData={matrixToolkit.initialData} />
 

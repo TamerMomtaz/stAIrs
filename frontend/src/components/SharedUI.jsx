@@ -37,14 +37,19 @@ const HEALTH_MARK = {
   ),
 };
 
-export const HealthBadge = ({ health, size = "sm" }) => {
+/* compactBelowSm drops the words on a narrow bar and keeps the mark, so a
+   header that must also carry a title and a breadcrumb isn't spending 90px on
+   a word the colour already says. Opt-in: every existing caller renders
+   byte-identically, and the label stays in the accessibility tree either way. */
+export const HealthBadge = ({ health, size = "sm", compactBelowSm = false }) => {
   const c = { on_track: "bg-ok-fill text-ok-ink border-ok-line", at_risk: "bg-warn-fill text-warn-ink border-warn-line", off_track: "bg-bad-fill text-bad-ink border-bad-line", achieved: "bg-info-fill text-info-ink border-info-line" };
   const s = size === "sm" ? "text-[10px] px-2 py-0.5 gap-1" : "text-xs px-3 py-1 gap-1.5";
   const key = HEALTH_MARK[health] ? health : "at_risk";
+  const label = health?.replace("_", " ").toUpperCase();
   return (
     <span className={`${s} inline-flex items-center rounded-full border font-medium whitespace-nowrap ${c[health] || c.at_risk}`}>
       {HEALTH_MARK[key]}
-      {health?.replace("_", " ").toUpperCase()}
+      {compactBelowSm ? <span className="sr-only sm:not-sr-only">{label}</span> : label}
     </span>
   );
 };
