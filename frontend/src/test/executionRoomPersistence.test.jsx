@@ -61,7 +61,7 @@ const savedSolutions = {
 };
 
 const renderRoom = (opts = {}) => render(
-  <ExecutionRoom stair={STAIR} strategyContext={STRATEGY} lang="en" onBack={() => {}} {...opts} />
+  <ExecutionRoom stair={STAIR} strategyContext={STRATEGY} lang="en" onNavigate={() => {}} {...opts} />
 );
 
 beforeEach(() => {
@@ -108,7 +108,7 @@ describe('ExecutionRoom — reads persisted content back', () => {
   it('survives React StrictMode double-invoking the mount effect', async () => {
     render(
       <StrictMode>
-        <ExecutionRoom stair={STAIR} strategyContext={STRATEGY} lang="en" onBack={() => {}} />
+        <ExecutionRoom stair={STAIR} strategyContext={STRATEGY} lang="en" onNavigate={() => {}} />
       </StrictMode>
     );
     await screen.findByText('Build the pipeline');

@@ -1,0 +1,9 @@
+# Test-only dependencies.
+#
+# requirements.txt is what the container installs to RUN the app. These are
+# what it takes to TEST it, and their absence is why the sequence CLAUDE.md
+# documents — pip install -r requirements.txt, then python -m pytest — could
+# not work on a clean checkout. Nothing noticed, because nothing ran the
+# backend tests anywhere but on a machine that already had pytest.
+pytest==9.1.1
+pytest-asyncio==1.4.0

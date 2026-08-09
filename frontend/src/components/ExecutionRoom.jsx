@@ -9,8 +9,70 @@ import { fireGuidance } from "../guidanceConfig";
 import { normalizeAiResult } from "../lib/aiResilience";
 import AiUnavailable from "./AiUnavailable";
 
+/* ═══ WHERE YOU ARE, IN THE ROOM ═══
+   The room is a full-screen overlay by decision, so it never gets the sidebar
+   and has to supply its own orientation rather than borrowing it. It used to
+   have one exit — an arrow whose tooltip said "Back to Staircase" while its
+   handler went to the step picker — and a person arriving by deep link had
+   nothing above them at all, since browser Back leaves the site when there is
+   no history to pop.
+
+   Three segments, and the parent is the Execution Room picker rather than the
+   Staircase: it is the screen the sidebar names, the screen Back already went
+   to, and a legitimate index of workable steps, so "up" keeps meaning one
+   thing across both navigation surfaces.
+
+   The last segment is not a link. It names where you are and carries
+   aria-current="page" — a link that reloads the page you are on teaches
+   exactly the lesson this change exists to remove.
+
+   TWO RTL DETAILS, one of which is the opposite of what it looks like.
+
+   THE SEPARATOR IS NOT SWAPPED BY HAND. U+203A is Bidi_Mirrored, so the text
+   engine already renders it as ‹ inside an RTL run — mirroring is a required
+   part of the Unicode Bidirectional Algorithm, not a font nicety. Hand-swapping
+   to ‹ for Arabic double-flips it and points the crumbs the wrong way. Measured
+   in Chromium rather than assumed: the same codepoint rendered under dir=ltr
+   and dir=rtl in identically positioned boxes produces different bitmaps, and
+   RTL › is bitmap-identical to LTR ‹. One codepoint, both directions.
+
+   THE CODE IS ISOLATED. <bdi dir="ltr"> around the element code, because a
+   Latin-and-digits string with hyphens reorders visually inside an RTL run —
+   the hyphens are bidi-neutral and take the paragraph direction, so
+   OBJ-2608-A9C9 renders scrambled without it. */
+export const RoomBreadcrumb = ({ stair, strategyContext, isAr, onNavigate }) => {
+  const stratName = (isAr && strategyContext?.name_ar) || strategyContext?.name;
+  const link = "text-ink-3 hover:text-amber-400 hover:underline underline-offset-2 transition rounded";
+  return (
+    <nav aria-label={isAr ? "مسار التنقل" : "Breadcrumb"}
+      data-testid="room-breadcrumb"
+      className="flex items-center gap-1.5 min-w-0 text-[11px] leading-tight">
+      {strategyContext && (
+        <>
+          <button onClick={() => onNavigate?.("dashboard")} title={stratName}
+            className={`${link} truncate max-w-[7rem] sm:max-w-[16rem]`}>
+            {strategyContext.icon} {stratName}
+          </button>
+          <span aria-hidden="true" className="text-ink-faint shrink-0">&rsaquo;</span>
+        </>
+      )}
+      <button onClick={() => onNavigate?.("execroom")} className={`${link} shrink-0`}>
+        {isAr ? "الغرفة التنفيذية" : "Execution Room"}
+      </button>
+      <span aria-hidden="true" className="text-ink-faint shrink-0">&rsaquo;</span>
+      {/* Never truncated. It is the one string here that identifies THIS room,
+          and a half-printed code is worse than useless in a support thread. */}
+      <span aria-current="page" className="shrink-0 text-ink-2">
+        {stair.code
+          ? <bdi dir="ltr" className="font-mono text-[10.5px]">{stair.code}</bdi>
+          : <span className="truncate max-w-[12rem] inline-block align-bottom">{stair.title}</span>}
+      </span>
+    </nav>
+  );
+};
+
 // ═══ EXECUTION ROOM ═══
-export const ExecutionRoom = ({ stair, strategyContext, lang, onBack, onSaveNote, onMatrixClick, onOpenManifest }) => {
+export const ExecutionRoom = ({ stair, strategyContext, lang, onNavigate, onSaveNote, onMatrixClick, onOpenManifest }) => {
   const [actionPlan, setActionPlan] = useState(null);
   const [solutions, setSolutions] = useState(null);
   const [planLoading, setPlanLoading] = useState(false);
@@ -1083,48 +1145,65 @@ User question: ${msg}`;
   return (
     <div data-testid="execution-room" className="fixed inset-0 z-[90] flex flex-col" style={{ background: `linear-gradient(180deg, ${DEEP} 0%, ${DEEP_MID} 50%, ${DEEP} 100%)` }}>
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-3 shrink-0" style={{ borderBottom: `1px solid ${BORDER}` }}>
-        <div className="flex items-center gap-3">
-          <button onClick={onBack} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-ink-3 hover:text-amber-400 hover:bg-amber-500/10 transition group" title={isAr ? "رجوع" : "Back to Staircase"}>
-            <span className="text-lg group-hover:-translate-x-0.5 transition-transform">←</span>
-            <span className="text-sm font-medium">{isAr ? "رجوع" : "Back"}</span>
-          </button>
-          <span className="text-ink-faint">|</span>
-          <span style={{ color, fontSize: 16 }}>{typeIcons[stair.element_type] || "•"}</span>
-          <div className="min-w-0">
-            <div className="text-[10px] uppercase tracking-wider font-semibold" style={{ color }}>{stair.element_type?.replace("_", " ")}</div>
-            <div className="text-ink text-sm font-medium truncate">{stair.code && <span className="text-ink-muted font-mono text-xs mr-1.5">{stair.code}</span>}{stair.title}</div>
-          </div>
-          <HealthBadge health={stair.health} />
-          <div className="text-xs font-medium" style={{ color }}>{stair.progress_percent || 0}%</div>
+      {/* Two rows. The breadcrumb is a thin, quiet strip above the identity
+          line rather than another control beside it — it costs vertical space,
+          which the room has, instead of horizontal space, which it does not.
+          It also pays for itself: it absorbs the Back button, the step code
+          that was printed twice, and the inert strategy name that used to sit
+          at the right edge of the tab bar. Net one control lighter. */}
+      <header className="shrink-0" style={{ borderBottom: `1px solid ${BORDER}` }}>
+        <div className="px-6 pt-2 pb-1">
+          <RoomBreadcrumb stair={stair} strategyContext={strategyContext} isAr={isAr} onNavigate={onNavigate} />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-4 px-6 pb-2.5">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <span style={{ color, fontSize: 15 }} className="shrink-0">{typeIcons[stair.element_type] || "•"}</span>
+          <span className="hidden sm:inline text-[10px] uppercase tracking-wider font-semibold shrink-0" style={{ color }}>{stair.element_type?.replace("_", " ")}</span>
+          <span className="text-ink text-sm font-medium truncate min-w-0">{stair.title}</span>
+          <span className="shrink-0"><HealthBadge health={stair.health} compactBelowSm /></span>
+          <div className="text-xs font-medium shrink-0" style={{ color }}>{stair.progress_percent || 0}%</div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
           {unsaved.length > 0 && (
             <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-red-500/15 text-red-300 border border-red-500/30"
               title={`${isAr ? "لم يتم الحفظ على الخادم" : "Not saved to the server"}: ${unsaved.map(u => u.label).join(", ")}`}>
               ⚠ {isAr ? `${unsaved.length} غير محفوظ` : `${unsaved.length} not saved`}
             </span>
           )}
+          {/* The cluster is what sheds words as the bar narrows — the
+              breadcrumb is the last thing to give up space, because below 640
+              with no sidebar it is the only navigation on screen. Every label
+              that hides visually stays in aria-label: display:none content is
+              dropped from the accessible name, so an icon-only chip without
+              one is unnamed to a screen reader. */}
           {hasSavedPlan && (
-            <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-              <span className="text-emerald-400">✓</span> {isAr ? "الخطة محفوظة" : "Plan saved"}
+            <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"
+              title={isAr ? "الخطة محفوظة" : "Plan saved"}>
+              <span className="text-emerald-400" aria-hidden="true">✓</span>
+              <span className="sr-only xl:not-sr-only">{isAr ? "الخطة محفوظة" : "Plan saved"}</span>
             </span>
           )}
           {/* Where the saved work lives. "Plan saved" tells you it went
               somewhere; this says where and takes you there. */}
           {onOpenManifest && savedWorkCount > 0 && (
             <button onClick={onOpenManifest}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium border transition hover:scale-[1.02] text-ink-2 hover:text-ink"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium border transition hover:scale-[1.02] text-ink-2 hover:text-ink"
               style={{ borderColor: BORDER, background: "rgb(var(--surface-hover-rgb) / 0.04)" }}
               title={isAr ? "افتح سجل التنفيذ لرؤية كل ما تم إنشاؤه وحفظه" : "Open the Manifest Room to see everything you've generated and saved"}>
-              📦 {isAr
-                ? `${savedWorkCount} عنصر محفوظ — سجل التنفيذ`
-                : `${savedWorkCount} saved ${savedWorkCount === 1 ? "item" : "items"} · Manifest Room`}
+              <span aria-hidden="true">📦</span>
+              <span>{savedWorkCount}</span>
+              <span className="sr-only md:not-sr-only">{isAr
+                ? "عنصر محفوظ — سجل التنفيذ"
+                : `saved ${savedWorkCount === 1 ? "item" : "items"} · Manifest Room`}</span>
             </button>
           )}
-          <button onClick={() => setShowExportModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{ borderColor: `${tint(GOLD, 38)}`, color: GOLD_INK, background: "transparent" }}>
-            ↓ {isAr ? "تصدير" : "Export Plan"}
+          <button onClick={() => setShowExportModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02] shrink-0"
+            style={{ borderColor: `${tint(GOLD, 38)}`, color: GOLD_INK, background: "transparent" }}>
+            <span aria-hidden="true">↓</span>
+            <span className="sr-only sm:not-sr-only">{isAr ? "تصدير" : "Export Plan"}</span>
           </button>
+        </div>
         </div>
       </header>
 
@@ -1137,8 +1216,9 @@ User question: ${msg}`;
             <div className={`text-[10px] mt-0.5 ${activeTab === t.key ? "text-amber-300/60" : "text-ink-faint"}`}>{t.sub}</div>
           </button>
         ))}
-        <div className="flex-1" />
-        {strategyContext && <span className="text-xs text-ink-faint">{strategyContext.icon} {strategyContext.name}</span>}
+        {/* The strategy name used to sit here as a plain <span> — it named a
+            destination and never went there. It is now segment 1 of the
+            breadcrumb, where it is a link. */}
       </nav>
 
       {/* Save / load failures — surfaced, never silent */}

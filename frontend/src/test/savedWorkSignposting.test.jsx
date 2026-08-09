@@ -111,20 +111,24 @@ describe('Execution Room — signposts the Manifest Room', () => {
   it('offers a way to the Manifest Room once there is saved work', async () => {
     artifactsForStair.mockResolvedValue(savedArtifacts);
     const onOpenManifest = vi.fn();
-    render(<ExecutionRoom stair={STAIR} strategyContext={STRATEGY} lang="en" onBack={() => {}} onOpenManifest={onOpenManifest} />);
+    render(<ExecutionRoom stair={STAIR} strategyContext={STRATEGY} lang="en" onNavigate={() => {}} onOpenManifest={onOpenManifest} />);
     fireEvent.click(await screen.findByText(/Manifest Room/i));
     expect(onOpenManifest).toHaveBeenCalled();
   });
 
   it('counts the saved items so the client knows there is something to find', async () => {
     artifactsForStair.mockResolvedValue(savedArtifacts);
-    render(<ExecutionRoom stair={STAIR} strategyContext={STRATEGY} lang="en" onBack={() => {}} onOpenManifest={() => {}} />);
-    expect(await screen.findByText(/1 saved item/i)).toBeTruthy();
+    render(<ExecutionRoom stair={STAIR} strategyContext={STRATEGY} lang="en" onNavigate={() => {}} onOpenManifest={() => {}} />);
+    // Asserted on the accessible name rather than a single text node: the
+    // label is split across spans so the verbose tail can hide on a narrow
+    // bar, and the name is what a person — or a screen reader — perceives
+    // either way.
+    expect(await screen.findByRole('button', { name: /1 saved item · Manifest Room/i })).toBeTruthy();
   });
 
   it('does not signpost an empty Manifest Room', async () => {
     artifactsForStair.mockResolvedValue([]);
-    render(<ExecutionRoom stair={STAIR} strategyContext={STRATEGY} lang="en" onBack={() => {}} onOpenManifest={() => {}} />);
+    render(<ExecutionRoom stair={STAIR} strategyContext={STRATEGY} lang="en" onNavigate={() => {}} onOpenManifest={() => {}} />);
     await screen.findByText(/No action plan yet/i);
     expect(screen.queryByText(/Manifest Room/i)).toBeNull();
   });
