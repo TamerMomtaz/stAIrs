@@ -36,7 +36,7 @@ const THEMES = {
   light: {
     page: "#faf8f4", card: "#ffffff", sunken: "#f2eee7", sidebar: "#ffffff", modal: "#ffffff",
     ink: "#0f1b33", ink2: "#5a5750", ink3: "#5a5750", muted: "#6d6a62", faint: "#6d6a62", ghost: "#6d6a62",
-    gold: "#b8904a", goldInk: "#8a6a2f", goldSoft: "#efe6d6", teal: "#2a5c5c", inkOnAccent: "#0f1b33",
+    gold: "#b8904a", goldInk: "#8a6a2f", goldSoft: "#efe6d6", teal: "#2a5c5c", tealInk: "#2a5c5c", inkOnAccent: "#0f1b33",
     wordmark: "#8a6a2f", slideGround: "#f2eee7",
     okInk: "#006300", okFill: "#e6f2e6", warnInk: "#8a5a00", warnFill: "#fbf0da",
     badInk: "#b3312f", badFill: "#fae7e6", infoInk: "#1c5cab", infoFill: "#e4edf9",
@@ -45,8 +45,10 @@ const THEMES = {
   dark: {
     page: "#0a1628", card: over("#162544", 0.6, "#0f1f3a"), sunken: "#0d1c33",
     sidebar: "#0a1628", modal: "#0f1932",
-    ink: "#ffffff", ink2: "#d1d5dc", ink3: "#99a1af", muted: "#6a7282", faint: "#4a5565", ghost: "#364153",
-    gold: "#b8904a", goldInk: "#b8904a", goldSoft: "#2a2416", teal: "#2a5c5c", inkOnAccent: "#0a1628",
+    // muted/faint/ghost collapse to one value, as light's already do — see the
+    // note on the fourth ink in tokens.css.
+    ink: "#ffffff", ink2: "#d1d5dc", ink3: "#99a1af", muted: "#868e9d", faint: "#868e9d", ghost: "#868e9d",
+    gold: "#b8904a", goldInk: "#b8904a", goldSoft: "#2a2416", teal: "#2a5c5c", tealInk: "#5eead4", inkOnAccent: "#0a1628",
     wordmark: "#ffd666", slideGround: "#0a0e1a",
     okInk: "#6ee7b7", okFill: over("#34d399", 0.2, "#0a1628"), warnInk: "#fcd34d", warnFill: over("#fbbf24", 0.2, "#0a1628"),
     badInk: "#fca5a5", badFill: over("#f87171", 0.2, "#0a1628"), infoInk: "#93c5fd", infoFill: over("#60a5fa", 0.2, "#0a1628"),
@@ -83,7 +85,16 @@ const PAIRS = (t) => [
   ["gold word on a 20% tint — avoided", t.goldInk,  t.tint20,   "never"],
   ["primary button — ink on gold",     t.inkOnAccent, t.gold,  "body"],
   ["white on gold (the one to avoid)", "#ffffff",  t.gold,     "never"],
-  ["teal — AI explanation",            t.teal,     t.card,     "body"],
+  // Teal was measured as though --accent-teal were the text in the Explain
+  // panel. It never is. Every call site uses it as a fill, a border, a
+  // gradient stop or a step mark — tint(TEAL, 6) for the panel ground,
+  // tint(TEAL, 38) for the button outline — while the words are
+  // `text-teal-300`, a different token that diverges from it in dark. The old
+  // row asserted 4.5:1 on a colour nothing renders as text, which is why dark
+  // "failed" a pair it could only have passed by washing out every teal fill
+  // in the app. Split by purpose, the way gold already is.
+  ["accent-teal as TEXT — fill only",  t.teal,     t.card,     "never"],
+  ["teal label on the explain panel",  t.tealInk,  over(t.teal, 0.06, t.card), "body"],
   ["on-track badge",                   t.okInk,    t.okFill,   "body"],
   ["at-risk badge",                    t.warnInk,  t.warnFill, "body"],
   ["off-track badge",                  t.badInk,   t.badFill,  "body"],

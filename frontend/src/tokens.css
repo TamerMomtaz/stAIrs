@@ -53,9 +53,17 @@
   --ink: #ffffff;                      /* headings, primary values */
   --ink-2: #d1d5dc;                    /* body */
   --ink-3: #99a1af;                    /* secondary */
-  --ink-muted: #6a7282;                /* labels, metadata */
-  --ink-faint: #4a5565;                /* de-emphasised detail */
-  --ink-ghost: #364153;                /* footers, disabled */
+  /* The fourth ink, dark's copy of the one light already has. Three specified
+     inks across six roles left labels, metadata and footers on cuts that read
+     as "quieter" and measure as unreadable: 3.75:1, 2.07:1 and 1.76:1 against
+     a 4.5 requirement, all of them carrying real 10px text. Same construction
+     as light — the step 60% of the way from the muted cut toward the next
+     specified ink, so it is a blend of two palette values rather than a fourth
+     colour invented for the occasion. Clears 4.5:1 on page, card, sunken well,
+     sidebar and modal, worst case 4.75:1 on the card. */
+  --ink-muted: #868e9d;                /* labels, metadata */
+  --ink-faint: #868e9d;                /* de-emphasised detail */
+  --ink-ghost: #868e9d;                /* footers, disabled */
   --ink-on-accent: #0a1628;            /* text sitting on a gold fill */
 
   /* ── Accent ── */

@@ -74,9 +74,23 @@ jobs:
       - run: pip install -r requirements.txt -r requirements-dev.txt
       - run: python -m pytest tests/ -q
 
+  # Both themes now. Dark was held out while it sat at 22/29 — gating it then
+  # would have opened this workflow red on its first run. It passes 30/30, so
+  # the gate closes.
+  #
+  # The matrix interpolates into `name`, which keeps the light check called
+  # exactly `contrast-light` — the string branch protection already requires.
+  # Renaming it would leave that rule waiting on a check that never reports,
+  # and main unmergeable with nothing in the UI saying why. `contrast-dark` is
+  # a new check and has to be added to the required list to gate rather than
+  # merely report.
   contrast:
-    name: contrast-light
+    name: contrast-${{ matrix.theme }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        theme: [light, dark]
     defaults:
       run:
         working-directory: frontend
@@ -87,4 +101,4 @@ jobs:
           node-version: '22'
       # Dependency-free by design, so it needs no install step: the audit
       # reads the token values it asserts on and composites them itself.
-      - run: node scripts/contrast-audit.mjs light
+      - run: node scripts/contrast-audit.mjs ${{ matrix.theme }}
