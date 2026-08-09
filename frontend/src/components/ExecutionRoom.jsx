@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api, ActionPlansAPI, SourcesAPI, ManifestStore, ArtifactsAPI, ARTIFACT, stairScope, taskScope, canSeeAgentTelemetry } from "../api";
-import { BORDER, DEEP, DEEP_MID, GOLD, GOLD_INK, GRAD_ACCENT, GRAD_ACCENT_90, GRAD_BLUE, GRAD_VIOLET, GRAD_VIOLET_90, HUE, INK_3, INK_MUTED, TEAL, cast, glass, tint, typeColors, typeIcons } from "../constants";
+import { BORDER, DEEP, DEEP_MID, GOLD, GOLD_INK, GRAD_ACCENT, GRAD_ACCENT_90, GRAD_BLUE, GRAD_TEAL, GRAD_VIOLET, GRAD_VIOLET_90, HUE, INK_3, INK_MUTED, TEAL, cast, glass, tint, typeColors, typeIcons } from "../constants";
 import { HealthBadge, ConfidenceBadge, ValidationWarnings, AgentActivityIndicator } from "./SharedUI";
 import { Markdown } from "./Markdown";
 import { logoUrl, printDocument } from "../exportUtils";
@@ -1409,7 +1409,14 @@ User question: ${msg}`;
                                           ? "text-ink-3 border-transparent hover:bg-lift/5"
                                           : "text-ink-faint border-transparent hover:bg-lift/5"
                                     }`}
-                                    style={isActive ? { background: `${tint(s.color, 15)}`, borderColor: `${tint(s.color, 38)}`, color: s.color } : {}}
+                                    /* No `color` here on purpose. It used to set the step's own
+                                       hue, which silently beat the `text-ink` class above it —
+                                       inline style always does — and left the ACTIVE step, the
+                                       one thing on this row that has to be readable, at 1.88:1
+                                       for Assess and under 4.5:1 for three of the four in dark.
+                                       The hue still identifies the step through the background
+                                       tint and the border; the label just reads. */
+                                    style={isActive ? { background: `${tint(s.color, 15)}`, borderColor: `${tint(s.color, 38)}` } : {}}
                                   >
                                     <span>{isDone ? "✓" : s.icon}</span> {s.label}
                                   </button>
@@ -1567,7 +1574,7 @@ User question: ${msg}`;
                                   onClick={() => sendActionChat(selectedTaskId)}
                                   disabled={actionChatLoading || !actionChatInput.trim()}
                                   className="px-3 py-2 rounded-lg text-xs font-medium disabled:opacity-30 transition-all hover:scale-105"
-                                  style={{ background: `linear-gradient(135deg, ${TEAL}, ${HUE.teal})`, color: DEEP }}
+                                  style={{ background: GRAD_TEAL, color: DEEP }}
                                 >
                                   {isAr ? "إرسال" : "Send"}
                                 </button>

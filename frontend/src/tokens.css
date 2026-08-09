@@ -119,6 +119,11 @@
   --grad-indigo: linear-gradient(135deg, var(--hue-indigo), #6366f1);
   --grad-amber: linear-gradient(135deg, #f59e0b, #d97706);
   --grad-blue: linear-gradient(135deg, #3b82f6, var(--hue-blue));
+  /* Teal's gradient, added because the one place that needed it was building
+     it inline from --accent-teal, whose dark value is a FILL cut (#2a5c5c) and
+     left the button's own label at 2.40:1. Same shape as its siblings: a
+     darker stop into the hue. */
+  --grad-teal: linear-gradient(135deg, #14b8a6, var(--hue-teal));
   --grad-accent-bright: linear-gradient(135deg, var(--accent-bright), var(--accent-bright-hi));
   --grad-accent-bright-90: linear-gradient(90deg, var(--accent-bright), var(--accent-bright-hi));
   /* The slideshow wordmark is TYPE, and the slideshow's chips and rules are
@@ -318,6 +323,7 @@
   --grad-indigo: linear-gradient(135deg, var(--hue-indigo), #3a2d86);
   --grad-amber: linear-gradient(135deg, var(--accent), #9a7638);
   --grad-blue: linear-gradient(135deg, #1c5cab, var(--hue-blue));
+  --grad-teal: linear-gradient(135deg, #1f4444, var(--hue-teal));
 
   /* ── Semantic: health ──
      Four states, and each is four things at once: a pale tint, a darker
