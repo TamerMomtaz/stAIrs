@@ -95,6 +95,7 @@ export const GRAD_VIOLET_90 = "var(--grad-violet-90)";
 export const GRAD_INDIGO = "var(--grad-indigo)";
 export const GRAD_AMBER = "var(--grad-amber)";
 export const GRAD_BLUE = "var(--grad-blue)";
+export const GRAD_TEAL = "var(--grad-teal)";
 export const GRAD_ACCENT_BRIGHT = "var(--grad-accent-bright)";
 export const GRAD_ACCENT_BRIGHT_90 = "var(--grad-accent-bright-90)";
 // The wordmark is type, not a fill. Its own pointer so repainting one does

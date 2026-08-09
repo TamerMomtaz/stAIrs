@@ -53,9 +53,17 @@
   --ink: #ffffff;                      /* headings, primary values */
   --ink-2: #d1d5dc;                    /* body */
   --ink-3: #99a1af;                    /* secondary */
-  --ink-muted: #6a7282;                /* labels, metadata */
-  --ink-faint: #4a5565;                /* de-emphasised detail */
-  --ink-ghost: #364153;                /* footers, disabled */
+  /* The fourth ink, dark's copy of the one light already has. Three specified
+     inks across six roles left labels, metadata and footers on cuts that read
+     as "quieter" and measure as unreadable: 3.75:1, 2.07:1 and 1.76:1 against
+     a 4.5 requirement, all of them carrying real 10px text. Same construction
+     as light — the step 60% of the way from the muted cut toward the next
+     specified ink, so it is a blend of two palette values rather than a fourth
+     colour invented for the occasion. Clears 4.5:1 on page, card, sunken well,
+     sidebar and modal, worst case 4.75:1 on the card. */
+  --ink-muted: #868e9d;                /* labels, metadata */
+  --ink-faint: #868e9d;                /* de-emphasised detail */
+  --ink-ghost: #868e9d;                /* footers, disabled */
   --ink-on-accent: #0a1628;            /* text sitting on a gold fill */
 
   /* ── Accent ── */
@@ -106,11 +114,21 @@
      hue. One token per gradient keeps the pair together. */
   --grad-accent: linear-gradient(135deg, var(--accent), var(--accent-hi));
   --grad-accent-90: linear-gradient(90deg, var(--accent), var(--accent-hi));
-  --grad-violet: linear-gradient(135deg, #8b5cf6, var(--hue-violet));
-  --grad-violet-90: linear-gradient(90deg, #8b5cf6, var(--hue-violet));
+  /* The darker stop was violet-500 (#8b5cf6), the only one of the three 500s
+     that failed the navy ink printed on it: 4.28:1 where blue's stop manages
+     4.93:1. This is 35% of the way from violet-500 toward violet-400 — a blend
+     of two shades already on the ramp — which lands at 4.98:1 and gives the
+     pair the same headroom blue has. */
+  --grad-violet: linear-gradient(135deg, #956cf7, var(--hue-violet));
+  --grad-violet-90: linear-gradient(90deg, #956cf7, var(--hue-violet));
   --grad-indigo: linear-gradient(135deg, var(--hue-indigo), #6366f1);
   --grad-amber: linear-gradient(135deg, #f59e0b, #d97706);
   --grad-blue: linear-gradient(135deg, #3b82f6, var(--hue-blue));
+  /* Teal's gradient, added because the one place that needed it was building
+     it inline from --accent-teal, whose dark value is a FILL cut (#2a5c5c) and
+     left the button's own label at 2.40:1. Same shape as its siblings: a
+     darker stop into the hue. */
+  --grad-teal: linear-gradient(135deg, #14b8a6, var(--hue-teal));
   --grad-accent-bright: linear-gradient(135deg, var(--accent-bright), var(--accent-bright-hi));
   --grad-accent-bright-90: linear-gradient(90deg, var(--accent-bright), var(--accent-bright-hi));
   /* The slideshow wordmark is TYPE, and the slideshow's chips and rules are
@@ -309,7 +327,14 @@
   --grad-violet-90: linear-gradient(90deg, #3a2d86, var(--hue-violet));
   --grad-indigo: linear-gradient(135deg, var(--hue-indigo), #3a2d86);
   --grad-amber: linear-gradient(135deg, var(--accent), #9a7638);
-  --grad-blue: linear-gradient(135deg, #1c5cab, var(--hue-blue));
+  /* The lighter stop stops short of --hue-blue. On paper a filled button
+     prints --surface-app on itself, and near-white on the raw hue is 4.16:1;
+     walking the stop 40% back toward the darker one lands at 4.87:1, the same
+     headroom dark's blue has. --hue-blue itself is untouched, because it is
+     the categorical colour charts and type maps draw from and it is not a
+     button fill. */
+  --grad-blue: linear-gradient(135deg, #1c5cab, #246dc5);
+  --grad-teal: linear-gradient(135deg, #1f4444, var(--hue-teal));
 
   /* ── Semantic: health ──
      Four states, and each is four things at once: a pale tint, a darker

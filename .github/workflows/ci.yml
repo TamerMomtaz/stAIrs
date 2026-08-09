@@ -7,18 +7,28 @@
 # every click of a header control, under a suite that was green on a laptop
 # and never executed anywhere else.
 #
-# THREE JOBS, ONE THING EACH, so a red X says which thing broke without
-# opening the log. They are deliberately dull. A workflow nobody trusts gets
-# ignored, and the way a workflow loses trust is by being clever, or by being
-# red for a reason nobody intends to fix.
+# ONE THING PER JOB, so a red X says which thing broke without opening the
+# log. They are deliberately dull. A workflow nobody trusts gets ignored, and
+# the way a workflow loses trust is by being clever, or by being red for a
+# reason nobody intends to fix.
 #
-# ON THE CONTRAST GATE. scripts/contrast-audit.mjs already exits non-zero, so
-# it gates as-is — but only on the light theme, which is the app's default and
-# passes 29/29 today. Dark is at 22/29 and has been since the palette work
-# landed light first; gating it now would open this workflow red on its first
-# run and teach everyone to ignore it. The dark job goes in the moment those
-# seven pairs are fixed, and the line to add is the same one with a different
-# argument.
+#   lint       no-undef and three other correctness rules — nothing stylistic
+#   frontend   vitest, then the build
+#   backend    pytest
+#   contrast   the token audit, both themes
+#
+# THE CONTRAST GATE COVERS BOTH THEMES. It did not always. Dark shipped at
+# 22/29 while light passed, so the dark job was held back rather than opening
+# this file red on its first run — the same trust argument as above, applied to
+# its own gate. Those pairs are fixed and both themes now assert, which is what
+# makes the matrix honest rather than decorative.
+#
+# THE LINT JOB IS NARROW ON PURPOSE. It exists because #72's ReferenceError was
+# statically detectable: no-undef finds a call to a deleted setter in about a
+# second, with no test, no browser and no render. Correctness rules only. A
+# never-linted codebase opening red with hundreds of style findings would be
+# ignored exactly the way a red contrast gate would have been, so style is out
+# and stays out.
 # ═══════════════════════════════════════════════════════════════════
 
 name: CI
@@ -35,6 +45,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Fails on errors only. no-unused-vars and exhaustive-deps are warnings and
+  # do not block a merge — they are worth seeing, not worth stopping for, and a
+  # job that blocks on either would be the style gate this is not.
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+
   frontend:
     name: frontend
     runs-on: ubuntu-latest
@@ -74,9 +103,23 @@ jobs:
       - run: pip install -r requirements.txt -r requirements-dev.txt
       - run: python -m pytest tests/ -q
 
+  # Both themes now. Dark was held out while it sat at 22/29 — gating it then
+  # would have opened this workflow red on its first run. It passes 30/30, so
+  # the gate closes.
+  #
+  # The matrix interpolates into `name`, which keeps the light check called
+  # exactly `contrast-light` — the string branch protection already requires.
+  # Renaming it would leave that rule waiting on a check that never reports,
+  # and main unmergeable with nothing in the UI saying why. `contrast-dark` is
+  # a new check and has to be added to the required list to gate rather than
+  # merely report.
   contrast:
-    name: contrast-light
+    name: contrast-${{ matrix.theme }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        theme: [light, dark]
     defaults:
       run:
         working-directory: frontend
@@ -87,4 +130,4 @@ jobs:
           node-version: '22'
       # Dependency-free by design, so it needs no install step: the audit
       # reads the token values it asserts on and composites them itself.
-      - run: node scripts/contrast-audit.mjs light
+      - run: node scripts/contrast-audit.mjs ${{ matrix.theme }}
