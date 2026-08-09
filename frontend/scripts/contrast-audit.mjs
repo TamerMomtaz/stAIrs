@@ -40,7 +40,7 @@ const THEMES = {
     // --surface-app, which is what `color: DEEP` resolves to on a filled
     // button — near-white on paper, navy on the dark ground. And the worst of
     // --grad-teal's two stops for that ink, which is the one worth asserting.
-    deep: "#faf8f4", gradTealStop: "#2a5c5c",
+    deep: "#faf8f4", gradTealStop: "#2a5c5c", gradBlueStop: "#246dc5", gradVioletStop: "#4a3aa7",
     wordmark: "#8a6a2f", slideGround: "#f2eee7",
     okInk: "#006300", okFill: "#e6f2e6", warnInk: "#8a5a00", warnFill: "#fbf0da",
     badInk: "#b3312f", badFill: "#fae7e6", infoInk: "#1c5cab", infoFill: "#e4edf9",
@@ -53,7 +53,7 @@ const THEMES = {
     // note on the fourth ink in tokens.css.
     ink: "#ffffff", ink2: "#d1d5dc", ink3: "#99a1af", muted: "#868e9d", faint: "#868e9d", ghost: "#868e9d",
     gold: "#b8904a", goldInk: "#b8904a", goldSoft: "#2a2416", teal: "#2a5c5c", tealInk: "#5eead4", inkOnAccent: "#0a1628",
-    deep: "#0a1628", gradTealStop: "#14b8a6",
+    deep: "#0a1628", gradTealStop: "#14b8a6", gradBlueStop: "#3b82f6", gradVioletStop: "#956cf7",
     wordmark: "#ffd666", slideGround: "#0a0e1a",
     okInk: "#6ee7b7", okFill: over("#34d399", 0.2, "#0a1628"), warnInk: "#fcd34d", warnFill: over("#fbbf24", 0.2, "#0a1628"),
     badInk: "#fca5a5", badFill: over("#f87171", 0.2, "#0a1628"), infoInk: "#93c5fd", infoFill: over("#60a5fa", 0.2, "#0a1628"),
@@ -124,7 +124,14 @@ const PAIRS = (t) => [
   // ASSERTED. Text sitting on a teal fill. --accent-teal is a fill cut, not a
   // gradient stop: building the Send button inline from it left the button's
   // own label at 2.40:1 in dark. --grad-teal exists so the stop is the hue.
+  // The whole family, not just the instance. Every filled button paints a
+  // gradient and prints --surface-app on it, so the stop that ink sits worst
+  // against is the pair worth holding. Teal was 2.40:1 and violet 4.28:1
+  // before this; asserting all three stops it recurring on the next gradient
+  // somebody adds.
   ["send button — ink on teal fill",   t.deep,     t.gradTealStop,               "body"],
+  ["blue gradient — ink on its stop",  t.deep,     t.gradBlueStop,               "body"],
+  ["violet gradient — ink on its stop", t.deep,    t.gradVioletStop,             "body"],
   // EXCUSED, with the number kept visible. These teal edges are decoration on
   // regions that are already identifiable without them: the explain panel has
   // a tinted ground and a labelled heading, and the generate card has a title

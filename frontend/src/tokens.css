@@ -114,8 +114,13 @@
      hue. One token per gradient keeps the pair together. */
   --grad-accent: linear-gradient(135deg, var(--accent), var(--accent-hi));
   --grad-accent-90: linear-gradient(90deg, var(--accent), var(--accent-hi));
-  --grad-violet: linear-gradient(135deg, #8b5cf6, var(--hue-violet));
-  --grad-violet-90: linear-gradient(90deg, #8b5cf6, var(--hue-violet));
+  /* The darker stop was violet-500 (#8b5cf6), the only one of the three 500s
+     that failed the navy ink printed on it: 4.28:1 where blue's stop manages
+     4.93:1. This is 35% of the way from violet-500 toward violet-400 — a blend
+     of two shades already on the ramp — which lands at 4.98:1 and gives the
+     pair the same headroom blue has. */
+  --grad-violet: linear-gradient(135deg, #956cf7, var(--hue-violet));
+  --grad-violet-90: linear-gradient(90deg, #956cf7, var(--hue-violet));
   --grad-indigo: linear-gradient(135deg, var(--hue-indigo), #6366f1);
   --grad-amber: linear-gradient(135deg, #f59e0b, #d97706);
   --grad-blue: linear-gradient(135deg, #3b82f6, var(--hue-blue));
@@ -322,7 +327,13 @@
   --grad-violet-90: linear-gradient(90deg, #3a2d86, var(--hue-violet));
   --grad-indigo: linear-gradient(135deg, var(--hue-indigo), #3a2d86);
   --grad-amber: linear-gradient(135deg, var(--accent), #9a7638);
-  --grad-blue: linear-gradient(135deg, #1c5cab, var(--hue-blue));
+  /* The lighter stop stops short of --hue-blue. On paper a filled button
+     prints --surface-app on itself, and near-white on the raw hue is 4.16:1;
+     walking the stop 40% back toward the darker one lands at 4.87:1, the same
+     headroom dark's blue has. --hue-blue itself is untouched, because it is
+     the categorical colour charts and type maps draw from and it is not a
+     button fill. */
+  --grad-blue: linear-gradient(135deg, #1c5cab, #246dc5);
   --grad-teal: linear-gradient(135deg, #1f4444, var(--hue-teal));
 
   /* ── Semantic: health ──
