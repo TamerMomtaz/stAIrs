@@ -278,8 +278,10 @@ export class StrategyAPI {
   async update(id, updates) { try { await api.put(`/api/v1/strategies/${id}`, updates); } catch { const list = this._getLocal(); const i = list.findIndex(s => s.id === id); if (i >= 0) list[i] = { ...list[i], ...updates, updated_at: new Date().toISOString() }; this._saveLocal(list); } }
   _getLocal() { try { return JSON.parse(localStorage.getItem(this.localKey) || "[]"); } catch { return []; } }
   _saveLocal(list) { localStorage.setItem(this.localKey, JSON.stringify(list)); }
-  activeId() { return localStorage.getItem(`${this.localKey}_a`) || null; }
-  setActive(id) { if (id) localStorage.setItem(`${this.localKey}_a`, id); else localStorage.removeItem(`${this.localKey}_a`); }
+  // The active-strategy pointer used to live here. It was written on select and
+  // on back-to-strategies, and read in no commit of this repository's history —
+  // the same shape as the ManifestStore bug. The hash is the single source of
+  // truth for which strategy is open; a mirror of it would be a future bug.
 }
 
 

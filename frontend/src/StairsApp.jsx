@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { getTheme, toggleTheme } from "./lib/theme";
+import { useHashRoute, go, DEFAULT_VIEW } from "./lib/urlState";
+import { flattenTree } from "./lib/savedWork";
 import { api, StrategyAPI, NotesStore, MatrixResultsStore, SourcesAPI, ArtifactsAPI, ARTIFACT, matrixScope, NotesAPI, syncLocalNotes, canSeeAgentTelemetry } from "./api";
 import { BORDER, DEEP, DEEP_MID, FONT_DISPLAY, GOLD, GOLD_INK, GRAD_ACCENT, HUE, INK_MUTED, cast, fontStack, tint, typeIcons } from "./constants";
 import { logoUrl, printDocument } from "./exportUtils";
@@ -38,14 +40,22 @@ export default function App() {
   const [user, setUser] = useState(api.user);
   const [lang, setLang] = useState(localStorage.getItem("stairs_lang") || "en");
   const [strategies, setStrategies] = useState([]);
-  const [activeStrat, setActiveStrat] = useState(null);
-  const [view, setView] = useState("dashboard");
+  // Where you are now lives in the URL, not in useState. activeStrat, view and
+  // the Execution Room overlay are all derived from it, which is what makes
+  // refresh, Back and a pasted link work — they were previously three
+  // independent pieces of component state that a reload reset to their
+  // defaults.
+  const route = useHashRoute();
+  const view = route.view;
+  // Set when the hash names a strategy the loaded list does not contain:
+  // deleted, or belonging to another organisation. The API answers 404 for
+  // both, deliberately, so the message must not claim to know which.
+  const [missingStrategy, setMissingStrategy] = useState(null);
   const [stairTree, setStairTree] = useState([]);
   const [dashData, setDashData] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const [editStair, setEditStair] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
-  const [execRoomStair, setExecRoomStair] = useState(null);
   const [stratLoading, setStratLoading] = useState(true);
   const [tutorialActive, setTutorialActive] = useState(false);
   const [tutorialNewSteps, setTutorialNewSteps] = useState(false);
@@ -69,6 +79,48 @@ export default function App() {
   const closeMatrix = () => setMatrixToolkit({ open: false, key: null, initialData: null });
   const [matrixResults, setMatrixResults] = useState({});
   const [sourceCount, setSourceCount] = useState(0);
+
+  // ═══ THE URL, RESOLVED ═══
+  // Three cases, and the boot race is the one that decides the shape. The hash
+  // names a strategy id before the list has loaded, so resolution cannot be a
+  // lookup — it has to wait. Until stratLoading clears, activeStrat is null and
+  // the app shows its loading state; only once the list is in can a missing id
+  // be called missing. Resolving early would flash the picker on every deep
+  // link, which is the bug this whole change exists to remove.
+  const activeStrat = route.strategyId && !stratLoading
+    ? strategies.find((s) => s.id === route.strategyId) || null
+    : null;
+
+  // The Execution Room is an overlay, not a view. It renders OVER whatever the
+  // underlying view is rather than replacing it, so a deep link into a step
+  // lands on the picker with the room open on top — the same thing you would
+  // see having clicked there, and closing the room leaves you somewhere real.
+  // The tree arrives after the strategy, so this resolves on the second pass.
+  const execRoomStair = route.roomStairId && stairTree.length
+    ? (flattenTree(stairTree).find((n) => n.stair.id === route.roomStairId)?.stair || null)
+    : null;
+
+  // A hash naming a strategy that is not in the list once the list has loaded.
+  // Deleted and belongs-to-another-organisation are the same case here: the API
+  // answers 404 for both by design, so the client genuinely cannot tell them
+  // apart and must not pretend to.
+  useEffect(() => {
+    // Deliberately does NOT clear on a null strategyId: the redirect below sets
+    // exactly that, and clearing here would wipe the message on the same tick it
+    // was raised. It clears when a strategy does resolve, or when dismissed.
+    if (stratLoading || !route.strategyId) return;
+    if (strategies.some((s) => s.id === route.strategyId)) { setMissingStrategy(null); return; }
+    setMissingStrategy(route.strategyId);
+    go({ strategyId: null }, { replace: true });   // replace: a dead link should not cost a Back press
+  }, [stratLoading, route.strategyId, strategies]);
+
+  // A room link whose step is not in this strategy's tree. Same treatment, one
+  // level down: drop the room segment, keep the strategy, say so.
+  useEffect(() => {
+    if (!route.roomStairId || !activeStrat || !stairTree.length) return;
+    if (flattenTree(stairTree).some((n) => n.stair.id === route.roomStairId)) return;
+    go({ strategyId: activeStrat.id, view: "execroom" }, { replace: true });
+  }, [route.roomStairId, activeStrat, stairTree]);
   const matrixStoreRef = useRef(null);
   const stratApiRef = useRef(null);
   const notesStoreRef = useRef(null);
@@ -118,7 +170,7 @@ export default function App() {
   useEffect(() => {
     api.setOnAuthExpired(() => {
       setUser(null);
-      setActiveStrat(null);
+      go({ strategyId: null }, { replace: true });
       setStrategies([]);
       setStairTree([]);
       setDashData(null);
@@ -211,9 +263,12 @@ export default function App() {
   const loadDash = () => runLoad("dash", async () => setDashData(await api.get(`/api/v1/dashboard`)));
   const loadAlerts = () => runLoad("alerts", async () => setAlerts(await api.get(`/api/v1/alerts`) || []));
 
-  const selectStrategy = async (strat) => {
-    setActiveStrat(strat); setView("dashboard");
-    if (stratApiRef.current) stratApiRef.current.setActive(strat.id);
+  // Everything a strategy needs, keyed on which strategy is open — NOT on the
+  // click that opened it. That distinction is the whole boot race: this used to
+  // live inside selectStrategy, so arriving by URL loaded nothing and the
+  // staircase, the dashboard and the Execution Room picker all rendered their
+  // empty states on a perfectly valid deep link.
+  const loadStrategyData = async (strat) => {
     matrixStoreRef.current = new MatrixResultsStore(strat.id);
     // Show the cached copy immediately, then let the server's copy win — the
     // cache is per-browser, the server follows the account.
@@ -233,6 +288,10 @@ export default function App() {
     await Promise.all([loadTree(strat.id), loadDash(), loadAlerts()]);
     try { const sc = await SourcesAPI.count(strat.id); setSourceCount(sc?.count || 0); } catch { setSourceCount(0); }
   };
+
+  // Opening a strategy is now only a navigation. The loading follows from the
+  // URL, which is why a pasted link behaves exactly like a click.
+  const selectStrategy = (strat) => go({ strategyId: strat.id, view: DEFAULT_VIEW });
 
   const createStrategy = async (stratData) => {
     if (!stratApiRef.current) return;
@@ -273,12 +332,12 @@ export default function App() {
     setTimeout(() => fireGuidance("strategy_created", { name: created.name, count: stratData._localElements?.length || 0 }), 0);
   };
 
-  const openExecutionRoom = (s) => { setExecRoomStair(s); fireGuidance("execution_room"); };
+  const openExecutionRoom = (s) => { go({ strategyId: route.strategyId, roomStairId: s.id }); fireGuidance("execution_room"); };
 
   const deleteStrategy = async (id) => {
     if (!stratApiRef.current) return;
     await stratApiRef.current.remove(id);
-    if (activeStrat?.id === id) { setActiveStrat(null); setStairTree([]); setDashData(null); }
+    if (activeStrat?.id === id) { go({ strategyId: null }, { replace: true }); setStairTree([]); setDashData(null); }
     await loadStrategies();
   };
 
@@ -365,13 +424,22 @@ export default function App() {
     fireGuidance("export_ready");
   };
 
-  const logout = () => { api.logout(); setUser(null); setActiveStrat(null); setStrategies([]); };
+  const logout = () => { api.logout(); setUser(null); go({ strategyId: null }, { replace: true }); setStrategies([]); };
+
+  // Load on whichever strategy the URL resolves to, by click or by paste.
+  const loadedStratRef = useRef(null);
+  useEffect(() => {
+    if (!activeStrat) { loadedStratRef.current = null; return; }
+    if (loadedStratRef.current === activeStrat.id) return;   // a view change is not a reload
+    loadedStratRef.current = activeStrat.id;
+    loadStrategyData(activeStrat);
+  }, [activeStrat]);
 
   // ═══ RENDER ═══
   if (!user) return <LoginScreen onLogin={setUser} />;
   if (!activeStrat) return (
     <>
-      <StrategyLanding theme={theme} onThemeToggle={flipTheme} strategies={strategies} onSelect={selectStrategy} onCreate={createStrategy} onDelete={deleteStrategy} userName={user.full_name||user.name||user.email} onLogout={logout} onLangToggle={toggleLang} lang={lang} loading={stratLoading} userId={user.id || user.email} userEmail={user.email} userRole={user.role} />
+      <StrategyLanding theme={theme} onThemeToggle={flipTheme} missingStrategy={missingStrategy} onDismissMissing={() => setMissingStrategy(null)} strategies={strategies} onSelect={selectStrategy} onCreate={createStrategy} onDelete={deleteStrategy} userName={user.full_name||user.name||user.email} onLogout={logout} onLangToggle={toggleLang} lang={lang} loading={stratLoading} userId={user.id || user.email} userEmail={user.email} userRole={user.role} />
       <GuidanceManager suppressed={tutorialActive || showWelcomeSlideshow} onView={() => {}} onExec={() => {}} onMatrix={() => {}} />
     </>
   );
@@ -389,7 +457,7 @@ export default function App() {
     actionplans: { icon: "📋", label: isAr ? "خطط العمل" : "Action Plans", tutorial: "nav-actionplans" },
     manifest: { icon: "📦", label: isAr ? "السجل" : "Manifest Room", tutorial: "nav-manifest" },
   };
-  const goToView = (key) => { setView(key); trackFeature(key); setMobileNavOpen(false); };
+  const goToView = (key) => { go({ strategyId: route.strategyId, view: key }); trackFeature(key); setMobileNavOpen(false); };
 
   return (
     <div className="h-screen flex flex-col overflow-hidden text-ink" dir={isAr ? "rtl" : "ltr"} style={{ background: `linear-gradient(180deg, ${DEEP} 0%, ${DEEP_MID} 50%, ${DEEP} 100%)`, fontFamily: fontStack(isAr) }}>
@@ -397,7 +465,7 @@ export default function App() {
         style={{ borderBottom: `1px solid ${BORDER}` }}>
         <div className="flex items-center gap-3">
           <button onClick={() => setMobileNavOpen(v => !v)} className="md:hidden p-1.5 rounded-lg text-ink-3 hover:text-amber-400 hover:bg-amber-500/10 transition text-lg" title="Menu" aria-label="Toggle navigation">☰</button>
-          <button onClick={() => { setActiveStrat(null); if (stratApiRef.current) stratApiRef.current.setActive(null); }} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-ink-3 hover:text-amber-400 hover:bg-amber-500/10 transition group" title="Back to Strategies">
+          <button onClick={() => go({ strategyId: null })} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-ink-3 hover:text-amber-400 hover:bg-amber-500/10 transition group" title="Back to Strategies">
             <span className="text-lg group-hover:-translate-x-0.5 transition-transform">←</span>
             <img src="/devoneers-logo.png" alt="DEVONEERS" style={{ height: "40px" }} />
             <span className="text-xl font-normal" style={{ background: GRAD_ACCENT, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: FONT_DISPLAY }}>Stairs</span>
@@ -476,7 +544,7 @@ export default function App() {
 
       <StairEditor open={showEditor} onClose={() => { setShowEditor(false); setEditStair(null); }} stair={editStair} allStairs={stairTree} onSave={saveStair} onDelete={deleteStair} lang={lang} />
 
-      {execRoomStair && <ExecutionRoom stair={execRoomStair} strategyContext={activeStrat} lang={lang} onBack={() => setExecRoomStair(null)} onSaveNote={saveToNotes} onMatrixClick={openMatrix} onOpenManifest={() => { setExecRoomStair(null); goToView("manifest"); }} />}
+      {execRoomStair && <ExecutionRoom stair={execRoomStair} strategyContext={activeStrat} lang={lang} onBack={() => go({ strategyId: route.strategyId, view: "execroom" })} onSaveNote={saveToNotes} onMatrixClick={openMatrix} onOpenManifest={() => { setExecRoomStair(null); goToView("manifest"); }} />}
 
       <StrategyMatrixToolkit open={matrixToolkit.open} matrixKey={matrixToolkit.key} onClose={closeMatrix} onSave={saveMatrixResult} strategyContext={activeStrat} initialData={matrixToolkit.initialData} />
 

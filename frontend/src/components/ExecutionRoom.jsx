@@ -1081,7 +1081,7 @@ User question: ${msg}`;
   ];
 
   return (
-    <div className="fixed inset-0 z-[90] flex flex-col" style={{ background: `linear-gradient(180deg, ${DEEP} 0%, ${DEEP_MID} 50%, ${DEEP} 100%)` }}>
+    <div data-testid="execution-room" className="fixed inset-0 z-[90] flex flex-col" style={{ background: `linear-gradient(180deg, ${DEEP} 0%, ${DEEP_MID} 50%, ${DEEP} 100%)` }}>
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-3 shrink-0" style={{ borderBottom: `1px solid ${BORDER}` }}>
         <div className="flex items-center gap-3">

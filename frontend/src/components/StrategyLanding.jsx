@@ -3,7 +3,7 @@ import { BORDER, DEEP, DEEP_MID, FONT_DISPLAY, GOLD, GOLD_INK, GRAD_ACCENT, HUE,
 import { StrategyWizard } from "./StrategyWizard";
 import { WelcomeSlideshow, hasSeenWelcome, markWelcomeSeen } from "./WelcomeSlideshow";
 
-export const StrategyLanding = ({ theme, onThemeToggle, strategies, onSelect, onCreate, onDelete, userName, onLogout, onLangToggle, lang, loading, userId, userEmail, userRole }) => {
+export const StrategyLanding = ({ theme, onThemeToggle, missingStrategy, onDismissMissing, strategies, onSelect, onCreate, onDelete, userName, onLogout, onLangToggle, lang, loading, userId, userEmail, userRole }) => {
   const [showWizard, setShowWizard] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -71,6 +71,24 @@ export const StrategyLanding = ({ theme, onThemeToggle, strategies, onSelect, on
         <p className="text-ink-muted text-sm max-w-lg mx-auto">{isAr ? "كل استراتيجية هي سلم مستقل." : "Each strategy is an independent staircase for a company, product, or project."}</p>
       </div>
       <div className="max-w-6xl mx-auto px-6 pb-12">
+        {missingStrategy && (
+          /* A link to a strategy that is not in this list. Deleted and
+             belongs-to-another-organisation are indistinguishable here — the API
+             answers 404 for both on purpose, so saying which would be a guess. What
+             matters is that it is a sentence and not a blank screen. */
+          <div data-testid="strategy-not-found" role="status"
+            className="mx-auto mb-6 max-w-xl rounded-xl px-4 py-3 flex items-start gap-3 bg-warn-fill border border-warn-line">
+            <span aria-hidden="true" className="text-warn-ink shrink-0 mt-0.5">⚠</span>
+            <div className="flex-1 text-sm text-warn-ink">
+              {isAr
+                ? "لم نعثر على تلك الاستراتيجية. ربما حُذفت، أو ليس لديك صلاحية الوصول إليها."
+                : "We couldn't find that strategy. It may have been deleted, or you may not have access to it."}
+            </div>
+            <button onClick={onDismissMissing} aria-label={isAr ? "إغلاق" : "Dismiss"}
+              className="text-warn-ink/70 hover:text-warn-ink text-sm leading-none shrink-0">✕</button>
+          </div>
+        )}
+
         {loading ? (
           <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" /></div>
         ) : (
