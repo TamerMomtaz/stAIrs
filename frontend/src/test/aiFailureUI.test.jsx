@@ -57,8 +57,11 @@ describe("<AiUnavailable />", () => {
   it("is gold on glass, not a red error box", () => {
     render(<AiUnavailable />);
     const style = screen.getByTestId("ai-unavailable").getAttribute("style");
-    expect(style.replace(/\s+/g, "")).toContain("rgba(184,144,74,0.06)");
-    expect(style).not.toMatch(/red|#f8|#dc2/i);
+    // The accent, at 6% — asserted through the token, so stage 3 repaints it
+    // without rewriting this test. What must not change is that it is the
+    // accent and not an alarm colour.
+    expect(style.replace(/\s+/g, "")).toContain("var(--accent)6%");
+    expect(style).not.toMatch(/red|#f8|#dc2|--bad/i);
   });
 
   it("carries every failure kind through to its own copy", () => {

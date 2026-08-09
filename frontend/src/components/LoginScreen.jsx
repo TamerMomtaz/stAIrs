@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { api, InvitesAPI, PasswordAPI } from "../api";
-import { GOLD, GOLD_L, CHAMPAGNE, DEEP, inputCls, FONT_DISPLAY } from "../constants";
-
+import { BAD, BAD_INK, CHAMPAGNE, DEEP, DEEP_MID, FONT_DISPLAY, GOLD, GOLD_L, GRAD_ACCENT, INK, INK_3, INK_MUTED, OK, OK_INK, RAISED, cast, inputCls, tint } from "../constants";
 export const LoginScreen = ({ onLogin }) => {
   const [mode, setMode] = useState("login"); // "login" or "signup"
   const [email, setEmail] = useState("");
@@ -108,11 +107,11 @@ export const LoginScreen = ({ onLogin }) => {
   const inviteStyle = { padding: "14px 18px", fontSize: "15px", height: "48px" };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", background: `linear-gradient(135deg, ${DEEP} 0%, #162544 40%, #1a3055 70%, #0f1f3a 100%)` }}>
-      <div style={{ position: "relative", zIndex: 10, width: "100%", maxWidth: "440px", padding: "48px 40px", borderRadius: "16px", backdropFilter: "blur(20px)", background: "rgba(22, 37, 68, 0.85)", border: `1px solid ${GOLD}33`, boxShadow: "0 25px 60px rgba(0,0,0,0.5)" }}>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", background: `linear-gradient(135deg, ${DEEP} 0%, ${RAISED} 40%, ${RAISED} 70%, ${DEEP_MID} 100%)` }}>
+      <div style={{ position: "relative", zIndex: 10, width: "100%", maxWidth: "440px", padding: "48px 40px", borderRadius: "16px", backdropFilter: "blur(20px)", background: "rgb(var(--surface-raised-rgb) / 0.85)", border: `1px solid ${tint(GOLD, 20)}`, boxShadow: `0 25px 60px ${cast(0.5)}` }}>
         <div style={{ textAlign: "center", marginBottom: "32px" }}>
           <div style={{ fontSize: "52px", fontWeight: 400, letterSpacing: "-1px", marginBottom: "8px", background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L}, ${CHAMPAGNE})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: FONT_DISPLAY }}>Stairs</div>
-          <div style={{ color: "#9ca3af", fontSize: "13px", letterSpacing: "4px", textTransform: "uppercase", marginTop: "4px" }}>Strategic Staircase</div>
+          <div style={{ color: INK_3, fontSize: "13px", letterSpacing: "4px", textTransform: "uppercase", marginTop: "4px" }}>Strategic Staircase</div>
           <div style={{ width: "64px", height: "2px", margin: "16px auto 0", background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
         </div>
 
@@ -120,31 +119,31 @@ export const LoginScreen = ({ onLogin }) => {
           <div data-testid="reset-screen">
             {resetDone ? (
               <div style={{ textAlign: "center" }}>
-                <div style={{ color: "#6ee7b7", fontSize: "15px", marginBottom: "8px" }}>Password updated</div>
-                <p style={{ color: "#9ca3af", fontSize: "13px", marginBottom: "20px" }}>You can sign in with your new password now.</p>
-                <button type="button" onClick={() => { setResetToken(""); setReset(null); setResetDone(false); setMode("login"); }} style={{ width: "100%", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "15px", color: "#0a1628", border: "none", cursor: "pointer", background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>Go to sign in</button>
+                <div style={{ color: OK_INK, fontSize: "15px", marginBottom: "8px" }}>Password updated</div>
+                <p style={{ color: INK_3, fontSize: "13px", marginBottom: "20px" }}>You can sign in with your new password now.</p>
+                <button type="button" onClick={() => { setResetToken(""); setReset(null); setResetDone(false); setMode("login"); }} style={{ width: "100%", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "15px", color: DEEP, border: "none", cursor: "pointer", background: GRAD_ACCENT }}>Go to sign in</button>
               </div>
             ) : reset === null ? (
-              <div style={{ textAlign: "center", color: "#9ca3af", fontSize: "13px", padding: "24px 0" }}>Checking your reset link…</div>
+              <div style={{ textAlign: "center", color: INK_3, fontSize: "13px", padding: "24px 0" }}>Checking your reset link…</div>
             ) : !reset.valid ? (
               <div data-testid="reset-invalid">
-                <div style={{ padding: "12px 14px", borderRadius: "10px", background: "rgba(248,113,113,0.10)", border: "1px solid rgba(248,113,113,0.35)", color: "#fca5a5", fontSize: "13px", marginBottom: "16px" }}>
+                <div style={{ padding: "12px 14px", borderRadius: "10px", background: tint(BAD, 10), border: `1px solid ${tint(BAD, 35)}`, color: BAD_INK, fontSize: "13px", marginBottom: "16px" }}>
                   <strong>This reset link can't be used</strong>
                   <div style={{ marginTop: "4px" }}>{reset.reason}</div>
                 </div>
-                <button type="button" onClick={() => { setResetToken(""); setReset(null); setMode("login"); }} style={{ width: "100%", padding: "12px", borderRadius: "10px", fontSize: "14px", color: "#9ca3af", background: "transparent", border: `1px solid ${GOLD}25`, cursor: "pointer" }}>Back to sign in</button>
+                <button type="button" onClick={() => { setResetToken(""); setReset(null); setMode("login"); }} style={{ width: "100%", padding: "12px", borderRadius: "10px", fontSize: "14px", color: INK_3, background: "transparent", border: `1px solid ${tint(GOLD, 15)}`, cursor: "pointer" }}>Back to sign in</button>
               </div>
             ) : (
               <form onSubmit={submitReset} noValidate>
-                <p style={{ color: "#9ca3af", fontSize: "13px", marginBottom: "16px", textAlign: "center" }}>
-                  Choose a new password for <span style={{ color: "#fff" }}>{reset.email}</span>
+                <p style={{ color: INK_3, fontSize: "13px", marginBottom: "16px", textAlign: "center" }}>
+                  Choose a new password for <span style={{ color: INK }}>{reset.email}</span>
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                   <input type="password" value={resetPass} onChange={e => setResetPass(e.target.value)} placeholder="New password (min 8 characters)" className={inputCls} style={{ padding: "14px 18px", fontSize: "15px", height: "48px" }} data-testid="reset-password" />
                   <input type="password" value={resetConfirm} onChange={e => setResetConfirm(e.target.value)} placeholder="Confirm new password" className={inputCls} style={{ padding: "14px 18px", fontSize: "15px", height: "48px" }} data-testid="reset-confirm" />
                 </div>
-                {err && <div style={{ marginTop: "12px", color: "#f87171", fontSize: "14px", textAlign: "center" }} data-testid="reset-error">{err}</div>}
-                <button type="submit" disabled={busy} style={{ width: "100%", marginTop: "24px", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "16px", color: "#0a1628", border: "none", cursor: "pointer", background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, opacity: busy ? 0.5 : 1 }} data-testid="reset-submit">
+                {err && <div style={{ marginTop: "12px", color: BAD, fontSize: "14px", textAlign: "center" }} data-testid="reset-error">{err}</div>}
+                <button type="submit" disabled={busy} style={{ width: "100%", marginTop: "24px", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "16px", color: DEEP, border: "none", cursor: "pointer", background: GRAD_ACCENT, opacity: busy ? 0.5 : 1 }} data-testid="reset-submit">
                   {busy ? "..." : "Set new password"}
                 </button>
               </form>
@@ -153,9 +152,9 @@ export const LoginScreen = ({ onLogin }) => {
         ) : (
         <>
         {/* Tab switcher */}
-        <div style={{ display: "flex", marginBottom: "24px", borderRadius: "10px", overflow: "hidden", border: `1px solid ${GOLD}25` }}>
-          <button type="button" onClick={() => switchMode("login")} style={{ flex: 1, padding: "10px", fontSize: "14px", fontWeight: 600, border: "none", cursor: "pointer", background: mode === "login" ? `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` : "transparent", color: mode === "login" ? "#0a1628" : "#9ca3af", transition: "all 0.2s" }}>Sign In</button>
-          <button type="button" onClick={() => switchMode("signup")} style={{ flex: 1, padding: "10px", fontSize: "14px", fontWeight: 600, border: "none", cursor: "pointer", background: mode === "signup" ? `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` : "transparent", color: mode === "signup" ? "#0a1628" : "#9ca3af", transition: "all 0.2s" }}>Create Account</button>
+        <div style={{ display: "flex", marginBottom: "24px", borderRadius: "10px", overflow: "hidden", border: `1px solid ${tint(GOLD, 15)}` }}>
+          <button type="button" onClick={() => switchMode("login")} style={{ flex: 1, padding: "10px", fontSize: "14px", fontWeight: 600, border: "none", cursor: "pointer", background: mode === "login" ? GRAD_ACCENT : "transparent", color: mode === "login" ? DEEP : INK_3, transition: "all 0.2s" }}>Sign In</button>
+          <button type="button" onClick={() => switchMode("signup")} style={{ flex: 1, padding: "10px", fontSize: "14px", fontWeight: 600, border: "none", cursor: "pointer", background: mode === "signup" ? GRAD_ACCENT : "transparent", color: mode === "signup" ? DEEP : INK_3, transition: "all 0.2s" }}>Create Account</button>
         </div>
 
         {mode === "login" ? (
@@ -164,10 +163,10 @@ export const LoginScreen = ({ onLogin }) => {
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" required className={inputCls} style={{ padding: "14px 18px", fontSize: "15px", height: "48px" }} />
               <input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Password" required className={inputCls} style={{ padding: "14px 18px", fontSize: "15px", height: "48px" }} />
             </div>
-            {err && <div style={{ marginTop: "12px", color: "#f87171", fontSize: "14px", textAlign: "center" }}>{err}</div>}
-            <button type="submit" disabled={busy} style={{ width: "100%", marginTop: "24px", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "16px", color: "#0a1628", border: "none", cursor: "pointer", background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, opacity: busy ? 0.5 : 1, transition: "transform 0.2s" }}>{busy ? "..." : "Sign In"}</button>
+            {err && <div style={{ marginTop: "12px", color: BAD, fontSize: "14px", textAlign: "center" }}>{err}</div>}
+            <button type="submit" disabled={busy} style={{ width: "100%", marginTop: "24px", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "16px", color: DEEP, border: "none", cursor: "pointer", background: GRAD_ACCENT, opacity: busy ? 0.5 : 1, transition: "transform 0.2s" }}>{busy ? "..." : "Sign In"}</button>
             <div style={{ textAlign: "center", marginTop: "16px" }}>
-              <button type="button" onClick={() => setShowForgot(true)} style={{ background: "none", border: "none", color: "#6b7280", fontSize: "13px", cursor: "pointer", textDecoration: "underline", padding: 0 }}>Forgot Password?</button>
+              <button type="button" onClick={() => setShowForgot(true)} style={{ background: "none", border: "none", color: INK_MUTED, fontSize: "13px", cursor: "pointer", textDecoration: "underline", padding: 0 }}>Forgot Password?</button>
             </div>
           </form>
         ) : (
@@ -175,23 +174,23 @@ export const LoginScreen = ({ onLogin }) => {
             {/* Invitation banner — what this account is about to join, decided
                 before anything is typed rather than discovered on submit. */}
             {checkingInvite && (
-              <div style={{ marginBottom: "16px", padding: "12px 14px", borderRadius: "10px", background: "rgba(148,163,184,0.08)", border: "1px solid rgba(148,163,184,0.2)", color: "#9ca3af", fontSize: "13px" }} data-testid="invite-checking">
+              <div style={{ marginBottom: "16px", padding: "12px 14px", borderRadius: "10px", background: tint(INK_3, 8), border: `1px solid ${tint(INK_3, 20)}`, color: INK_3, fontSize: "13px" }} data-testid="invite-checking">
                 Checking your invitation…
               </div>
             )}
             {!checkingInvite && invite?.valid && (
-              <div style={{ marginBottom: "16px", padding: "12px 14px", borderRadius: "10px", background: "rgba(16,185,129,0.10)", border: "1px solid rgba(16,185,129,0.30)", color: "#6ee7b7", fontSize: "13px" }} data-testid="invite-valid">
+              <div style={{ marginBottom: "16px", padding: "12px 14px", borderRadius: "10px", background: tint(OK, 10), border: `1px solid ${tint(OK, 30)}`, color: OK_INK, fontSize: "13px" }} data-testid="invite-valid">
                 <strong style={{ color: "#a7f3d0" }}>You've been invited to join {invite.organization_name}</strong>
-                <div style={{ marginTop: "4px", color: "#9ca3af" }}>
+                <div style={{ marginTop: "4px", color: INK_3 }}>
                   You'll join as a {invite.role}. Your account will use this organisation's existing workspace.
                 </div>
               </div>
             )}
             {!checkingInvite && inviteToken.trim() && invite && !invite.valid && (
-              <div style={{ marginBottom: "16px", padding: "12px 14px", borderRadius: "10px", background: "rgba(248,113,113,0.10)", border: "1px solid rgba(248,113,113,0.35)", color: "#fca5a5", fontSize: "13px" }} data-testid="invite-invalid">
+              <div style={{ marginBottom: "16px", padding: "12px 14px", borderRadius: "10px", background: tint(BAD, 10), border: `1px solid ${tint(BAD, 35)}`, color: BAD_INK, fontSize: "13px" }} data-testid="invite-invalid">
                 <strong>This invitation can't be used</strong>
                 <div style={{ marginTop: "4px" }}>{invite.reason}</div>
-                <div style={{ marginTop: "8px", color: "#9ca3af" }}>
+                <div style={{ marginTop: "8px", color: INK_3 }}>
                   Clear the code below to create a new organisation instead — but if you were invited to an existing
                   team, ask for a fresh link rather than signing up separately.
                 </div>
@@ -217,13 +216,13 @@ export const LoginScreen = ({ onLogin }) => {
                   data-testid="invite-input"
                 />
               ) : (
-                <button type="button" onClick={() => setShowInviteField(true)} style={{ background: "none", border: "none", color: "#6b7280", fontSize: "13px", cursor: "pointer", textDecoration: "underline", padding: 0, textAlign: "left" }} data-testid="have-invite-btn">
+                <button type="button" onClick={() => setShowInviteField(true)} style={{ background: "none", border: "none", color: INK_MUTED, fontSize: "13px", cursor: "pointer", textDecoration: "underline", padding: 0, textAlign: "left" }} data-testid="have-invite-btn">
                   Have an invitation code?
                 </button>
               )}
             </div>
-            {err && <div style={{ marginTop: "12px", color: "#f87171", fontSize: "14px", textAlign: "center" }} data-testid="signup-error">{err}</div>}
-            <button type="submit" data-testid="signup-submit" disabled={busy || checkingInvite} style={{ width: "100%", marginTop: "24px", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "16px", color: "#0a1628", border: "none", cursor: "pointer", background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, opacity: (busy || checkingInvite) ? 0.5 : 1, transition: "transform 0.2s" }}>
+            {err && <div style={{ marginTop: "12px", color: BAD, fontSize: "14px", textAlign: "center" }} data-testid="signup-error">{err}</div>}
+            <button type="submit" data-testid="signup-submit" disabled={busy || checkingInvite} style={{ width: "100%", marginTop: "24px", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "16px", color: DEEP, border: "none", cursor: "pointer", background: GRAD_ACCENT, opacity: (busy || checkingInvite) ? 0.5 : 1, transition: "transform 0.2s" }}>
               {busy ? "..." : joining ? `Join ${invite.organization_name}` : "Create Account"}
             </button>
           </form>
@@ -234,11 +233,11 @@ export const LoginScreen = ({ onLogin }) => {
 
         {/* Forgot password modal */}
         {showForgot && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }} onClick={() => setShowForgot(false)}>
-            <div onClick={e => e.stopPropagation()} style={{ background: "#162544", border: `1px solid ${GOLD}33`, borderRadius: "12px", padding: "32px", maxWidth: "400px", width: "90%", textAlign: "center" }}>
+          <div style={{ position: "fixed", inset: 0, background: cast(0.6), display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }} onClick={() => setShowForgot(false)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: RAISED, border: `1px solid ${tint(GOLD, 20)}`, borderRadius: "12px", padding: "32px", maxWidth: "400px", width: "90%", textAlign: "center" }}>
               <div style={{ fontSize: "20px", marginBottom: "12px" }}>Reset your password</div>
-              <p style={{ color: "#9ca3af", fontSize: "14px", marginBottom: "20px" }}>Ask an administrator in your organisation to send you a reset link. They can create one from their profile menu, under Change password. Opening that link lets you choose a new password yourself — nobody else sees it.</p>
-              <button onClick={() => setShowForgot(false)} style={{ padding: "10px 24px", borderRadius: "8px", fontWeight: 600, fontSize: "14px", color: "#0a1628", border: "none", cursor: "pointer", background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>OK</button>
+              <p style={{ color: INK_3, fontSize: "14px", marginBottom: "20px" }}>Ask an administrator in your organisation to send you a reset link. They can create one from their profile menu, under Change password. Opening that link lets you choose a new password yourself — nobody else sees it.</p>
+              <button onClick={() => setShowForgot(false)} style={{ padding: "10px 24px", borderRadius: "8px", fontWeight: 600, fontSize: "14px", color: DEEP, border: "none", cursor: "pointer", background: GRAD_ACCENT }}>OK</button>
             </div>
           </div>
         )}

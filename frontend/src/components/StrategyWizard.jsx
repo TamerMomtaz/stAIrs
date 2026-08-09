@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { api, SourcesAPI, extractDocumentText } from "../api";
-import { GOLD, GOLD_L, TEAL, DEEP, BORDER, glass, typeColors, typeIcons, inputCls, labelCls } from "../constants";
+import { BAD, BORDER, DEEP, GOLD, GRAD_ACCENT, HUE, INFO, INK_3, OK, TEAL, WARN, glass, inputCls, labelCls, tint, typeColors, typeIcons } from "../constants";
 import { Markdown } from "./Markdown";
 import { Modal } from "./SharedUI";
 import { StrategyQuestionnaire } from "./StrategyQuestionnaire";
@@ -88,7 +88,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
   const fileInputRef = useRef(null);
   const endRef = useRef(null);
   const iconOpts = ["🎯","🌱","🚀","🗝️","💡","🏭","📊","🌍","⚡","🔬","🛡️","🌐"];
-  const colorOpts = [GOLD, TEAL, "#60a5fa", "#a78bfa", "#f87171", "#34d399", "#fbbf24", "#ec4899"];
+  const colorOpts = [GOLD, TEAL, INFO, HUE.violet, BAD, OK, WARN, HUE.pink];
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [aiMessages]);
 
   const isAr = lang === "ar";
@@ -434,7 +434,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
                 <button key={t.value} onClick={() => setInfo(f => ({...f, strategyType: t.value}))}
                   className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-left text-sm transition-all border ${info.strategyType === t.value
                     ? "bg-amber-500/15 border-amber-500/40 text-amber-200"
-                    : "bg-[#0a1628]/60 border-[#1e3a5f] text-gray-400 hover:border-gray-500 hover:text-gray-300"}`}>
+                    : "bg-input border-hairline-strong text-ink-3 hover:border-gray-500 hover:text-ink-2"}`}>
                   <span className="text-base shrink-0">{t.icon}</span>
                   <span className="truncate text-xs">{t.label}</span>
                 </button>
@@ -447,8 +447,8 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
             <div><label className={labelCls}>Color</label><div className="flex flex-wrap gap-2">{colorOpts.map(c => <button key={c} onClick={() => setInfo(f => ({...f, color: c}))} className={`w-[34px] h-[34px] rounded-full transition ${info.color===c ? "scale-125 ring-2 ring-white/30" : "hover:scale-110"}`} style={{ background: c }} />)}</div></div>
           </div>
           <div className="flex justify-end gap-3 pt-5" style={{ borderTop: `1px solid ${BORDER}` }}>
-            <button onClick={onClose} className="px-6 py-3 rounded-lg text-sm text-gray-400 hover:text-white transition">Cancel</button>
-            <button onClick={goToUploadStep} disabled={!info.name.trim() || !info.strategyType} className="px-6 py-3 rounded-lg text-sm font-semibold text-[#0a1628] disabled:opacity-40 transition-all hover:scale-[1.02]" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>Next → Strategy Questionnaire</button>
+            <button onClick={onClose} className="px-6 py-3 rounded-lg text-sm text-ink-3 hover:text-ink transition">Cancel</button>
+            <button onClick={goToUploadStep} disabled={!info.name.trim() || !info.strategyType} className="px-6 py-3 rounded-lg text-sm font-semibold text-ink-on-accent disabled:opacity-40 transition-all hover:scale-[1.02]" style={{ background: GRAD_ACCENT }}>Next → Strategy Questionnaire</button>
           </div>
         </div>
       )}
@@ -458,8 +458,8 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
         <div className="flex flex-col h-full min-h-0">
           <div className="flex-1 min-h-0 overflow-auto">
             <div className="mb-4">
-              <p className="text-gray-300 text-sm mb-1">Have a business plan, pitch deck, or market research? Upload it and we'll pre-fill your strategy questionnaire.</p>
-              <p className="text-gray-500 text-xs">You can skip this step and fill the questionnaire manually.</p>
+              <p className="text-ink-2 text-sm mb-1">Have a business plan, pitch deck, or market research? Upload it and we'll pre-fill your strategy questionnaire.</p>
+              <p className="text-ink-muted text-xs">You can skip this step and fill the questionnaire manually.</p>
             </div>
 
             {/* Drag & drop zone */}
@@ -470,22 +470,22 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
               onClick={() => !extracting && fileInputRef.current?.click()}
               className={`relative rounded-xl p-8 text-center cursor-pointer transition-all border-2 border-dashed ${dragOver ? "scale-[1.01]" : "hover:scale-[1.005]"}`}
               style={{
-                borderColor: dragOver ? "#f472b6" : BORDER,
-                background: dragOver ? "rgba(244, 114, 182, 0.05)" : "rgba(22, 37, 68, 0.3)",
+                borderColor: dragOver ? HUE.pink : BORDER,
+                background: dragOver ? tint(HUE.pink, 5) : "rgb(var(--surface-raised-rgb) / 0.3)",
               }}
             >
               {extracting ? (
                 <div className="space-y-3">
                   <div className="w-8 h-8 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin mx-auto" />
-                  <div className="text-sm text-gray-400">Extracting text from documents...</div>
+                  <div className="text-sm text-ink-3">Extracting text from documents...</div>
                 </div>
               ) : (
                 <>
                   <div className="text-2xl mb-2">{dragOver ? "📥" : "📎"}</div>
-                  <div className="text-sm text-gray-400">
+                  <div className="text-sm text-ink-3">
                     {dragOver ? "Drop files here" : "Drag & drop files here, or click to browse"}
                   </div>
-                  <div className="text-[10px] text-gray-600 mt-1.5">
+                  <div className="text-[10px] text-ink-faint mt-1.5">
                     PDF, DOCX, XLSX, CSV, TXT, PNG, JPG — Max 10MB per file
                   </div>
                 </>
@@ -511,15 +511,15 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
             {/* File list */}
             {uploadedFiles.length > 0 && (
               <div className="mt-4 space-y-2">
-                <div className="text-xs text-gray-400 mb-2">{uploadedFiles.length} file{uploadedFiles.length > 1 ? "s" : ""} selected</div>
+                <div className="text-xs text-ink-3 mb-2">{uploadedFiles.length} file{uploadedFiles.length > 1 ? "s" : ""} selected</div>
                 {uploadedFiles.map((file, i) => (
                   <div key={`${file.name}-${i}`} className="flex items-center gap-3 p-2.5 rounded-lg" style={glass(0.4)}>
                     <span className="text-base shrink-0">📄</span>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm text-gray-200 truncate">{file.name}</div>
-                      <div className="text-[10px] text-gray-500">{formatFileSize(file.size)}</div>
+                      <div className="text-sm text-ink-2 truncate">{file.name}</div>
+                      <div className="text-[10px] text-ink-muted">{formatFileSize(file.size)}</div>
                     </div>
-                    <button onClick={(e) => { e.stopPropagation(); removeFile(i); }} className="text-gray-600 hover:text-red-400 text-xs shrink-0 px-1.5 py-0.5 rounded hover:bg-red-500/10 transition">✕</button>
+                    <button onClick={(e) => { e.stopPropagation(); removeFile(i); }} className="text-ink-faint hover:text-red-400 text-xs shrink-0 px-1.5 py-0.5 rounded hover:bg-red-500/10 transition">✕</button>
                   </div>
                 ))}
               </div>
@@ -528,10 +528,10 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
 
           <div className="shrink-0 pt-4 mt-4" style={{ borderTop: `1px solid ${BORDER}` }}>
             <div className="flex justify-between">
-              <button onClick={() => { setStep(0); setUploadedFiles([]); setExtractionError(null); }} className="text-xs text-gray-500 hover:text-gray-300 transition">← Back</button>
+              <button onClick={() => { setStep(0); setUploadedFiles([]); setExtractionError(null); }} className="text-xs text-ink-muted hover:text-ink-2 transition">← Back</button>
               <div className="flex gap-3">
-                <button onClick={handleSkipUpload} disabled={extracting} className="px-6 py-3 rounded-lg text-sm text-gray-500 hover:text-gray-300 border border-transparent hover:border-gray-700 transition disabled:opacity-40">Skip — Fill Manually</button>
-                <button onClick={handleUploadAndContinue} disabled={uploadedFiles.length === 0 || extracting} className="px-6 py-3 rounded-lg text-sm font-semibold text-[#0a1628] disabled:opacity-40 transition-all hover:scale-[1.02]" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>Upload & Continue</button>
+                <button onClick={handleSkipUpload} disabled={extracting} className="px-6 py-3 rounded-lg text-sm text-ink-muted hover:text-ink-2 border border-transparent hover:border-gray-700 transition disabled:opacity-40">Skip — Fill Manually</button>
+                <button onClick={handleUploadAndContinue} disabled={uploadedFiles.length === 0 || extracting} className="px-6 py-3 rounded-lg text-sm font-semibold text-ink-on-accent disabled:opacity-40 transition-all hover:scale-[1.02]" style={{ background: GRAD_ACCENT }}>Upload & Continue</button>
               </div>
             </div>
           </div>
@@ -544,7 +544,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
           {questionnaireLoading ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-4 py-12">
               <div className="w-10 h-10 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
-              <div className="text-gray-400 text-sm">{retryMsg || <>Generating tailored questions for your <span className="text-amber-300">{typeLabel}</span> strategy...</>}</div>
+              <div className="text-ink-3 text-sm">{retryMsg || <>Generating tailored questions for your <span className="text-amber-300">{typeLabel}</span> strategy...</>}</div>
             </div>
           ) : questionnaireError ? (
             <div className="flex-1 flex flex-col items-center justify-center py-12">
@@ -561,9 +561,9 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
             <div className="flex-1 min-h-0 overflow-auto">
               <div className="flex items-center gap-2 mb-4 p-3 rounded-lg" style={glass(0.3)}>
                 <span className="text-base">{selectedType?.icon}</span>
-                <span className="text-sm text-gray-300">{typeLabel} Strategy</span>
-                <span className="text-gray-600 mx-1">for</span>
-                <span className="text-sm text-white font-medium">{info.company || info.name}</span>
+                <span className="text-sm text-ink-2">{typeLabel} Strategy</span>
+                <span className="text-ink-faint mx-1">for</span>
+                <span className="text-sm text-ink font-medium">{info.company || info.name}</span>
               </div>
               {/* Pre-filling indicator */}
               {prefilling && (
@@ -592,15 +592,15 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
             {!questionnaireLoading && !questionnaireError && questionnaireData && (
               <div className="flex items-center gap-2 mb-3 p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/10">
                 <span className="text-amber-500/60 text-xs">i</span>
-                <span className="text-[11px] text-gray-500">Answering these questions will make your strategy significantly more accurate.</span>
+                <span className="text-[11px] text-ink-muted">Answering these questions will make your strategy significantly more accurate.</span>
               </div>
             )}
             <div className="flex justify-between">
-              <button onClick={() => { setStep(1); setQuestionnaireData(null); setQuestionnaireAnswers({}); setQuestionnaireError(null); setPrefilledQuestionIds(new Set()); setPrefilling(false); }} className="text-xs text-gray-500 hover:text-gray-300 transition">← Back</button>
+              <button onClick={() => { setStep(1); setQuestionnaireData(null); setQuestionnaireAnswers({}); setQuestionnaireError(null); setPrefilledQuestionIds(new Set()); setPrefilling(false); }} className="text-xs text-ink-muted hover:text-ink-2 transition">← Back</button>
               <div className="flex gap-3">
-                <button onClick={skipQuestionnaire} className="px-6 py-3 rounded-lg text-sm text-gray-500 hover:text-gray-300 border border-transparent hover:border-gray-700 transition">Skip questionnaire</button>
+                <button onClick={skipQuestionnaire} className="px-6 py-3 rounded-lg text-sm text-ink-muted hover:text-ink-2 border border-transparent hover:border-gray-700 transition">Skip questionnaire</button>
                 {!questionnaireLoading && questionnaireData && (
-                  <button onClick={goToAIChat} disabled={prefilling} className="px-6 py-3 rounded-lg text-sm font-semibold text-[#0a1628] transition-all hover:scale-[1.02] disabled:opacity-40" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>Next → AI Builder</button>
+                  <button onClick={goToAIChat} disabled={prefilling} className="px-6 py-3 rounded-lg text-sm font-semibold text-ink-on-accent transition-all hover:scale-[1.02] disabled:opacity-40" style={{ background: GRAD_ACCENT }}>Next → AI Builder</button>
                 )}
               </div>
             </div>
@@ -627,7 +627,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
                       />
                     </div>
                   ) : (
-                    <div className={`max-w-[74ch] px-[18px] py-[15px] rounded-2xl text-[15px] leading-[1.68] ${m.role === "user" ? "bg-amber-500/20 text-amber-100 rounded-br-md" : "bg-[#162544] text-gray-200 rounded-bl-md border border-[#1e3a5f]"}`}>
+                    <div className={`max-w-[74ch] px-[18px] py-[15px] rounded-2xl text-[15px] leading-[1.68] ${m.role === "user" ? "bg-amber-500/20 text-amber-100 rounded-br-md" : "bg-raised text-ink-2 rounded-bl-md border border-hairline-strong"}`}>
                       {m.role === "ai" ? <Markdown text={m.text} /> : <div className="whitespace-pre-wrap">{m.text}</div>}
                     </div>
                   )}
@@ -658,42 +658,42 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
                 placeholder={isAr ? "صف أهدافك..." : "Describe your goals..."}
                 disabled={aiLoading}
                 rows={3}
-                className="flex-1 px-4 py-3.5 rounded-xl bg-[#0a1628]/60 border border-[#1e3a5f] text-white text-[15px] placeholder-gray-600 focus:border-amber-500/45 focus:ring-2 focus:ring-amber-500/10 focus:outline-none transition resize-none"
+                className="flex-1 px-4 py-3.5 rounded-xl bg-input border border-hairline-strong text-ink text-[15px] placeholder-ink-faint focus:border-amber-500/45 focus:ring-2 focus:ring-amber-500/10 focus:outline-none transition resize-none"
               />
-              <button onClick={() => sendToAI()} disabled={aiLoading || !aiInput.trim()} className="px-6 py-3.5 rounded-xl font-medium text-[15px] self-stretch disabled:opacity-30 transition-all hover:scale-[1.02]" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, color: DEEP }}>{isAr ? "إرسال" : "Send"}</button>
+              <button onClick={() => sendToAI()} disabled={aiLoading || !aiInput.trim()} className="px-6 py-3.5 rounded-xl font-medium text-[15px] self-stretch disabled:opacity-30 transition-all hover:scale-[1.02]" style={{ background: GRAD_ACCENT, color: DEEP }}>{isAr ? "إرسال" : "Send"}</button>
             </div>
-            <div className="flex-shrink-0 text-[11px] text-gray-600 mt-1.5">{isAr ? "Enter للإرسال · Shift+Enter لسطر جديد" : "Enter to send · Shift+Enter for a new line"}</div>
+            <div className="flex-shrink-0 text-[11px] text-ink-faint mt-1.5">{isAr ? "Enter للإرسال · Shift+Enter لسطر جديد" : "Enter to send · Shift+Enter for a new line"}</div>
 
-            <div className="flex-shrink-0 flex justify-between mt-3"><button onClick={() => setStep(questionnaireData ? 2 : 1)} className="text-xs text-gray-500 hover:text-gray-300 transition">← Back</button><button onClick={() => setStep(4)} className="text-xs text-gray-500 hover:text-gray-300 transition">Skip AI → Create empty</button></div>
+            <div className="flex-shrink-0 flex justify-between mt-3"><button onClick={() => setStep(questionnaireData ? 2 : 1)} className="text-xs text-ink-muted hover:text-ink-2 transition">← Back</button><button onClick={() => setStep(4)} className="text-xs text-ink-muted hover:text-ink-2 transition">Skip AI → Create empty</button></div>
           </div>
 
           {/* ── RIGHT (lg+): captured elements rail ── */}
           <aside className="hidden lg:flex flex-col min-h-0 rounded-xl overflow-hidden" style={glass(0.3)}>
             <div className="flex-shrink-0 px-4 py-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
-              <div className="text-[11px] uppercase tracking-[0.12em] text-gray-400 font-medium">
+              <div className="text-[11px] uppercase tracking-[0.12em] text-ink-3 font-medium">
                 {isAr ? "تم الالتقاط" : "Captured"} · {generatedElements.length} {isAr ? "عنصر" : `element${generatedElements.length === 1 ? "" : "s"}`}
               </div>
             </div>
             <div className="flex-1 min-h-0 overflow-auto p-2 space-y-1">
               {generatedElements.length === 0 ? (
-                <div className="text-gray-600 text-xs leading-relaxed p-3">
+                <div className="text-ink-faint text-xs leading-relaxed p-3">
                   {isAr
                     ? "ستظهر عناصر الاستراتيجية هنا فور توليدها."
                     : "Strategy elements will collect here as the assistant generates them."}
                 </div>
               ) : generatedElements.map((el, i) => (
-                <div key={i} className="flex items-start gap-2 py-2 px-2 rounded" style={{ borderLeft: `2px solid ${typeColors[el.element_type] || "#94a3b8"}` }}>
+                <div key={i} className="flex items-start gap-2 py-2 px-2 rounded" style={{ borderLeft: `2px solid ${typeColors[el.element_type] || INK_3}` }}>
                   <span style={{ color: typeColors[el.element_type], fontSize: 12 }} className="mt-0.5 shrink-0">{typeIcons[el.element_type]}</span>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[10px] text-gray-500 uppercase tracking-wider">{el.element_type.replace("_", " ")}</div>
-                    <div className="text-[13px] text-gray-200 leading-snug break-words">{el.title}</div>
+                    <div className="text-[10px] text-ink-muted uppercase tracking-wider">{el.element_type.replace("_", " ")}</div>
+                    <div className="text-[13px] text-ink-2 leading-snug break-words">{el.title}</div>
                   </div>
-                  <button onClick={() => setGeneratedElements(prev => prev.filter((_, j) => j !== i))} className="text-gray-600 hover:text-red-400 text-xs shrink-0">✕</button>
+                  <button onClick={() => setGeneratedElements(prev => prev.filter((_, j) => j !== i))} className="text-ink-faint hover:text-red-400 text-xs shrink-0">✕</button>
                 </div>
               ))}
             </div>
             <div className="flex-shrink-0 p-3" style={{ borderTop: `1px solid ${BORDER}` }}>
-              <button onClick={() => setStep(4)} disabled={generatedElements.length === 0} className="w-full px-4 py-2.5 rounded-lg text-sm font-semibold text-[#0a1628] disabled:opacity-30 transition-all hover:scale-[1.02]" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>
+              <button onClick={() => setStep(4)} disabled={generatedElements.length === 0} className="w-full px-4 py-2.5 rounded-lg text-sm font-semibold text-ink-on-accent disabled:opacity-30 transition-all hover:scale-[1.02]" style={{ background: GRAD_ACCENT }}>
                 {isAr ? "المراجعة والإنشاء ←" : "Review & Create →"}
               </button>
             </div>
@@ -707,7 +707,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
           <div className="flex items-center gap-3 p-4 rounded-xl" style={glass(0.4)}>
             <span className="text-2xl">{info.icon}</span>
             <div>
-              <div className="text-white font-semibold">{info.name}</div>
+              <div className="text-ink font-semibold">{info.name}</div>
               <div className="text-gray-500 text-xs">{info.company} {info.industry ? `· ${info.industry}` : ""} {typeLabel ? `· ${typeLabel}` : ""}</div>
             </div>
           </div>
@@ -721,8 +721,8 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
               <span className="text-teal-400 text-xs">✓ {Object.values(questionnaireAnswers).filter(v => v !== "").length} questionnaire answers included{prefilledQuestionIds.size > 0 ? ` (${prefilledQuestionIds.size} pre-filled from documents)` : ""}</span>
             </div>
           )}
-          {generatedElements.length > 0 ? (<div><label className={labelCls}>{generatedElements.length} elements will be created:</label><div className="max-h-60 overflow-y-auto space-y-1 p-3 rounded-lg" style={glass(0.3)}>{generatedElements.map((el,i) => (<div key={i} className="flex items-center gap-2 py-1.5 px-2 rounded" style={{ borderLeft: `2px solid ${typeColors[el.element_type]||"#94a3b8"}` }}><span style={{ color: typeColors[el.element_type], fontSize: 12 }}>{typeIcons[el.element_type]}</span><span className="text-[10px] text-gray-500 uppercase w-16 shrink-0">{el.element_type.replace("_"," ")}</span><span className="text-sm text-gray-200 truncate">{el.title}</span><button onClick={() => setGeneratedElements(prev => prev.filter((_,j) => j!==i))} className="ml-auto text-gray-600 hover:text-red-400 text-xs shrink-0">✕</button></div>))}</div></div>) : (<div className="text-gray-500 text-sm text-center py-6">No elements generated. Add them manually after creation.</div>)}
-          <div className="flex justify-end gap-3 pt-4" style={{ borderTop: `1px solid ${BORDER}` }}><button onClick={() => setStep(3)} disabled={creating} className="px-6 py-3 rounded-lg text-sm text-gray-400 hover:text-white transition disabled:opacity-40">← Back to AI</button><button onClick={finishWizard} disabled={creating} className="px-6 py-3 rounded-lg text-sm font-semibold text-[#0a1628] transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>{creating ? "Creating..." : `Create Strategy ${generatedElements.length > 0 ? `(${generatedElements.length} el)` : ""}`}</button></div>
+          {generatedElements.length > 0 ? (<div><label className={labelCls}>{generatedElements.length} elements will be created:</label><div className="max-h-60 overflow-y-auto space-y-1 p-3 rounded-lg" style={glass(0.3)}>{generatedElements.map((el,i) => (<div key={i} className="flex items-center gap-2 py-1.5 px-2 rounded" style={{ borderLeft: `2px solid ${typeColors[el.element_type]||INK_3}` }}><span style={{ color: typeColors[el.element_type], fontSize: 12 }}>{typeIcons[el.element_type]}</span><span className="text-[10px] text-ink-muted uppercase w-16 shrink-0">{el.element_type.replace("_"," ")}</span><span className="text-sm text-ink-2 truncate">{el.title}</span><button onClick={() => setGeneratedElements(prev => prev.filter((_,j) => j!==i))} className="ml-auto text-ink-faint hover:text-red-400 text-xs shrink-0">✕</button></div>))}</div></div>) : (<div className="text-ink-muted text-sm text-center py-6">No elements generated. Add them manually after creation.</div>)}
+          <div className="flex justify-end gap-3 pt-4" style={{ borderTop: `1px solid ${BORDER}` }}><button onClick={() => setStep(3)} disabled={creating} className="px-6 py-3 rounded-lg text-sm text-ink-3 hover:text-ink transition disabled:opacity-40">← Back to AI</button><button onClick={finishWizard} disabled={creating} className="px-6 py-3 rounded-lg text-sm font-semibold text-ink-on-accent transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed" style={{ background: GRAD_ACCENT }}>{creating ? "Creating..." : `Create Strategy ${generatedElements.length > 0 ? `(${generatedElements.length} el)` : ""}`}</button></div>
         </div>
       )}
     </Modal>

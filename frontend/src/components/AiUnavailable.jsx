@@ -8,8 +8,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import { aiFailureCopy } from "../lib/aiResilience";
-import { GOLD, GOLD_L } from "../constants";
-
+import { BORDER_STRONG, CHAMPAGNE, DEEP, GOLD, GOLD_L, GRAD_ACCENT, glass, tint } from "../constants";
 export default function AiUnavailable({
   kind = "unavailable",
   lang = "en",
@@ -33,8 +32,8 @@ export default function AiUnavailable({
       data-kind={kind}
       className={`rounded-2xl ${compact ? "p-3" : "p-4"} ${rtl ? "rounded-br-md" : "rounded-bl-md"}`}
       style={{
-        background: "rgba(184,144,74,0.06)",
-        border: `1px solid ${GOLD}26`,
+        background: tint(GOLD, 6),
+        border: `1px solid ${tint(GOLD, 15)}`,
       }}
     >
       <div className="flex items-start gap-3">
@@ -44,8 +43,8 @@ export default function AiUnavailable({
           style={{
             width: 32,
             height: 32,
-            background: `${GOLD}14`,
-            border: `1px solid ${GOLD}2e`,
+            background: `${tint(GOLD, 8)}`,
+            border: `1px solid ${tint(GOLD, 18)}`,
           }}
         >
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -69,10 +68,10 @@ export default function AiUnavailable({
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium" style={{ color: "#f0dcc0" }}>
+          <div className="text-sm font-medium" style={{ color: CHAMPAGNE }}>
             {copy.title}
           </div>
-          <div className="text-xs leading-relaxed mt-1 text-gray-400">{copy.body}</div>
+          <div className="text-xs leading-relaxed mt-1 text-ink-3">{copy.body}</div>
 
           <div className="flex items-center gap-2 mt-3 flex-wrap">
             {onRetry && (
@@ -80,7 +79,7 @@ export default function AiUnavailable({
                 onClick={onRetry}
                 disabled={retrying}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-[1.03] disabled:opacity-50 disabled:hover:scale-100"
-                style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, color: "#0a1628" }}
+                style={{ background: GRAD_ACCENT, color: DEEP }}
               >
                 {retrying ? "…" : t.retry}
               </button>
@@ -88,13 +87,13 @@ export default function AiUnavailable({
             {onContinueManually && (
               <button
                 onClick={onContinueManually}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-white transition"
-                style={{ border: "1px solid rgba(30,58,95,0.9)" }}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium text-ink-3 hover:text-ink transition"
+                style={{ border: `1px solid ${tint(BORDER_STRONG, 90)}` }}
               >
                 {t.manual}
               </button>
             )}
-            <span className="text-[10px] text-gray-600 tracking-wide">✓ {t.saved}</span>
+            <span className="text-[10px] text-ink-faint tracking-wide">✓ {t.saved}</span>
           </div>
         </div>
       </div>

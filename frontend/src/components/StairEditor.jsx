@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { GOLD, GOLD_L, BORDER, typeLabels, typeLabelsAr, typeColors, typeIcons, inputCls, labelCls } from "../constants";
+import { BORDER, GOLD, GRAD_ACCENT, inputCls, labelCls, tint, typeColors, typeIcons, typeLabels, typeLabelsAr } from "../constants";
 import { Modal } from "./SharedUI";
 
 export const StairEditor = ({ open, onClose, stair, allStairs, onSave, onDelete, lang }) => {
@@ -29,11 +29,11 @@ export const StairEditor = ({ open, onClose, stair, allStairs, onSave, onDelete,
         {isNew && <div><label className={labelCls}>{isAr ? "الموضع" : "Position"}</label><select value={position} onChange={e => setPosition(e.target.value)} className={inputCls}><option value="beginning">{isAr ? "البداية" : "Beginning"}</option><option value="end">{isAr ? "النهاية" : "End"}</option>{siblings.map(s => <option key={s.id} value={`after:${s.id}`}>{isAr ? "بعد: " : "After: "}{s.code ? `${s.code} ` : ""}{s.title}</option>)}</select></div>}
         <div><label className={labelCls}>{isAr ? "الحالة" : "Health"}</label><div className="flex gap-2.5 flex-wrap">{["on_track","at_risk","off_track","achieved"].map(h => <button key={h} onClick={() => setForm(f => ({...f, health:h}))} className={`px-4 py-2.5 rounded-lg text-sm font-medium border transition ${form.health===h?(h==="on_track"?"bg-emerald-500/20 text-emerald-300 border-emerald-500/30":h==="at_risk"?"bg-amber-500/20 text-amber-300 border-amber-500/30":h==="off_track"?"bg-red-500/20 text-red-300 border-red-500/30":"bg-blue-500/20 text-blue-300 border-blue-500/30"):"border-[#1e3a5f] text-gray-500 hover:border-gray-500"}`}>{h.replace("_"," ").toUpperCase()}</button>)}</div></div>
         <div><label className={labelCls}>{isAr ? "التقدم" : "Progress"}: {form.progress_percent}%</label><input type="range" min={0} max={100} value={form.progress_percent} onChange={e => setForm(f => ({...f, progress_percent:+e.target.value}))} className="w-full h-2 accent-amber-500 cursor-pointer" /></div>
-        {saveError && <div className="text-[13px] text-amber-300/90 px-3 py-2 rounded-lg" style={{ background: "rgba(184,144,74,0.06)", border: "1px solid rgba(184,144,74,0.15)" }}>{saveError}</div>}
+        {saveError && <div className="text-[13px] text-amber-300/90 px-3 py-2 rounded-lg" style={{ background: tint(GOLD, 6), border: `1px solid ${tint(GOLD, 15)}` }}>{saveError}</div>}
         <div className="flex items-center gap-3 pt-5" style={{ borderTop: `1px solid ${BORDER}` }}>
           {!isNew && <button onClick={doDel} className={`px-6 py-3 rounded-lg text-sm transition ${confirmDel?"bg-red-500/30 text-red-200 border border-red-500/50":"text-red-400/60 hover:text-red-300"}`}>{confirmDel ? "Confirm?" : (isAr ? "حذف" : "Delete")}</button>}
-          <div className="flex-1" /><button onClick={onClose} className="px-6 py-3 rounded-lg text-sm text-gray-400 hover:text-white transition">{isAr ? "إلغاء" : "Cancel"}</button>
-          <button onClick={doSave} disabled={saving||!form.title.trim()} className="px-6 py-3 rounded-lg text-sm font-semibold text-[#0a1628] disabled:opacity-40 transition-all hover:scale-[1.02]" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})` }}>{saving ? "..." : (isAr ? "حفظ" : "Save")}</button>
+          <div className="flex-1" /><button onClick={onClose} className="px-6 py-3 rounded-lg text-sm text-ink-3 hover:text-ink transition">{isAr ? "إلغاء" : "Cancel"}</button>
+          <button onClick={doSave} disabled={saving||!form.title.trim()} className="px-6 py-3 rounded-lg text-sm font-semibold text-ink-on-accent disabled:opacity-40 transition-all hover:scale-[1.02]" style={{ background: GRAD_ACCENT }}>{saving ? "..." : (isAr ? "حفظ" : "Save")}</button>
         </div>
       </div>
     </Modal>

@@ -53,8 +53,8 @@ const processInline = (text, onMatrixClick) => {
     if (j % 2 === 1) {
       // Bold segment
       return onMatrixClick
-        ? <strong key={j} className="text-white">{renderInlineWithFrameworks(p, "", onMatrixClick)}</strong>
-        : <strong key={j} className="text-white">{p}</strong>;
+        ? <strong key={j} className="text-ink">{renderInlineWithFrameworks(p, "", onMatrixClick)}</strong>
+        : <strong key={j} className="text-ink">{p}</strong>;
     }
     // Normal segment
     return onMatrixClick
@@ -78,18 +78,18 @@ export const Markdown = ({ text, onMatrixClick }) => {
     } else if (line.startsWith("- **") || line.startsWith("– **")) {
       const match = line.match(/^[-–]\s*\*\*\[?([^\]*]+)\]?\*\*\s*(.*)/);
       if (match) {
-        elements.push(<div key={i} className="flex gap-2 ml-2 my-0.5"><span className="text-amber-400/60 shrink-0">→</span><span><strong className="text-amber-200/90">{onMatrixClick ? renderInlineWithFrameworks(match[1], "", onMatrixClick) : match[1]}</strong> {onMatrixClick ? renderInlineWithFrameworks(match[2], "text-gray-300", onMatrixClick) : <span className="text-gray-300">{match[2]}</span>}</span></div>);
+        elements.push(<div key={i} className="flex gap-2 ml-2 my-0.5"><span className="text-amber-400/60 shrink-0">→</span><span><strong className="text-amber-200/90">{onMatrixClick ? renderInlineWithFrameworks(match[1], "", onMatrixClick) : match[1]}</strong> {onMatrixClick ? renderInlineWithFrameworks(match[2], "text-ink-2", onMatrixClick) : <span className="text-ink-2">{match[2]}</span>}</span></div>);
       } else {
         const cleaned = line.replace(/^[-–]\s*/, "").replace(/\*\*/g, "");
-        elements.push(<div key={i} className="flex gap-2 ml-2 my-0.5"><span className="text-amber-400/60">→</span>{onMatrixClick ? renderInlineWithFrameworks(cleaned, "text-gray-300", onMatrixClick) : <span className="text-gray-300">{cleaned}</span>}</div>);
+        elements.push(<div key={i} className="flex gap-2 ml-2 my-0.5"><span className="text-amber-400/60">→</span>{onMatrixClick ? renderInlineWithFrameworks(cleaned, "text-ink-2", onMatrixClick) : <span className="text-ink-2">{cleaned}</span>}</div>);
       }
     } else if (line.startsWith("- ")) {
       const content = line.slice(2).replace(/\*\*/g, "");
-      elements.push(<div key={i} className="flex gap-2 ml-2 my-0.5"><span className="text-gray-600">•</span>{onMatrixClick ? renderInlineWithFrameworks(content, "text-gray-300", onMatrixClick) : <span className="text-gray-300">{content}</span>}</div>);
+      elements.push(<div key={i} className="flex gap-2 ml-2 my-0.5"><span className="text-ink-faint">•</span>{onMatrixClick ? renderInlineWithFrameworks(content, "text-ink-2", onMatrixClick) : <span className="text-ink-2">{content}</span>}</div>);
     } else if (line.trim() === "") {
       elements.push(<div key={i} className="h-2" />);
     } else {
-      elements.push(<p key={i} className="text-gray-300 my-0.5">{processInline(line, onMatrixClick)}</p>);
+      elements.push(<p key={i} className="text-ink-2 my-0.5">{processInline(line, onMatrixClick)}</p>);
     }
   }
   return <div>{elements}</div>;

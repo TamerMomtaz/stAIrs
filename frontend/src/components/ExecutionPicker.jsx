@@ -19,7 +19,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import { useState, useEffect } from "react";
-import { GOLD, GOLD_L, DEEP, BORDER, glass, typeColors, typeIcons } from "../constants";
+import { GOLD, GOLD_L, INK_3, INK_MUTED, glass, tint, typeColors, typeIcons } from "../constants";
 import { HealthBadge } from "./SharedUI";
 import { ViewHeader } from "./ViewHeader";
 import LoadFailed from "./LoadFailed";
@@ -52,14 +52,14 @@ const workLine = (work, isAr) => {
 };
 
 const TONE = {
-  none: "text-gray-500",
+  none: "text-ink-muted",
   some: "text-emerald-400/80",
   done: "text-emerald-400",
 };
 
 const StepCard = ({ node, work, isAr, onOpen, pinned }) => {
   const s = node.stair;
-  const colour = typeColors[s.element_type] || "#94a3b8";
+  const colour = typeColors[s.element_type] || INK_3;
   const line = workLine(work, isAr);
   const stamp = when(work?.lastWorkedAt, isAr);
   return (
@@ -70,22 +70,22 @@ const StepCard = ({ node, work, isAr, onOpen, pinned }) => {
       style={{
         ...glass(pinned ? 0.6 : 0.4),
         borderInlineStart: `3px solid ${pinned ? GOLD : colour}`,
-        ...(pinned ? { boxShadow: `0 0 0 1px ${GOLD}33` } : {}),
+        ...(pinned ? { boxShadow: `0 0 0 1px ${tint(GOLD, 20)}` } : {}),
       }}
     >
       <span className="shrink-0 mt-0.5" style={{ color: colour, fontSize: 16 }}>{typeIcons[s.element_type] || "•"}</span>
       <span className="flex-1 min-w-0">
         <span className="flex items-center gap-2 flex-wrap">
           {s.code && <span className="text-xs font-mono opacity-50" style={{ color: colour }}>{s.code}</span>}
-          <span className="text-white text-sm font-medium">{isAr && s.title_ar ? s.title_ar : s.title}</span>
+          <span className="text-ink text-sm font-medium">{isAr && s.title_ar ? s.title_ar : s.title}</span>
           <HealthBadge health={s.health} />
         </span>
         <span className={`block text-xs mt-1.5 ${TONE[line.tone]}`}>
           {line.tone !== "none" && "💾 "}{line.text}
-          {stamp && <span className="text-gray-600"> · {isAr ? "آخر عمل" : "last worked"} {stamp}</span>}
+          {stamp && <span className="text-ink-faint"> · {isAr ? "آخر عمل" : "last worked"} {stamp}</span>}
         </span>
       </span>
-      <span className="shrink-0 text-xs font-medium self-center" style={{ color: pinned ? GOLD_L : "#64748b" }}>
+      <span className="shrink-0 text-xs font-medium self-center" style={{ color: pinned ? GOLD_L : INK_MUTED }}>
         {s.progress_percent || 0}%
       </span>
     </button>
@@ -132,8 +132,8 @@ export const ExecutionPicker = ({ tree, strategyContext, lang, onOpen, treeFaile
     <div>{header}
       <div className="text-center py-16">
         <div className="text-4xl mb-4">🪜</div>
-        <h3 className="text-white text-lg font-semibold mb-2">{isAr ? "لا توجد خطوات بعد" : "No steps to work on yet"}</h3>
-        <p className="text-gray-500 text-sm max-w-md mx-auto">
+        <h3 className="text-ink text-lg font-semibold mb-2">{isAr ? "لا توجد خطوات بعد" : "No steps to work on yet"}</h3>
+        <p className="text-ink-muted text-sm max-w-md mx-auto">
           {isAr
             ? "ابنِ سلّمك أولاً — كل خطوة تضيفها يمكن العمل عليها هنا."
             : "Build your staircase first. Every step you add becomes something you can work on here."}
@@ -152,16 +152,16 @@ export const ExecutionPicker = ({ tree, strategyContext, lang, onOpen, treeFaile
 
       {resumeNode && (
         <div className="mb-6" data-testid="picker-resume-block">
-          <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2">
+          <h3 className="text-ink-3 text-xs uppercase tracking-wider mb-2">
             {isAr ? "تابع من حيث توقفت" : "Continue where you left off"}
           </h3>
           <StepCard node={resumeNode} work={counts[String(resumeNode.stair.id)]} isAr={isAr} onOpen={onOpen} pinned />
         </div>
       )}
 
-      <h3 className="text-gray-400 text-xs uppercase tracking-wider mb-2">
+      <h3 className="text-ink-3 text-xs uppercase tracking-wider mb-2">
         {isAr ? "كل الخطوات" : "All steps"}
-        {loading && <span className="text-gray-600 normal-case tracking-normal"> · {isAr ? "جارٍ حساب العمل المحفوظ..." : "checking saved work…"}</span>}
+        {loading && <span className="text-ink-faint normal-case tracking-normal"> · {isAr ? "جارٍ حساب العمل المحفوظ..." : "checking saved work…"}</span>}
       </h3>
       <div className="space-y-2">
         {steps.map(node => (

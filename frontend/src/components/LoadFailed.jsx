@@ -14,8 +14,7 @@
    nothing has changed, only that we couldn't reach it.
    ═══════════════════════════════════════════════════════════════════ */
 
-import { GOLD, GOLD_L } from "../constants";
-
+import { CHAMPAGNE, DEEP, GOLD, GOLD_L, GRAD_ACCENT, tint } from "../constants";
 // `what` names the thing that didn't load, so the sentence is about the
 // client's strategy rather than about software. Callers pass an already
 // localised noun; without one the copy stays general.
@@ -44,8 +43,8 @@ export default function LoadFailed({ what, lang = "en", onRetry, retrying = fals
       data-testid="load-failed"
       className={`rounded-2xl ${compact ? "p-3" : "p-5"} mx-auto`}
       style={{
-        background: "rgba(184,144,74,0.06)",
-        border: `1px solid ${GOLD}26`,
+        background: tint(GOLD, 6),
+        border: `1px solid ${tint(GOLD, 15)}`,
         maxWidth: compact ? "none" : "34rem",
       }}
     >
@@ -54,7 +53,7 @@ export default function LoadFailed({ what, lang = "en", onRetry, retrying = fals
             Same family as the AiUnavailable mark, different state. */}
         <div
           className="shrink-0 flex items-center justify-center rounded-xl"
-          style={{ width: 32, height: 32, background: `${GOLD}14`, border: `1px solid ${GOLD}2e` }}
+          style={{ width: 32, height: 32, background: `${tint(GOLD, 8)}`, border: `1px solid ${tint(GOLD, 18)}` }}
         >
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path d="M1.5 13.5h3.2v-3.2h3.2" stroke={GOLD_L} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
@@ -64,15 +63,15 @@ export default function LoadFailed({ what, lang = "en", onRetry, retrying = fals
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium" style={{ color: "#f0dcc0" }}>{t.title(what)}</div>
-          <div className="text-xs leading-relaxed mt-1 text-gray-400">{t.body}</div>
+          <div className="text-sm font-medium" style={{ color: CHAMPAGNE }}>{t.title(what)}</div>
+          <div className="text-xs leading-relaxed mt-1 text-ink-3">{t.body}</div>
           {onRetry && (
             <button
               onClick={onRetry}
               disabled={retrying}
               data-testid="load-failed-retry"
               className="mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-[1.03] disabled:opacity-50 disabled:hover:scale-100"
-              style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, color: "#0a1628" }}
+              style={{ background: GRAD_ACCENT, color: DEEP }}
             >
               {retrying ? t.retrying : t.retry}
             </button>

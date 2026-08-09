@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api, StrategyAPI, NotesStore, MatrixResultsStore, SourcesAPI, ArtifactsAPI, ARTIFACT, matrixScope, NotesAPI, syncLocalNotes, canSeeAgentTelemetry } from "./api";
-import { GOLD, GOLD_L, DEEP, BORDER, typeIcons, fontStack, FONT_DISPLAY } from "./constants";
+import { BORDER, DEEP, DEEP_MID, FONT_DISPLAY, GOLD, GRAD_ACCENT, HUE, INK_MUTED, cast, fontStack, tint, typeIcons } from "./constants";
 import { logoUrl, printDocument } from "./exportUtils";
 
 // Components
@@ -330,11 +330,11 @@ export default function App() {
     const walkTree = (nodes, depth = 0) => { nodes.forEach(n => { flatItems.push({ ...n.stair, _depth: depth }); if (n.children) walkTree(n.children, depth + 1); }); };
     walkTree(stairTree);
     const healthLabel = h => ({ on_track: "✅ On Track", at_risk: "⚠️ At Risk", off_track: "🔴 Off Track", achieved: "⭐ Achieved" }[h] || h || "—");
-    const typeColor = t => ({ vision: "#7c3aed", objective: "#2563eb", key_result: "#059669", initiative: "#d97706", task: "#64748b" }[t] || "#64748b");
+    const typeColor = t => ({ vision: HUE.violet, objective: HUE.blue, key_result: HUE.green, initiative: HUE.amber, task: INK_MUTED }[t] || INK_MUTED);
     const rows = flatItems.map(s => {
       const indent = s._depth * 28;
       const barW = Math.max(s.progress_percent || 0, 2);
-      const barColor = (s.progress_percent || 0) >= 70 ? "#059669" : (s.progress_percent || 0) >= 40 ? "#d97706" : "#dc2626";
+      const barColor = (s.progress_percent || 0) >= 70 ? HUE.green : (s.progress_percent || 0) >= 40 ? HUE.amber : HUE.red;
       return `<tr style="border-bottom:1px solid #e5e7eb">
         <td style="padding:10px 8px 10px ${12+indent}px;vertical-align:top">
           <div style="display:flex;align-items:center;gap:6px">
@@ -387,54 +387,54 @@ export default function App() {
   const goToView = (key) => { setView(key); trackFeature(key); setMobileNavOpen(false); };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden text-white" dir={isAr ? "rtl" : "ltr"} style={{ background: `linear-gradient(180deg, ${DEEP} 0%, #0f1f3a 50%, ${DEEP} 100%)`, fontFamily: fontStack(isAr) }}>
+    <div className="h-screen flex flex-col overflow-hidden text-ink" dir={isAr ? "rtl" : "ltr"} style={{ background: `linear-gradient(180deg, ${DEEP} 0%, ${DEEP_MID} 50%, ${DEEP} 100%)`, fontFamily: fontStack(isAr) }}>
       <header className="flex items-center justify-between px-6 py-3 shrink-0"
         style={{ borderBottom: `1px solid ${BORDER}` }}>
         <div className="flex items-center gap-3">
-          <button onClick={() => setMobileNavOpen(v => !v)} className="md:hidden p-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition text-lg" title="Menu" aria-label="Toggle navigation">☰</button>
-          <button onClick={() => { setActiveStrat(null); if (stratApiRef.current) stratApiRef.current.setActive(null); }} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition group" title="Back to Strategies">
+          <button onClick={() => setMobileNavOpen(v => !v)} className="md:hidden p-1.5 rounded-lg text-ink-3 hover:text-amber-400 hover:bg-amber-500/10 transition text-lg" title="Menu" aria-label="Toggle navigation">☰</button>
+          <button onClick={() => { setActiveStrat(null); if (stratApiRef.current) stratApiRef.current.setActive(null); }} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-ink-3 hover:text-amber-400 hover:bg-amber-500/10 transition group" title="Back to Strategies">
             <span className="text-lg group-hover:-translate-x-0.5 transition-transform">←</span>
             <img src="/devoneers-logo.png" alt="DEVONEERS" style={{ height: "40px" }} />
-            <span className="text-xl font-normal" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: FONT_DISPLAY }}>Stairs</span>
+            <span className="text-xl font-normal" style={{ background: GRAD_ACCENT, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: FONT_DISPLAY }}>Stairs</span>
           </button>
-          <span className="text-[10px] text-gray-600 uppercase tracking-widest">v3.7.0</span>
-          <span className="text-gray-600">|</span>
-          <span className="text-sm text-white font-medium">{activeStrat.icon} {isAr && activeStrat.name_ar ? activeStrat.name_ar : activeStrat.name}</span>
+          <span className="text-[10px] text-ink-faint uppercase tracking-widest">v3.7.0</span>
+          <span className="text-ink-faint">|</span>
+          <span className="text-sm text-ink font-medium">{activeStrat.icon} {isAr && activeStrat.name_ar ? activeStrat.name_ar : activeStrat.name}</span>
         </div>
         <div className="flex items-center gap-3">
-          {aiProvider && canSeeAgentTelemetry() && <span className="text-[10px] text-gray-500 flex items-center gap-1 px-2 py-1 rounded-md border border-gray-700/50 bg-gray-800/30" title={`AI powered by ${aiProvider.provider_display}`}>⚡ {aiProvider.provider_display}</span>}
-          {!isAr && <button onClick={() => setShowWelcomeSlideshow(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition uppercase tracking-wider" title="Watch the Stairs introduction" data-testid="watch-intro-btn">
+          {aiProvider && canSeeAgentTelemetry() && <span className="text-[10px] text-ink-muted flex items-center gap-1 px-2 py-1 rounded-md border border-gray-700/50 bg-gray-800/30" title={`AI powered by ${aiProvider.provider_display}`}>⚡ {aiProvider.provider_display}</span>}
+          {!isAr && <button onClick={() => setShowWelcomeSlideshow(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-ink-muted hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition uppercase tracking-wider" title="Watch the Stairs introduction" data-testid="watch-intro-btn">
             <span className="text-sm">🎬</span> <span className="hidden sm:inline">Watch Intro</span>
           </button>}
-          <button onClick={startTutorial} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition uppercase tracking-wider" title="How to Climb These Stairs Guide" data-tutorial="guide-btn">
+          <button onClick={startTutorial} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-ink-muted hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition uppercase tracking-wider" title="How to Climb These Stairs Guide" data-tutorial="guide-btn">
             <span className="text-sm">🪜</span> <span className="hidden sm:inline">{isAr ? "دليل الاستخدام" : "Guide"}</span>
           </button>
-          <button onClick={() => setShowFeaturesBadge(v => !v)} className="text-[10px] text-gray-600 hover:text-amber-400 transition" title="Features Explored">📊</button>
-          <button onClick={toggleLang} className="text-xs text-gray-500 hover:text-amber-400 transition">{isAr ? "EN" : "عربي"}</button>
+          <button onClick={() => setShowFeaturesBadge(v => !v)} className="text-[10px] text-ink-faint hover:text-amber-400 transition" title="Features Explored">📊</button>
+          <button onClick={toggleLang} className="text-xs text-ink-muted hover:text-amber-400 transition">{isAr ? "EN" : "عربي"}</button>
           <div className="relative">
-            <button onClick={() => setShowProfileDropdown(v => !v)} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition">
-              <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ background: `${GOLD}25`, color: GOLD, border: `1px solid ${GOLD}40` }}>{(user.full_name || user.name || user.email || "?")[0].toUpperCase()}</span>
+            <button onClick={() => setShowProfileDropdown(v => !v)} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-ink-3 hover:text-amber-400 hover:bg-amber-500/10 transition">
+              <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ background: `${tint(GOLD, 15)}`, color: GOLD, border: `1px solid ${tint(GOLD, 25)}` }}>{(user.full_name || user.name || user.email || "?")[0].toUpperCase()}</span>
               <span>{user.full_name || user.name || user.email}</span>
               <span className="text-[10px]">{showProfileDropdown ? "▲" : "▼"}</span>
             </button>
             {showProfileDropdown && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowProfileDropdown(false)} />
-                <div className="absolute right-0 top-full mt-2 w-64 rounded-xl z-50 py-2" style={{ background: "rgba(22, 37, 68, 0.97)", border: `1px solid ${GOLD}30`, backdropFilter: "blur(20px)", boxShadow: "0 12px 40px rgba(0,0,0,0.5)" }}>
-                  <div className="px-4 py-3 border-b" style={{ borderColor: `${GOLD}15` }}>
-                    <div className="text-sm font-medium text-white">{user.full_name || user.name || "User"}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">{user.email}</div>
-                    <div className="text-[10px] text-gray-600 mt-1 uppercase tracking-wider">{user.role || "Member"}</div>
+                <div className="absolute right-0 top-full mt-2 w-64 rounded-xl z-50 py-2" style={{ background: "rgb(var(--surface-raised-rgb) / 0.97)", border: `1px solid ${tint(GOLD, 19)}`, backdropFilter: "blur(20px)", boxShadow: `0 12px 40px ${cast(0.5)}` }}>
+                  <div className="px-4 py-3 border-b" style={{ borderColor: `${tint(GOLD, 8)}` }}>
+                    <div className="text-sm font-medium text-ink">{user.full_name || user.name || "User"}</div>
+                    <div className="text-xs text-ink-muted mt-0.5">{user.email}</div>
+                    <div className="text-[10px] text-ink-faint mt-1 uppercase tracking-wider">{user.role || "Member"}</div>
                   </div>
-                  <button onClick={() => { setShowProfileDropdown(false); setShowPassword(true); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition flex items-center gap-2" data-testid="open-password">
+                  <button onClick={() => { setShowProfileDropdown(false); setShowPassword(true); }} className="w-full text-left px-4 py-2.5 text-sm text-ink-3 hover:text-amber-400 hover:bg-amber-500/10 transition flex items-center gap-2" data-testid="open-password">
                     <span>Change password</span>
                   </button>
                   {user.role === "admin" && (
-                    <button onClick={() => { setShowProfileDropdown(false); setShowInvites(true); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition flex items-center gap-2" data-testid="open-invites">
+                    <button onClick={() => { setShowProfileDropdown(false); setShowInvites(true); }} className="w-full text-left px-4 py-2.5 text-sm text-ink-3 hover:text-amber-400 hover:bg-amber-500/10 transition flex items-center gap-2" data-testid="open-invites">
                       <span>Invite your team</span>
                     </button>
                   )}
-                  <button onClick={() => { setShowProfileDropdown(false); logout(); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition flex items-center gap-2">
+                  <button onClick={() => { setShowProfileDropdown(false); logout(); }} className="w-full text-left px-4 py-2.5 text-sm text-ink-3 hover:text-red-400 hover:bg-red-500/10 transition flex items-center gap-2">
                     <span>Sign Out</span>
                   </button>
                 </div>
@@ -460,7 +460,7 @@ export default function App() {
         {view === "sources" && <SourceOfTruthView lang={lang} strategyContext={activeStrat} />}
         {view === "notes" && <NotesView lang={lang} userId={user.id || user.email} strategyName={activeStrat?.name} />}
           </div>
-          <footer className="text-center py-6 text-gray-700 text-[10px] tracking-widest uppercase">By DEVONEERS • Stairs v3.7.0 • "Human IS the Loop" • {new Date().getFullYear()}</footer>
+          <footer className="text-center py-6 text-ink-ghost text-[10px] tracking-widest uppercase">By DEVONEERS • Stairs v3.7.0 • "Human IS the Loop" • {new Date().getFullYear()}</footer>
         </main>
       </div>
 
@@ -471,18 +471,18 @@ export default function App() {
       <StrategyMatrixToolkit open={matrixToolkit.open} matrixKey={matrixToolkit.key} onClose={closeMatrix} onSave={saveMatrixResult} strategyContext={activeStrat} initialData={matrixToolkit.initialData} />
 
       {noteSync && (
-        <div className="fixed bottom-4 right-4 z-[95] max-w-sm rounded-xl p-4 text-xs" style={{ background: "rgba(22,37,68,0.97)", border: `1px solid ${GOLD}40`, backdropFilter: "blur(20px)" }} data-testid="note-sync-toast">
-          <div className="text-white font-medium mb-1">
+        <div className="fixed bottom-4 right-4 z-[95] max-w-sm rounded-xl p-4 text-xs" style={{ background: "rgb(var(--surface-raised-rgb) / 0.97)", border: `1px solid ${tint(GOLD, 25)}`, backdropFilter: "blur(20px)" }} data-testid="note-sync-toast">
+          <div className="text-ink font-medium mb-1">
             {noteSync.uploaded > 0
               ? `${noteSync.uploaded} note${noteSync.uploaded === 1 ? "" : "s"} saved to your account`
               : `${noteSync.failed} note${noteSync.failed === 1 ? "" : "s"} still only on this device`}
           </div>
-          <p className="text-gray-400 leading-relaxed">
+          <p className="text-ink-3 leading-relaxed">
             {noteSync.uploaded > 0
               ? "They were only stored in this browser until now, and are available on any device from here on."
               : "We couldn't reach the server. They're safe in this browser — don't clear your site data, and they'll upload next time you sign in."}
           </p>
-          <button onClick={() => setNoteSync(null)} className="mt-2 text-[11px] text-gray-500 hover:text-amber-400 transition">Dismiss</button>
+          <button onClick={() => setNoteSync(null)} className="mt-2 text-[11px] text-ink-muted hover:text-amber-400 transition">Dismiss</button>
         </div>
       )}
 
