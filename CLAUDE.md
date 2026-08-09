@@ -146,6 +146,20 @@ The rule generalises past this one overlay: if two surfaces can be mounted at
 once, a bare `screen.*` query is ambiguous by construction, and the ambiguity
 resolves in whichever direction makes your test pass.
 
+**And a green CI does not mean it looks right.** The suite runs in jsdom, which
+has no layout engine and draws nothing. It cannot see wrapping, overflow,
+truncation, contrast, or direction. The RTL breadcrumb separator is the honest
+example: the test pins the *codepoint* (U+203A, never hand-swapped), because
+that is the decision worth protecting — but what the engine *draws* from it was
+established by rendering the component in Chromium and comparing bitmaps, and
+nothing in CI re-checks it. A change that flips the crumbs backwards passes
+every check.
+
+So anything whose failure mode is visual — a header that wraps at 390, a
+palette that dips under contrast, a control that mirrors the wrong way — needs
+eyes or pixels, not a green tick. Render it at the widths and directions you
+claim to support and look.
+
 ## Code Style
 
 - Python: No linter config — follow existing patterns (no type stubs on internal functions, minimal docstrings).

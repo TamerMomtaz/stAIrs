@@ -36,7 +36,7 @@ concurrency:
 
 jobs:
   frontend:
-    name: frontend — tests and build
+    name: frontend
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -55,7 +55,7 @@ jobs:
       - run: npm run build
 
   backend:
-    name: backend — tests
+    name: backend
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -75,7 +75,7 @@ jobs:
       - run: python -m pytest tests/ -q
 
   contrast:
-    name: contrast — light theme
+    name: contrast-light
     runs-on: ubuntu-latest
     defaults:
       run:
