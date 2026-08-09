@@ -58,12 +58,17 @@ describe('Constants', () => {
     const style = glass(0.5);
     expect(style).toHaveProperty('background');
     expect(style).toHaveProperty('border');
-    expect(style.background).toContain('0.5');
+    expect(style).toHaveProperty('boxShadow');
+    // The opacity argument survives as a percentage, and --glass-lift is what
+    // raises it to solid on paper. Asserting the literal '0.5' would have
+    // pinned the helper to the dark-only form it used to have.
+    expect(style.background).toContain('50%');
+    expect(style.background).toContain('var(--glass-lift)');
   });
 
   it('glass uses default opacity', () => {
     const style = glass();
-    expect(style.background).toContain('0.6');
+    expect(style.background).toContain('60%');
   });
 
   it('inputCls is a non-empty string', () => {

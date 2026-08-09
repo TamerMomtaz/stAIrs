@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { API, BAD, GOLD, INFO, INK_3, OK, WARN, glass, tint } from "../constants";
+import { API, BAD, GOLD, GOLD_INK, INFO, INK_3, OK, WARN, glass, tint } from "../constants";
 import { HealthBadge, ProgressRing } from "./SharedUI";
 import { MATRIX_FRAMEWORKS } from "./StrategyMatrixToolkit";
 import { buildHeader, openExportWindow } from "../exportUtils";
@@ -53,7 +53,7 @@ const AgentActivityLog = ({ isAr }) => {
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-ink-muted border-b border-gray-700/30">
+              <tr className="text-ink-muted border-b border-hairline">
                 <th className="text-left px-3 py-2 font-medium">{isAr ? "\u0627\u0644\u0648\u0642\u062A" : "Time"}</th>
                 <th className="text-left px-3 py-2 font-medium">{isAr ? "\u0627\u0644\u0648\u0643\u064A\u0644" : "Agent"}</th>
                 <th className="text-left px-3 py-2 font-medium">{isAr ? "\u0627\u0644\u0645\u0647\u0645\u0629" : "Task"}</th>
@@ -63,7 +63,7 @@ const AgentActivityLog = ({ isAr }) => {
             </thead>
             <tbody>
               {activity.recent_activity.slice(0, 20).map((entry, i) => (
-                <tr key={i} className={`border-b border-gray-700/20 hover:bg-lift/[0.02] transition ${entry.ok === false ? "bg-amber-500/[0.04]" : ""}`}>
+                <tr key={i} className={`border-b border-hairline hover:bg-lift/[0.02] transition ${entry.ok === false ? "bg-amber-500/[0.04]" : ""}`}>
                   <td className="px-3 py-1.5 text-ink-muted whitespace-nowrap">{entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "\u2014"}</td>
                   <td className="px-3 py-1.5 text-ink whitespace-nowrap">{AGENT_ICONS[entry.agent_name] || "\uD83E\uDD16"} {entry.agent_name}</td>
                   <td className="px-3 py-1.5 text-ink-3 truncate max-w-[160px]">{entry.task_type}</td>
@@ -108,7 +108,7 @@ const DataHealthSummary = ({ strategyContext, isAr }) => {
             <div className="text-2xl font-bold" style={{ color: healthColor }}>{health.health_score}%</div>
             <div className="text-[10px] text-ink-muted mt-0.5">{isAr ? "صحة البيانات" : "Data Health"}</div>
           </div>
-          <div className="flex-1 h-2 rounded-full bg-gray-800 overflow-hidden">
+          <div className="flex-1 h-2 rounded-full bg-sunken overflow-hidden">
             <div className="h-full rounded-full transition-all duration-500" style={{ width: `${health.health_score}%`, background: healthColor }} />
           </div>
         </div>
@@ -159,7 +159,7 @@ export const DashboardView = ({ data, lang, matrixResults, onMatrixClick, strate
       <div className="flex items-center gap-6 p-6 rounded-2xl" style={glass()}>
         <ProgressRing percent={s.overall_progress||0} size={120} stroke={8} />
         <div className="flex-1"><div className="text-ink-3 text-sm">{isAr?"التقدم الإجمالي":"Overall Progress"}</div><div className="text-3xl font-bold text-ink">{Math.round(s.overall_progress||0)}%</div></div>
-        <button onClick={exportDashboard} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{ borderColor: `${tint(GOLD, 38)}`, color: GOLD, background: `${tint(GOLD, 8)}` }}>↓ {isAr ? "تصدير" : "Export"}</button>
+        <button onClick={exportDashboard} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{ borderColor: `${tint(GOLD, 38)}`, color: GOLD_INK, background: "transparent" }}>↓ {isAr ? "تصدير" : "Export"}</button>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{stats.map((st,i) => <div key={i} className="p-4 rounded-xl text-center" style={{...glass(0.5), borderColor:`${tint(st.color, 13)}`}}><div className="text-3xl font-bold" style={{color:st.color}}>{st.value}</div><div className="text-gray-400 text-xs mt-1">{st.label}</div></div>)}</div>
       {data?.top_risks?.length > 0 && <div><h3 className="text-ink-3 text-xs uppercase tracking-wider mb-3">{isAr?"أعلى المخاطر":"Top Risks"}</h3><div className="space-y-2">{data.top_risks.map((r,i) => <div key={i} className="flex items-center gap-3 p-3 rounded-lg" style={glass(0.4)}><div className="text-xs font-mono text-amber-400/80 w-16 shrink-0">{r.code}</div><div className="flex-1 text-ink text-sm truncate">{isAr&&r.title_ar?r.title_ar:r.title}</div><HealthBadge health={r.health}/><div className="text-ink text-sm w-12 text-right">{r.progress_percent}%</div></div>)}</div></div>}

@@ -45,6 +45,7 @@
   --surface-input: rgba(10, 22, 40, 0.85);
   --surface-hover-rgb: 255 255 255;    /* the faint lift on hover */
   --scrim: rgba(0, 0, 0, 0.6);
+  --surface-sunken: #0d1c33;
   --scrim-strong: rgba(2, 6, 23, 0.82);   /* the tutorial spotlight mask */
   --shadow-rgb: 0 0 0;                    /* what a cast shadow is made of */
 
@@ -64,6 +65,7 @@
   --accent-ink: var(--accent);         /* gold used AS TEXT; diverges in light */
   --accent-teal: #2a5c5c;
   --accent-champagne: #f7e7ce;
+  --accent-soft: #2a2416;              /* meter tracks, gold tints */
   /* The welcome slideshow shipped its own gold and its own ground, brighter
      and darker than the rest of the app. Stage 2 preserves them exactly
      rather than folding them in — collapsing a colour is a stage 3 decision,
@@ -161,7 +163,7 @@
   --pal-blue-100: oklch(93.2% 0.032 255.585); --pal-blue-300: oklch(80.9% 0.105 251.813); --pal-blue-400: oklch(70.7% 0.165 254.624); --pal-blue-500: oklch(62.3% 0.214 259.815); --pal-blue-700: oklch(48.8% 0.243 264.376); --pal-blue-900: oklch(37.9% 0.146 265.522);
   --pal-cyan-400: oklch(78.9% 0.154 211.53);
   --pal-emerald-300: oklch(84.5% 0.143 164.978); --pal-emerald-400: oklch(76.5% 0.177 163.223); --pal-emerald-500: oklch(69.6% 0.17 162.48); --pal-emerald-700: oklch(50.8% 0.118 165.612); --pal-emerald-900: oklch(37.8% 0.077 168.94);
-  --pal-gray-400: oklch(70.7% 0.022 261.325); --pal-gray-500: oklch(55.1% 0.027 264.364); --pal-gray-600: oklch(44.6% 0.03 256.802); --pal-gray-700: oklch(37.3% 0.034 259.733); --pal-gray-800: oklch(27.8% 0.033 256.848); --pal-gray-900: oklch(21% 0.034 264.665);
+  --pal-gray-200: oklch(92.8% 0.006 264.531); --pal-gray-400: oklch(70.7% 0.022 261.325); --pal-gray-500: oklch(55.1% 0.027 264.364); --pal-gray-600: oklch(44.6% 0.03 256.802); --pal-gray-700: oklch(37.3% 0.034 259.733); --pal-gray-800: oklch(27.8% 0.033 256.848); --pal-gray-900: oklch(21% 0.034 264.665);
   --pal-green-400: oklch(79.2% 0.209 151.711);
   --pal-indigo-300: oklch(78.5% 0.115 274.713); --pal-indigo-400: oklch(67.3% 0.182 276.935); --pal-indigo-500: oklch(58.5% 0.233 277.117); --pal-indigo-600: oklch(51.1% 0.262 276.966); --pal-indigo-700: oklch(45.7% 0.24 277.023); --pal-indigo-900: oklch(35.9% 0.144 278.697);
   --pal-pink-400: oklch(71.8% 0.202 349.761);
@@ -174,116 +176,189 @@
   --shadow-sm: 0 6px 20px rgba(0, 0, 0, 0.5);
   --shadow-md: 0 12px 40px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 25px 50px rgba(0, 0, 0, 0.5);
+  /* Dark carries elevation on borders, so the two-step scale is a no-op
+     here. The role exists in both themes; only light spends it. */
+  --shadow-1: none;
+  --shadow-2: none;
+  --glass-lift: 0%;
 }
 
 /* PROVISIONAL — replaced wholesale in stage 3. Values traced from
    EXPORT_STYLES in exportUtils.js, the light document the app already
    prints. Present so the swap can be proved, not so it can be shipped. */
+/* ── LIGHT ──────────────────────────────────────────────────────────
+   The default. Every value here is measured against the surface it
+   actually lands on, not chosen by eye; the ratios in the comments are
+   what the audit script reports, and the script runs in CI-able form at
+   scripts/contrast-audit.mjs.
+
+   Reconciled with EXPORT_STYLES in exportUtils.js — the board document
+   this app already prints. That document is a white page with navy ink
+   and gold rules, and the app now reads as the same product rather than
+   a different one from the thing it exports.
+
+   THREE RULES THIS BLOCK ENFORCES
+
+   1. Gold is a fill, never a label. #B8904A is 2.78:1 on the page — fine
+      for a rule, a meter, a button ground; illegible as type. Text that
+      wants to read as gold uses --accent-ink at 4.73:1, and the primary
+      button is navy-on-gold at 5.82:1, not white-on-gold at 2.95:1.
+
+   2. Health and element type are different questions, so they are
+      different tokens. In dark they happened to share a hue; here they
+      must not, because the type colours are marks and several of them
+      (--type-key-result at 2.65:1) would be illegible as text. Element
+      colour answers WHAT KIND OF THING; the badge answers HOW HEALTHY.
+
+   3. Elevation stops being free. Dark carried depth on borders because
+      the ground was near-black; on paper it needs real shadow, so the
+      scale below is a token and not an inline box-shadow.
+   ─────────────────────────────────────────────────────────────────── */
 :root[data-theme="light"] {
-  --surface-app: #faf8f4;
-  --surface-app-deep: #f4f1ea;
+  color-scheme: light;
+
+  /* ── Surfaces ── */
+  --surface-app: #faf8f4;              /* page — warm, tied to champagne */
+  --surface-app-deep: #f2eee7;         /* the slideshow's ground: sunken, not darker */
   --surface-app-mid: #ffffff;
-  --surface-raised-rgb: 255 255 255;
-  --surface-modal: rgba(255, 255, 255, 0.98);
-  --surface-sidebar: rgba(250, 248, 244, 0.96);
-  --surface-dropdown: rgba(255, 255, 255, 0.98);
-  --surface-input: rgba(255, 255, 255, 0.9);
-  --surface-hover-rgb: 15 27 51;
-  --scrim: rgba(15, 27, 51, 0.35);
+  --surface-raised-rgb: 255 255 255;   /* cards are white */
+  --surface-sunken: #f2eee7;           /* wells, meter tracks, inset rows */
+  --surface-modal: #ffffff;
+  --surface-sidebar: #ffffff;
+  --surface-dropdown: #ffffff;
+  --surface-input: #ffffff;
+  --surface-hover-rgb: 15 27 51;       /* the lift is ink-tinted, not white */
+  --scrim: rgba(15, 27, 51, 0.38);
   --scrim-strong: rgba(15, 27, 51, 0.55);
-  /* A pure-black shadow on paper reads as dirt. Light casts the ink colour
-     instead, and every composite shadow written as rgb(var(--shadow-rgb)/a)
-     follows without being touched. */
-  --shadow-rgb: 15 27 51;
+  --shadow-rgb: 15 27 51;              /* a black shadow on paper reads as dirt */
 
-  --ink: #0f1b33;
-  --ink-2: #1e293b;
-  --ink-3: #334155;
-  --ink-muted: #475569;
-  --ink-faint: #64748b;
-  --ink-ghost: #94a3b8;
-  --ink-on-accent: #0f1b33;
+  /* ── Ink ──
+     Three measured steps for six roles. --ink-muted and below all resolve
+     to the 3.4:1 cut, which the palette permits for large text and UI
+     chrome and forbids for body copy; the audit script checks that no
+     body-sized node lands on it. */
+  --ink: #0f1b33;                      /* 16.16:1 */
+  --ink-2: #5a5750;                    /*  6.79:1 */
+  --ink-3: #5a5750;                    /*  6.79:1 — carries body copy, so not the muted cut */
+  --ink-muted: #8a867c;                /*  3.42:1 — labels, metadata, UI only */
+  --ink-faint: #8a867c;
+  --ink-ghost: #8a867c;
+  --ink-on-accent: #0f1b33;            /*  5.82:1 on gold */
 
-  --accent-rgb: 184 144 74;
+  /* ── Accent ── */
+  --accent-rgb: 184 144 74;            /* #B8904A — 2.78:1, FILLS AND RULES ONLY */
   --accent: rgb(var(--accent-rgb));
-  --accent-hi: #a87f34;
-  /* Gold on a light ground is 2.78:1 — a fill, never a label. Text that
-     wants to read as gold uses this darker cut instead. */
-  --accent-ink: #8a6a2f;
-  --accent-teal: #0d6b6b;
-  --accent-champagne: #7a6844;
-  /* Light does not carry the slideshow's divergence forward: on paper there
-     is one gold. */
-  --accent-bright: var(--accent);
-  --accent-bright-hi: var(--accent-hi);
+  /* Light has no gold gradient. The primary button is flat gold with navy
+     ink, exactly as the board export prints its rules — so the lighter
+     stop collapses onto the base rather than inventing a second gold. */
+  --accent-hi: var(--accent);
+  --accent-ink: #8a6a2f;               /*  4.73:1 — every gold-coloured word */
+  --accent-soft: #efe6d6;              /* meter tracks, gold tints */
+  --accent-teal: #2a5c5c;              /*  7.11:1 */
+  --accent-champagne: #8a6a2f;         /* was pale-gold text on dark; on paper it is gold-ink */
+  --accent-bright: var(--accent);      /* the slideshow's second gold, collapsed — see PR */
+  --accent-bright-hi: var(--accent);
 
-  --border: rgba(15, 27, 51, 0.12);
-  --border-strong: #d9d3c7;
-  --border-accent: rgb(var(--accent-rgb) / 0.45);
+  /* ── Lines ── */
+  --border: #e6e0d6;
+  --border-strong: #d6cdbd;
+  --border-accent: rgb(var(--accent-rgb) / 0.42);
 
-  /* Every hue darkens: a 4.5:1 line on #FAF8F4 rather than a bright one on
-     navy. Because the categorical set is one list, the whole chart palette
-     turns over here. */
-  --hue-blue: #1d4ed8;
-  --hue-green: #047857;
-  --hue-amber: #a16207;
-  --hue-red: #b3261e;
-  --hue-violet: #6d28d9;
-  --hue-slate: #64748b;
-  --hue-pink: #be185d;
-  --hue-orange: #c2410c;
-  --hue-cyan: #0e7490;
-  --hue-lime: #4d7c0f;
-  --hue-indigo: #4338ca;
-  --hue-teal: #0f766e;
+  /* ── Categorical hues ──
+     These are MARKS — rails, dots, meter fills, chart series. Several are
+     deliberately below 4.5:1 because nothing renders them as text; the
+     audit asserts that. Blue, green, violet, amber, red and slate are the
+     measured element/health values. The remaining six cover element types
+     the palette did not specify (kpi, perspective, measure, goal) and are
+     my choice, each ≥5.5:1 so they stay usable if they ever become type. */
+  --hue-blue: #2a78d6;                 /* objective */
+  --hue-green: #1baf7a;                /* key result */
+  --hue-amber: #fab219;                /* at-risk mark */
+  --hue-red: #d03b3b;                  /* off-track mark */
+  --hue-violet: #4a3aa7;               /* initiative */
+  --hue-slate: #8a867c;                /* task */
+  --hue-pink: #a3195b;                 /* 6.95:1 */
+  --hue-orange: #a8480b;               /* 5.50:1 */
+  --hue-cyan: #0e5f6b;                 /* 6.90:1 */
+  --hue-lime: #4a6b0f;                 /* 5.82:1 */
+  --hue-indigo: #4a3aa7;
+  --hue-teal: #2a5c5c;
 
-  --grad-violet: linear-gradient(135deg, #5b21b6, var(--hue-violet));
-  --grad-violet-90: linear-gradient(90deg, #5b21b6, var(--hue-violet));
-  --grad-indigo: linear-gradient(135deg, var(--hue-indigo), #3730a3);
-  --grad-amber: linear-gradient(135deg, #b45309, #92400e);
-  --grad-blue: linear-gradient(135deg, #1e40af, var(--hue-blue));
+  /* Flat, because light has no gold gradient. The others keep two stops
+     of the same hue so a gradient still reads as one. */
+  --grad-accent: linear-gradient(135deg, var(--accent), var(--accent));
+  --grad-accent-90: linear-gradient(90deg, var(--accent), var(--accent));
+  --grad-accent-bright: var(--grad-accent);
+  --grad-accent-bright-90: var(--grad-accent-90);
+  --grad-violet: linear-gradient(135deg, #3a2d86, var(--hue-violet));
+  --grad-violet-90: linear-gradient(90deg, #3a2d86, var(--hue-violet));
+  --grad-indigo: linear-gradient(135deg, var(--hue-indigo), #3a2d86);
+  --grad-amber: linear-gradient(135deg, var(--accent), #9a7638);
+  --grad-blue: linear-gradient(135deg, #1c5cab, var(--hue-blue));
 
-  /* Fills are lighter here — a 20% wash of a dark hue on a pale ground is
-     far heavier than the same wash of a bright hue on navy. Ink goes darker
-     than the base, not lighter. */
-  --ok-fill: color-mix(in srgb, var(--ok) 10%, transparent);
-  --ok-line: color-mix(in srgb, var(--ok) 28%, transparent);
-  --ok-ink: #05603a;
-  --warn-fill: color-mix(in srgb, var(--warn) 10%, transparent);
-  --warn-line: color-mix(in srgb, var(--warn) 28%, transparent);
-  --warn-ink: #7c4a06;
-  --bad-fill: color-mix(in srgb, var(--bad) 9%, transparent);
-  --bad-line: color-mix(in srgb, var(--bad) 26%, transparent);
-  --bad-ink: #8c1d18;
-  --info-fill: color-mix(in srgb, var(--info) 9%, transparent);
-  --info-line: color-mix(in srgb, var(--info) 26%, transparent);
-  --info-ink: #1e3a8a;
+  /* ── Semantic: health ──
+     Four states, and each is four things at once: a pale tint, a darker
+     ink, an icon and a word. The mark alone is not the signal — amber is
+     1.73:1 against this page, so a badge that relies on hue is invisible
+     in greyscale, on a projector, and to a colourblind reader. The icon
+     and the label are load-bearing, not decoration. */
+  --ok: #0ca30c;      --ok-fill: #e6f2e6;   --ok-line: color-mix(in srgb, var(--ok) 30%, transparent);   --ok-ink: #006300;    /* 6.54:1 on tint */
+  --warn: #fab219;    --warn-fill: #fbf0da; --warn-line: color-mix(in srgb, var(--warn) 44%, transparent); --warn-ink: #8a5a00;  /* 5.24:1 on tint */
+  --bad: #d03b3b;     --bad-fill: #fae7e6;  --bad-line: color-mix(in srgb, var(--bad) 32%, transparent);  --bad-ink: #b3312f;   /* 5.19:1 on tint */
+  --info: #2a78d6;    --info-fill: #e4edf9; --info-line: color-mix(in srgb, var(--info) 32%, transparent); --info-ink: #1c5cab;  /* 5.61:1 on tint */
 
-  --type-vision: var(--accent-ink);
+  /* ── Element types ──
+     Separate declarations from the health tokens above on purpose. These
+     answer "what kind of thing is this", and they are never text. */
+  --type-vision: var(--accent);
+  --type-objective: #2a78d6;
+  --type-key-result: #1baf7a;
+  --type-initiative: #4a3aa7;
+  --type-task: #8a867c;
+  --type-perspective: var(--hue-pink);
+  --type-measure: var(--hue-orange);
+  --type-kpi: var(--hue-cyan);
+  --type-goal: var(--hue-lime);
 
+  /* ── The Tailwind palette, for light ──
+     The highest-leverage block in the file: 588 class attributes ride on
+     these and follow without being edited. The ramps are read by what the
+     shade is USED FOR in this codebase, not by lightness:
 
-  /* The same 48 shades, ramp inverted: shade N takes the value of shade
-     1000−N, 500 unchanged. A -400 that reads as a bright label on navy
-     becomes a -600 that reads as a dark label on paper, and a -900 that was
-     a dark wash becomes a -100 that is a pale one. One mechanical rule, so
-     the provisional theme is predictable rather than hand-tuned — stage 3
-     replaces it. */
-  --pal-amber-100: oklch(41.4% 0.112 45.904); --pal-amber-200: oklch(47.3% 0.137 46.201); --pal-amber-300: oklch(55.5% 0.163 48.998); --pal-amber-400: oklch(66.6% 0.179 58.318); --pal-amber-500: oklch(76.9% 0.188 70.08); --pal-amber-700: oklch(87.9% 0.169 91.605); --pal-amber-900: oklch(96.2% 0.059 95.617);
-  --pal-blue-100: oklch(37.9% 0.146 265.522); --pal-blue-300: oklch(48.8% 0.243 264.376); --pal-blue-400: oklch(54.6% 0.245 262.881); --pal-blue-500: oklch(62.3% 0.214 259.815); --pal-blue-700: oklch(80.9% 0.105 251.813); --pal-blue-900: oklch(93.2% 0.032 255.585);
-  --pal-cyan-400: oklch(60.9% 0.126 221.723);
-  --pal-emerald-300: oklch(50.8% 0.118 165.612); --pal-emerald-400: oklch(59.6% 0.145 163.225); --pal-emerald-500: oklch(69.6% 0.17 162.48); --pal-emerald-700: oklch(84.5% 0.143 164.978); --pal-emerald-900: oklch(95% 0.052 163.051);
-  --pal-gray-400: oklch(44.6% 0.03 256.802); --pal-gray-500: oklch(55.1% 0.027 264.364); --pal-gray-600: oklch(70.7% 0.022 261.325); --pal-gray-700: oklch(87.2% 0.01 258.338); --pal-gray-800: oklch(92.8% 0.006 264.531); --pal-gray-900: oklch(96.7% 0.003 264.542);
-  --pal-green-400: oklch(62.7% 0.194 149.214);
-  --pal-indigo-300: oklch(45.7% 0.24 277.023); --pal-indigo-400: oklch(51.1% 0.262 276.966); --pal-indigo-500: oklch(58.5% 0.233 277.117); --pal-indigo-600: oklch(67.3% 0.182 276.935); --pal-indigo-700: oklch(78.5% 0.115 274.713); --pal-indigo-900: oklch(93% 0.034 272.788);
-  --pal-pink-400: oklch(59.2% 0.249 0.584);
-  --pal-purple-100: oklch(38.1% 0.176 304.987); --pal-purple-300: oklch(49.6% 0.265 301.924); --pal-purple-400: oklch(55.8% 0.288 302.321); --pal-purple-500: oklch(62.7% 0.265 303.9);
-  --pal-red-200: oklch(44.4% 0.177 26.899); --pal-red-300: oklch(50.5% 0.213 27.518); --pal-red-400: oklch(57.7% 0.245 27.325); --pal-red-500: oklch(63.7% 0.237 25.331); --pal-red-700: oklch(80.8% 0.114 19.571); --pal-red-800: oklch(88.5% 0.062 18.334); --pal-red-900: oklch(93.6% 0.032 17.717);
-  --pal-slate-500: oklch(55.4% 0.046 257.417);
-  --pal-teal-300: oklch(51.1% 0.096 186.391); --pal-teal-400: oklch(60% 0.118 184.704); --pal-teal-500: oklch(70.4% 0.14 182.503);
+       amber   the app's highlight. 100–400 are text, so they take the
+               4.73:1 gold-ink; 500 is fills and rules, so it takes the
+               2.78:1 gold; 700/900 were dark washes and become pale ones.
+       gray    the ink ramp. 200–600 are text and all land at or above
+               6.79:1 — the audit's 240 failing nodes were mostly here.
+       red / emerald / blue / indigo / purple / teal
+               the health and element families, same text-vs-fill split. */
+  --pal-amber-100: #8a6a2f; --pal-amber-200: #8a6a2f; --pal-amber-300: #8a6a2f; --pal-amber-400: #8a6a2f; --pal-amber-500: #b8904a; --pal-amber-700: #d6cdbd; --pal-amber-900: #efe6d6;
+  --pal-blue-100: #1c5cab; --pal-blue-300: #1c5cab; --pal-blue-400: #1c5cab; --pal-blue-500: #2a78d6; --pal-blue-700: #e4edf9; --pal-blue-900: #e4edf9;
+  --pal-cyan-400: #0e5f6b;
+  --pal-emerald-300: #006300; --pal-emerald-400: #006300; --pal-emerald-500: #0ca30c; --pal-emerald-700: #e6f2e6; --pal-emerald-900: #e6f2e6;
+  --pal-gray-200: #0f1b33; --pal-gray-400: #5a5750; --pal-gray-500: #5a5750; --pal-gray-600: #5a5750; --pal-gray-700: #d6cdbd; --pal-gray-800: #e6e0d6; --pal-gray-900: #f2eee7;
+  --pal-green-400: #006300;
+  --pal-indigo-300: #4a3aa7; --pal-indigo-400: #4a3aa7; --pal-indigo-500: #4a3aa7; --pal-indigo-600: #4a3aa7; --pal-indigo-700: #eceaf7; --pal-indigo-900: #eceaf7;
+  --pal-pink-400: #a3195b;
+  --pal-purple-100: #4a3aa7; --pal-purple-300: #4a3aa7; --pal-purple-400: #4a3aa7; --pal-purple-500: #4a3aa7;
+  --pal-red-200: #b3312f; --pal-red-300: #b3312f; --pal-red-400: #b3312f; --pal-red-500: #d03b3b; --pal-red-700: #fae7e6; --pal-red-800: #fae7e6; --pal-red-900: #fae7e6;
+  --pal-slate-500: #5a5750;
+  --pal-teal-300: #2a5c5c; --pal-teal-400: #2a5c5c; --pal-teal-500: #2a5c5c;
 
-  --shadow-sm: 0 4px 14px rgba(15, 27, 51, 0.07);
-  --shadow-md: 0 10px 30px rgba(15, 27, 51, 0.10);
-  --shadow-lg: 0 20px 44px rgba(15, 27, 51, 0.14);
+  /* ── Elevation ──
+     Dark carried depth on borders and got away with it because the ground
+     was near-black. Paper cannot: a white card on a warm page is only a
+     card if something lifts it. Two steps, both ink-tinted. */
+  --shadow-1: 0 1px 2px rgb(var(--shadow-rgb) / 0.05), 0 1px 3px rgb(var(--shadow-rgb) / 0.04);
+  --shadow-2: 0 2px 4px rgb(var(--shadow-rgb) / 0.05), 0 8px 24px rgb(var(--shadow-rgb) / 0.06);
+  --shadow-sm: var(--shadow-1);
+  --shadow-md: var(--shadow-2);
+  --shadow-lg: 0 4px 10px rgb(var(--shadow-rgb) / 0.06), 0 24px 56px rgb(var(--shadow-rgb) / 0.14);
+
+  /* glass() asks for an opacity; on paper a translucent card is not a
+     card. This lifts every glass surface to solid white and lets the
+     border and the shadow do the work the darkness used to do. */
+  --glass-lift: 100%;
 }
 
 /* ── Tailwind utilities over the roles ──
@@ -309,6 +384,8 @@
   --color-modal: var(--surface-modal);
   --color-sidebar: var(--surface-sidebar);
   --color-dropdown: var(--surface-dropdown);
+  --color-sunken: var(--surface-sunken);
+  --color-accent-soft: var(--accent-soft);
   --color-input: var(--surface-input);
   --color-lift: rgb(var(--surface-hover-rgb));
   --color-scrim: var(--scrim);
@@ -366,6 +443,7 @@
   --color-emerald-500: var(--pal-emerald-500);
   --color-emerald-700: var(--pal-emerald-700);
   --color-emerald-900: var(--pal-emerald-900);
+  --color-gray-200: var(--pal-gray-200);
   --color-gray-400: var(--pal-gray-400);
   --color-gray-500: var(--pal-gray-500);
   --color-gray-600: var(--pal-gray-600);

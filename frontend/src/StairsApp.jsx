@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
+import { getTheme, toggleTheme } from "./lib/theme";
 import { api, StrategyAPI, NotesStore, MatrixResultsStore, SourcesAPI, ArtifactsAPI, ARTIFACT, matrixScope, NotesAPI, syncLocalNotes, canSeeAgentTelemetry } from "./api";
-import { BORDER, DEEP, DEEP_MID, FONT_DISPLAY, GOLD, GRAD_ACCENT, HUE, INK_MUTED, cast, fontStack, tint, typeIcons } from "./constants";
+import { BORDER, DEEP, DEEP_MID, FONT_DISPLAY, GOLD, GOLD_INK, GRAD_ACCENT, HUE, INK_MUTED, cast, fontStack, tint, typeIcons } from "./constants";
 import { logoUrl, printDocument } from "./exportUtils";
 
 // Components
@@ -58,6 +59,10 @@ export default function App() {
   const [noteSync, setNoteSync] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("stairs_sidebar_collapsed") === "1");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  // Mirrors the attribute index.html already set, so the label agrees
+  // with what is on screen from the first render.
+  const [theme, setThemeState] = useState(getTheme);
+  const flipTheme = () => setThemeState(toggleTheme());
   const toggleSidebar = () => setSidebarCollapsed(v => { const n = !v; localStorage.setItem("stairs_sidebar_collapsed", n ? "1" : "0"); return n; });
   const [matrixToolkit, setMatrixToolkit] = useState({ open: false, key: null, initialData: null });
   const openMatrix = (key, initialData = null) => setMatrixToolkit({ open: true, key, initialData });
@@ -366,7 +371,7 @@ export default function App() {
   if (!user) return <LoginScreen onLogin={setUser} />;
   if (!activeStrat) return (
     <>
-      <StrategyLanding strategies={strategies} onSelect={selectStrategy} onCreate={createStrategy} onDelete={deleteStrategy} userName={user.full_name||user.name||user.email} onLogout={logout} onLangToggle={toggleLang} lang={lang} loading={stratLoading} userId={user.id || user.email} userEmail={user.email} userRole={user.role} />
+      <StrategyLanding theme={theme} onThemeToggle={flipTheme} strategies={strategies} onSelect={selectStrategy} onCreate={createStrategy} onDelete={deleteStrategy} userName={user.full_name||user.name||user.email} onLogout={logout} onLangToggle={toggleLang} lang={lang} loading={stratLoading} userId={user.id || user.email} userEmail={user.email} userRole={user.role} />
       <GuidanceManager suppressed={tutorialActive || showWelcomeSlideshow} onView={() => {}} onExec={() => {}} onMatrix={() => {}} />
     </>
   );
@@ -402,7 +407,7 @@ export default function App() {
           <span className="text-sm text-ink font-medium">{activeStrat.icon} {isAr && activeStrat.name_ar ? activeStrat.name_ar : activeStrat.name}</span>
         </div>
         <div className="flex items-center gap-3">
-          {aiProvider && canSeeAgentTelemetry() && <span className="text-[10px] text-ink-muted flex items-center gap-1 px-2 py-1 rounded-md border border-gray-700/50 bg-gray-800/30" title={`AI powered by ${aiProvider.provider_display}`}>⚡ {aiProvider.provider_display}</span>}
+          {aiProvider && canSeeAgentTelemetry() && <span className="text-[10px] text-ink-muted flex items-center gap-1 px-2 py-1 rounded-md border border-hairline bg-sunken" title={`AI powered by ${aiProvider.provider_display}`}>⚡ {aiProvider.provider_display}</span>}
           {!isAr && <button onClick={() => setShowWelcomeSlideshow(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-ink-muted hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition uppercase tracking-wider" title="Watch the Stairs introduction" data-testid="watch-intro-btn">
             <span className="text-sm">🎬</span> <span className="hidden sm:inline">Watch Intro</span>
           </button>}
@@ -410,10 +415,15 @@ export default function App() {
             <span className="text-sm">🪜</span> <span className="hidden sm:inline">{isAr ? "دليل الاستخدام" : "Guide"}</span>
           </button>
           <button onClick={() => setShowFeaturesBadge(v => !v)} className="text-[10px] text-ink-faint hover:text-amber-400 transition" title="Features Explored">📊</button>
+          {/* Theme. Light is the default; this remembers the other choice. */}
+          <button onClick={flipTheme} title={theme === "dark" ? "Switch to light" : "Switch to dark"}
+            className="text-xs text-ink-muted hover:text-accent-ink transition" data-testid="theme-toggle">
+            {theme === "dark" ? (isAr ? "فاتح" : "Light") : (isAr ? "داكن" : "Dark")}
+          </button>
           <button onClick={toggleLang} className="text-xs text-ink-muted hover:text-amber-400 transition">{isAr ? "EN" : "عربي"}</button>
           <div className="relative">
             <button onClick={() => setShowProfileDropdown(v => !v)} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-ink-3 hover:text-amber-400 hover:bg-amber-500/10 transition">
-              <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ background: `${tint(GOLD, 15)}`, color: GOLD, border: `1px solid ${tint(GOLD, 25)}` }}>{(user.full_name || user.name || user.email || "?")[0].toUpperCase()}</span>
+              <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ background: "transparent", color: GOLD_INK, border: `1px solid ${tint(GOLD, 25)}` }}>{(user.full_name || user.name || user.email || "?")[0].toUpperCase()}</span>
               <span>{user.full_name || user.name || user.email}</span>
               <span className="text-[10px]">{showProfileDropdown ? "▲" : "▼"}</span>
             </button>

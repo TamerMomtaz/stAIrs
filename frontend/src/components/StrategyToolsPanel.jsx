@@ -1,4 +1,4 @@
-import { GOLD, GOLD_L, glass, tint } from "../constants";
+import { GOLD, GOLD_INK, GOLD_L, glass, tint } from "../constants";
 import { MATRIX_FRAMEWORKS } from "./StrategyMatrixToolkit";
 import { buildHeader, openExportWindow } from "../exportUtils";
 
@@ -40,7 +40,7 @@ export const StrategyToolsPanel = ({ lang, onMatrixClick, matrixResults, strateg
           <h2 className="text-ink text-lg font-semibold mb-1">{isAr ? "أدوات الاستراتيجية" : "Strategy Tools"}</h2>
           <p className="text-ink-muted text-xs">{isAr ? "أدوات تحليل استراتيجي تفاعلية" : "Interactive strategy analysis matrices and frameworks"}</p>
         </div>
-        {hasAnyResult && <button onClick={() => exportMatrixSummary(matrixResults, strategyContext)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{ borderColor: `${tint(GOLD, 38)}`, color: GOLD, background: `${tint(GOLD, 8)}` }}>↓ {isAr ? "تصدير الملخص" : "Export Summary"}</button>}
+        {hasAnyResult && <button onClick={() => exportMatrixSummary(matrixResults, strategyContext)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition hover:scale-[1.02]" style={{ borderColor: `${tint(GOLD, 38)}`, color: GOLD_INK, background: "transparent" }}>↓ {isAr ? "تصدير الملخص" : "Export Summary"}</button>}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {tools.map(t => {

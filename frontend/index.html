@@ -13,6 +13,21 @@
     <link rel="preload" href="/fonts/instrument-serif-latin.woff2" as="font" type="font/woff2" crossorigin />
 
     <script>
+      // Theme, before first paint. This runs synchronously in <head> on
+      // purpose: setting data-theme from React would let the browser paint
+      // one frame of the wrong theme first, and a white flash on a returning
+      // dark-mode session is worse than the millisecond this costs.
+      //
+      // Light is the default. Dark is no longer the only thing this app can
+      // render — it is a remembered choice.
+      try {
+        var t = localStorage.getItem("stairs_theme");
+        document.documentElement.setAttribute("data-theme", t === "dark" ? "dark" : "light");
+      } catch (e) {
+        document.documentElement.setAttribute("data-theme", "light");
+      }
+    </script>
+    <script>
       // The Arabic face is 124 KB and most sessions never render an Arabic
       // glyph, so it is not preloaded unconditionally — unicode-range already
       // keeps it off the wire. For a session that has chosen Arabic, preload it
@@ -36,10 +51,20 @@
       /* Same stack the app uses, so the pre-mount paint is already in the right
          typeface instead of switching once React takes over. */
       body {
-        background: #020617;
-        color: #e2e8f0;
         font-family: "DM Sans", "DM Sans Fallback", system-ui, -apple-system, sans-serif;
       }
+
+      /* The pre-mount ground, and the only place in the app where a palette
+         value is written twice. It has to be: tokens.css arrives with the JS
+         bundle, so between first paint and mount there are no custom
+         properties to read — and the previous hardcoded #020617 meant a light
+         session opened on a near-black flash, which is exactly what the
+         theme boot script above exists to prevent. It was also wrong for dark:
+         #020617 is not the app's #0a1628.
+
+         These two lines must track --surface-app and --ink in tokens.css. */
+      html[data-theme="light"] body { background: #faf8f4; color: #0f1b33; color-scheme: light }
+      html[data-theme="dark"] body { background: #0a1628; color: #ffffff; color-scheme: dark }
       html[lang="ar"] body {
         font-family: "Noto Kufi Arabic", "DM Sans", "DM Sans Fallback", system-ui, sans-serif;
       }
