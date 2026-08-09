@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api, ArtifactsAPI, ARTIFACT, stairScope } from "../api";
-import { BORDER_STRONG, DEEP, GOLD, GOLD_INK, GRAD_ACCENT, INK, INK_2, INK_3, TEAL, pal, tint, typeColors, typeIcons } from "../constants";
+import { BORDER_STRONG, GOLD, GOLD_INK, GRAD_ACCENT, INK, INK_2, INK_3, INK_ON_ACCENT, TEAL, pal, tint, typeColors, typeIcons } from "../constants";
 import { HealthBadge } from "./SharedUI";
 import { Markdown } from "./Markdown";
 import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
@@ -136,7 +136,7 @@ export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, str
             <div className="px-4 pb-4 pt-1 space-y-3" style={{ borderTop:`1px solid ${tint(color, 8)}` }}>
               {s.description && <div className="text-ink-3 text-sm leading-relaxed">{s.description}</div>}
               <div className="flex items-center gap-2 flex-wrap" data-tutorial="staircase-actions">
-                {onExecutionRoom && <button onClick={e => {e.stopPropagation();onExecutionRoom(s);}} data-tutorial="execution-room" className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition hover:scale-[1.02]" style={{background:GRAD_ACCENT,color:DEEP}}>🚀 {isAr?"غرفة التنفيذ":"Execution Room"}</button>}
+                {onExecutionRoom && <button onClick={e => {e.stopPropagation();onExecutionRoom(s);}} data-tutorial="execution-room" className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition hover:scale-[1.02]" style={{background:GRAD_ACCENT,color:INK_ON_ACCENT}}>🚀 {isAr?"غرفة التنفيذ":"Execution Room"}</button>}
                 <button onClick={e => {e.stopPropagation();handleAI(s,"explain");}} disabled={isLd} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-transparent transition hover:scale-[1.02]" style={{borderColor:`${tint(TEAL, 38)}`,color:pal("teal-300")}}>{isLd&&aiAction?.type==="explain"?<span className="animate-spin">⟳</span>:"💡"} {isAr?"شرح":"Explain"}</button>
                 <button onClick={e => {e.stopPropagation();handleAI(s,"enhance");}} disabled={isLd} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-transparent transition hover:scale-[1.02]" style={{borderColor:`${tint(GOLD, 38)}`,color:GOLD_INK}}>{isLd&&aiAction?.type==="enhance"?<span className="animate-spin">⟳</span>:"✨"} {isAr?"تحسين":"Enhance"}</button>
                 <button onClick={e => {e.stopPropagation();onEdit(s);}} className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-ink-muted hover:text-ink underline-offset-2 hover:underline transition">✎ {isAr?"تعديل":"Edit"}</button>
@@ -152,7 +152,7 @@ export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, str
                     <div className="text-ink text-sm font-semibold">{isAr?"جاهز للتنفيذ؟":"Ready to execute?"}</div>
                     <div className="text-ink-3 text-xs mt-0.5">{isAr?"حوّل هذه الرؤى إلى خطة عمل قابلة للتنفيذ.":"Turn these insights into an actionable plan."}</div>
                   </div>
-                  {onExecutionRoom && <button onClick={e => {e.stopPropagation();onExecutionRoom(s);}} className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-semibold transition hover:scale-[1.02]" style={{background:GRAD_ACCENT,color:DEEP}}>🚀 {isAr?"افتح غرفة التنفيذ":"Open Execution Room"}</button>}
+                  {onExecutionRoom && <button onClick={e => {e.stopPropagation();onExecutionRoom(s);}} className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-semibold transition hover:scale-[1.02]" style={{background:GRAD_ACCENT,color:INK_ON_ACCENT}}>🚀 {isAr?"افتح غرفة التنفيذ":"Open Execution Room"}</button>}
                   {onSaveNote && <button onClick={e => {e.stopPropagation(); const parts=[]; if(result?.explain)parts.push(`## 💡 Explain\n\n${result.explain}`); if(result?.enhance)parts.push(`## ✨ Enhance\n\n${result.enhance}`); onSaveNote(`${s.title} — AI Insights`, parts.join("\n\n---\n\n"), "ai_insight");}} className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium border bg-transparent transition hover:scale-[1.02]" style={{borderColor:`${tint(GOLD, 25)}`,color:GOLD_INK}}>📌 {isAr? "حفظ في الملاحظات":"Save to Notes"}</button>}
                 </div>
               )}

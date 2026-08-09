@@ -16,6 +16,7 @@
 #   frontend   vitest, then the build
 #   backend    pytest
 #   contrast   the token audit, both themes
+#   controls   the same maths against what the components actually paint
 #
 # THE CONTRAST GATE COVERS BOTH THEMES. It did not always. Dark shipped at
 # 22/29 while light passed, so the dark job was held back rather than opening
@@ -104,8 +105,9 @@ jobs:
       - run: python -m pytest tests/ -q
 
   # Both themes now. Dark was held out while it sat at 22/29 — gating it then
-  # would have opened this workflow red on its first run. It passes 30/30, so
-  # the gate closes.
+  # would have opened this workflow red on its first run. Both themes pass, so
+  # the gate closes. (No count here on purpose: rows get added as roles are
+  # measured, and a number in a comment is a number that goes stale.)
   #
   # The matrix interpolates into `name`, which keeps the light check called
   # exactly `contrast-light` — the string branch protection already requires.
@@ -131,3 +133,33 @@ jobs:
       # Dependency-free by design, so it needs no install step: the audit
       # reads the token values it asserts on and composites them itself.
       - run: node scripts/contrast-audit.mjs ${{ matrix.theme }}
+
+  # The contrast jobs above check the PALETTE — a hand-written list of role
+  # pairs. That list passed for months while the app's primary call-to-action
+  # printed near-white on gold at 2.78:1, because the pair it asserts is
+  # --ink-on-accent on gold and the pair the buttons painted was --surface-app
+  # on gold. Nothing was wrong with the audit; it was measuring a different
+  # application than the one being shipped.
+  #
+  # This job closes that gap by measuring no list at all. It reads tokens.css,
+  # constants.js and every .jsx, and holds the (fill, ink) pairs the components
+  # ACTUALLY paint against 4.5:1 in both themes. It cannot drift from the
+  # components, because it is derived from them.
+  #
+  # `controls` is a new check. Like contrast-dark before it, it reports before
+  # it gates: it has to be added to the required list in branch protection to
+  # block a merge rather than merely show up.
+  controls:
+    name: controls
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Dependency-free for the same reason as the audit above: it parses the
+      # sources it checks rather than importing them.
+      - run: npm run audit:controls

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { api, PasswordAPI } from "../api";
-import { BORDER, DEEP, GRAD_ACCENT, OK, glass, inputCls, tint } from "../constants";
+import { BORDER, GRAD_ACCENT, INK_ON_ACCENT, OK, glass, inputCls, tint } from "../constants";
 import { Modal } from "./SharedUI";
 
 // The token is shown once, at creation — the list endpoint withholds it, so
@@ -23,7 +23,7 @@ const FreshReset = ({ reset, onDone, isAr }) => {
         <button
           onClick={() => navigator.clipboard?.writeText(link).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); })}
           className="px-3 py-2 rounded-lg text-xs font-semibold shrink-0"
-          style={{ background: GRAD_ACCENT, color: DEEP }}>
+          style={{ background: GRAD_ACCENT, color: INK_ON_ACCENT }}>
           {copied ? (isAr ? "تم النسخ" : "Copied") : (isAr ? "نسخ" : "Copy")}
         </button>
       </div>
@@ -103,7 +103,7 @@ export const PasswordManager = ({ open, onClose, lang, currentUserRole }) => {
           </div>
           {error && <div className="text-xs text-red-400 mt-3" data-testid="password-error">{error}</div>}
           {done && <div className="text-xs text-emerald-400 mt-3 leading-relaxed" data-testid="password-done">✓ {done}</div>}
-          <button onClick={submit} disabled={busy || !current || !next} className="mt-4 px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-40 transition hover:scale-[1.01]" style={{ background: GRAD_ACCENT, color: DEEP }} data-testid="submit-password">
+          <button onClick={submit} disabled={busy || !current || !next} className="mt-4 px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-40 transition hover:scale-[1.01]" style={{ background: GRAD_ACCENT, color: INK_ON_ACCENT }} data-testid="submit-password">
             {busy ? "..." : (isAr ? "تغيير كلمة المرور" : "Change password")}
           </button>
         </div>
@@ -122,7 +122,7 @@ export const PasswordManager = ({ open, onClose, lang, currentUserRole }) => {
               <div className="rounded-xl p-4" style={glass(0.4)}>
                 <div className="flex gap-2">
                   <input value={resetEmail} onChange={e => setResetEmail(e.target.value)} placeholder="colleague@company.com" className={inputCls} style={{ padding: "10px 12px", fontSize: "13px" }} data-testid="reset-email" />
-                  <button onClick={createReset} disabled={creating || !resetEmail.trim()} className="px-4 py-2 rounded-lg text-xs font-semibold shrink-0 disabled:opacity-40" style={{ background: GRAD_ACCENT, color: DEEP }} data-testid="create-reset">
+                  <button onClick={createReset} disabled={creating || !resetEmail.trim()} className="px-4 py-2 rounded-lg text-xs font-semibold shrink-0 disabled:opacity-40" style={{ background: GRAD_ACCENT, color: INK_ON_ACCENT }} data-testid="create-reset">
                     {creating ? "..." : (isAr ? "إنشاء رابط" : "Create link")}
                   </button>
                 </div>

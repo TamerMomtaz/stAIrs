@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { BORDER_STRONG, DEEP, GOLD, GOLD_INK, GOLD_L, GRAD_ACCENT, GRAD_ACCENT_90, HUE, INFO, INK_FAINT, MODAL_SURFACE, OK, SCRIM_STRONG, cast, tint } from "../constants";
+import { BORDER_STRONG, GOLD, GOLD_INK, GOLD_L, GRAD_ACCENT, GRAD_ACCENT_90, HUE, INFO, INK_FAINT, INK_ON_ACCENT, MODAL_SURFACE, OK, SCRIM_STRONG, cast, tint } from "../constants";
 import {
   tutorialSteps,
   TUTORIAL_VERSION,
@@ -335,7 +335,7 @@ export const TutorialOverlay = ({ active, onClose, steps: customSteps }) => {
                 className="px-4 py-1.5 text-xs font-semibold rounded-lg transition"
                 style={{
                   background: GRAD_ACCENT,
-                  color: DEEP,
+                  color: INK_ON_ACCENT,
                 }}
               >
                 {currentStep === steps.length - 1 ? "Finish" : "Next →"}
@@ -379,7 +379,7 @@ export const TutorialOverlay = ({ active, onClose, steps: customSteps }) => {
               className="px-6 py-2.5 rounded-xl text-sm font-semibold transition hover:scale-105"
               style={{
                 background: GRAD_ACCENT,
-                color: DEEP,
+                color: INK_ON_ACCENT,
               }}
             >
               Let's Go
@@ -428,7 +428,7 @@ export const TutorialUpdatePrompt = ({ onStart, onDismiss }) => (
               className="px-3 py-1.5 text-xs font-semibold rounded-lg transition"
               style={{
                 background: GRAD_ACCENT,
-                color: DEEP,
+                color: INK_ON_ACCENT,
               }}
             >
               Show me

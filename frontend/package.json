@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "audit:contrast": "node scripts/contrast-audit.mjs",
+    "audit:controls": "node scripts/control-contrast.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api, ActionPlansAPI, SourcesAPI, ManifestStore, ArtifactsAPI, ARTIFACT, stairScope, taskScope, canSeeAgentTelemetry } from "../api";
-import { BORDER, DEEP, DEEP_MID, GOLD, GOLD_INK, GRAD_ACCENT, GRAD_ACCENT_90, GRAD_BLUE, GRAD_TEAL, GRAD_VIOLET, GRAD_VIOLET_90, HUE, INK_3, INK_MUTED, TEAL, cast, glass, tint, typeColors, typeIcons } from "../constants";
+import { BORDER, DEEP, DEEP_MID, GOLD, GOLD_INK, GRAD_ACCENT, GRAD_ACCENT_90, GRAD_BLUE, GRAD_TEAL, GRAD_VIOLET, GRAD_VIOLET_90, HUE, INK_3, INK_ON_ACCENT, INK_MUTED, TEAL, cast, glass, tint, typeColors, typeIcons } from "../constants";
 import { HealthBadge, ConfidenceBadge, ValidationWarnings, AgentActivityIndicator } from "./SharedUI";
 import { Markdown } from "./Markdown";
 import { logoUrl, printDocument } from "../exportUtils";
@@ -1119,13 +1119,20 @@ User question: ${msg}`;
   };
 
   // An empty step offers the work rather than doing it unasked.
-  const GenerateCard = ({ title, body, cta, onGenerate, busy, accent }) => (
+  // `accent` tints the card and dashes its border — decoration, and a mark
+  // colour is the right thing for that. The BUTTON is not decoration: it took
+  // the same mark colour, built a gradient out of it inline and printed
+  // --surface-app on the result, which is 2.78:1 for gold on paper and 2.40:1
+  // for teal on the dark ground. A fill and its ink are one decision, so they
+  // arrive together and as tokens — which also makes the pair measurable
+  // instead of invisible to the audit.
+  const GenerateCard = ({ title, body, cta, onGenerate, busy, accent, grad, ink }) => (
     <div className="rounded-lg p-4 text-center" style={{ background: `${tint(accent, 3)}`, border: `1px dashed ${tint(accent, 25)}` }}>
       <div className="text-sm font-medium text-ink-2 mb-1">{title}</div>
       <p className="text-xs text-ink-muted mb-3 max-w-md mx-auto leading-relaxed">{body}</p>
       <button onClick={onGenerate} disabled={busy || !loaded}
         className="px-4 py-2 rounded-lg text-xs font-semibold transition hover:scale-[1.02] disabled:opacity-40 disabled:hover:scale-100"
-        style={{ background: `linear-gradient(135deg, ${accent}, ${tint(accent, 80)})`, color: DEEP }}>
+        style={{ background: grad, color: ink }}>
         {busy ? (isAr ? "جاري الإنشاء..." : "Generating...") : cta}
       </button>
     </div>
@@ -1294,7 +1301,7 @@ User question: ${msg}`;
               <div className="flex-1 overflow-y-auto p-6 mx-auto w-full flex items-center" style={{ maxWidth: 620 }}>
                 <div className="w-full">
                   <GenerateCard
-                    accent={GOLD}
+                    accent={GOLD} grad={GRAD_ACCENT} ink={INK_ON_ACCENT}
                     title={isAr ? "لا توجد خطة عمل بعد" : "No action plan yet"}
                     body={isAr
                       ? "أنشئ خطة عمل لهذه الخطوة. ستُحفظ تلقائيًا وتظهر في كل مرة تفتح فيها غرفة التنفيذ."
@@ -1453,7 +1460,7 @@ User question: ${msg}`;
                               {loaded && !explainChats[selectedTaskId] && !explainChatLoading && (
                                 <div className="mb-3">
                                   <GenerateCard
-                                    accent={HUE.blue}
+                                    accent={HUE.blue} grad={GRAD_BLUE} ink={DEEP}
                                     title={isAr ? "لم يُنشأ شرح بعد" : "No explanation yet"}
                                     body={isAr
                                       ? "اطلب شرحًا لهذا الإجراء بلغة بسيطة، مبنيًا على مستنداتك في مصدر الحقيقة. يُحفظ الشرح ويظهر في كل زيارة."
@@ -1619,7 +1626,7 @@ User question: ${msg}`;
                                   className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
                                   style={{
                                     background: hasFeedback() ? GRAD_ACCENT : `${tint(GOLD, 19)}`,
-                                    color: hasFeedback() ? DEEP : INK_3,
+                                    color: hasFeedback() ? INK_ON_ACCENT : INK_3,
                                     border: `1px solid ${hasFeedback() ? GOLD : GOLD + "40"}`,
                                   }}
                                   title={!hasFeedback() ? (isAr ? "أضف ملاحظاتك في الخطوة 2 أولاً" : "Add your feedback in Step 2 first") : ""}
@@ -1654,7 +1661,7 @@ User question: ${msg}`;
                               </div>
                               {loaded && !implRoomData[selectedTaskId] && !implRoomLoading && (
                                 <GenerateCard
-                                  accent={HUE.violet}
+                                  accent={HUE.violet} grad={GRAD_VIOLET} ink={DEEP}
                                   title={isAr ? "لا يوجد دليل تنفيذ بعد" : "No implementation guide yet"}
                                   body={isAr
                                     ? "احصل على دليل خطوة بخطوة مع المتطلبات والجدول الزمني ومعايير النجاح. يُحفظ الدليل مع قائمة الخطوات وتقدمك."
@@ -1771,7 +1778,7 @@ User question: ${msg}`;
                             onClick={() => goToStep(wizardStep + 1)}
                             disabled={wizardStep === 4}
                             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition hover:scale-[1.02] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
-                            style={{ background: GRAD_ACCENT, color: DEEP }}
+                            style={{ background: GRAD_ACCENT, color: INK_ON_ACCENT }}
                           >
                             {isAr ? "التالي" : "Next"} <span>→</span>
                           </button>
@@ -1813,7 +1820,7 @@ User question: ${msg}`;
               </div>
             ) : (
               <GenerateCard
-                accent={TEAL}
+                accent={TEAL} grad={GRAD_TEAL} ink={DEEP}
                 title={isAr ? "لا توجد توصيات بعد" : "No recommendations yet"}
                 body={isAr
                   ? "احصل على مكاسب سريعة وتحركات استراتيجية وتخفيف للمخاطر لهذه الخطوة. تُحفظ النتيجة ولن يُعاد إنشاؤها تلقائيًا."
@@ -1887,7 +1894,7 @@ User question: ${msg}`;
                 rows={3}
                 className="flex-1 px-4 py-3 rounded-xl bg-input border border-hairline-strong text-ink placeholder-ink-faint focus:border-amber-500/40 focus:outline-none transition text-sm resize-none"
               />
-              <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()} className="px-5 py-3 rounded-xl font-medium text-sm disabled:opacity-30 transition-all hover:scale-105 self-end" style={{ background: GRAD_ACCENT, color: DEEP }}>
+              <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()} className="px-5 py-3 rounded-xl font-medium text-sm disabled:opacity-30 transition-all hover:scale-105 self-end" style={{ background: GRAD_ACCENT, color: INK_ON_ACCENT }}>
                 {isAr ? "إرسال" : "Send"}
               </button>
             </div>

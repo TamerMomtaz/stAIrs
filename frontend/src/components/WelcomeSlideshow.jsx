@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { ACCENT_BRIGHT, ACCENT_BRIGHT_HI, BAD, BORDER, BORDER_STRONG, DEEPEST, FONT_DISPLAY, GRAD_ACCENT_BRIGHT, GRAD_ACCENT_BRIGHT_90, GRAD_WORDMARK, HUE, INFO, INK, INK_3, INK_GHOST, INK_MUTED, OK, WARN, cast, tint } from "../constants";
+import { ACCENT_BRIGHT, ACCENT_BRIGHT_HI, BAD, BORDER, BORDER_STRONG, DEEPEST, FONT_DISPLAY, GRAD_ACCENT_BRIGHT, GRAD_ACCENT_BRIGHT_90, GRAD_WORDMARK, HUE, INFO, INK, INK_ON_ACCENT, INK_3, INK_GHOST, INK_MUTED, OK, WARN, cast, tint } from "../constants";
 const BG = DEEPEST;
 const ACCENT = ACCENT_BRIGHT;
 const ACCENT_L = ACCENT_BRIGHT_HI;
@@ -86,7 +86,7 @@ const StepPath = ({ animate }) => {
               background: `${tint(ACCENT, 8)}`, border: `2px solid ${tint(ACCENT, 25)}`, position: "relative",
             }}>
               {s.icon}
-              <span style={{ position: "absolute", top: "-8px", right: "-8px", width: "22px", height: "22px", borderRadius: "50%", background: ACCENT, color: BG, fontSize: "11px", fontWeight: "800", display: "flex", alignItems: "center", justifyContent: "center" }}>{s.num}</span>
+              <span style={{ position: "absolute", top: "-8px", right: "-8px", width: "22px", height: "22px", borderRadius: "50%", background: ACCENT, color: INK_ON_ACCENT, fontSize: "11px", fontWeight: "800", display: "flex", alignItems: "center", justifyContent: "center" }}>{s.num}</span>
             </div>
             <span style={{ fontSize: "12px", color: INK_3, textAlign: "center", lineHeight: "1.5", whiteSpace: "pre-line" }}>{s.label}</span>
           </div>
@@ -581,7 +581,7 @@ const slideConfigs = [
               data-testid="slideshow-get-started"
               style={{
                 padding: "16px 40px", borderRadius: "14px", border: "none", cursor: "pointer",
-                background: GRAD_ACCENT_BRIGHT, color: BG,
+                background: GRAD_ACCENT_BRIGHT, color: INK_ON_ACCENT,
                 fontSize: "16px", fontWeight: "700", letterSpacing: "0.5px",
                 boxShadow: `0 0 30px ${tint(ACCENT, 25)}, 0 4px 20px ${cast(0.3)}`,
                 transition: "all 0.3s ease",
@@ -598,7 +598,7 @@ const slideConfigs = [
               data-testid="slideshow-skip-dashboard"
               style={{
                 padding: "16px 40px", borderRadius: "14px", border: "none", cursor: "pointer",
-                background: GRAD_ACCENT_BRIGHT, color: BG,
+                background: GRAD_ACCENT_BRIGHT, color: INK_ON_ACCENT,
                 fontSize: "16px", fontWeight: "700", letterSpacing: "0.5px",
                 boxShadow: `0 0 30px ${tint(ACCENT, 25)}, 0 4px 20px ${cast(0.3)}`,
                 transition: "all 0.3s ease",
@@ -781,7 +781,7 @@ export const WelcomeSlideshow = ({ open, onClose, onGetStarted, hasStrategies })
             data-testid="slideshow-next"
             style={{
               padding: "10px 20px", borderRadius: "10px", border: "none",
-              background: GRAD_ACCENT_BRIGHT, color: BG,
+              background: GRAD_ACCENT_BRIGHT, color: INK_ON_ACCENT,
               fontSize: "13px", fontWeight: "700", cursor: "pointer",
               transition: "all 0.2s", minWidth: "90px",
               boxShadow: `0 0 20px ${tint(ACCENT, 19)}`,

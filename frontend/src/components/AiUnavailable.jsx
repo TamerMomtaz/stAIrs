@@ -8,7 +8,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import { aiFailureCopy } from "../lib/aiResilience";
-import { BORDER_STRONG, CHAMPAGNE, DEEP, GOLD, GOLD_L, GRAD_ACCENT, glass, tint } from "../constants";
+import { BORDER_STRONG, CHAMPAGNE, GOLD, GOLD_L, GRAD_ACCENT, INK_ON_ACCENT, glass, tint } from "../constants";
 export default function AiUnavailable({
   kind = "unavailable",
   lang = "en",
@@ -79,7 +79,7 @@ export default function AiUnavailable({
                 onClick={onRetry}
                 disabled={retrying}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-[1.03] disabled:opacity-50 disabled:hover:scale-100"
-                style={{ background: GRAD_ACCENT, color: DEEP }}
+                style={{ background: GRAD_ACCENT, color: INK_ON_ACCENT }}
               >
                 {retrying ? "…" : t.retry}
               </button>

@@ -41,6 +41,7 @@ const THEMES = {
     // button — near-white on paper, navy on the dark ground. And the worst of
     // --grad-teal's two stops for that ink, which is the one worth asserting.
     deep: "#faf8f4", gradTealStop: "#2a5c5c", gradBlueStop: "#246dc5", gradVioletStop: "#4a3aa7",
+    gradIndigoStop: "#4a3aa7", gradAmberStop: "#a98341",
     wordmark: "#8a6a2f", slideGround: "#f2eee7",
     okInk: "#006300", okFill: "#e6f2e6", warnInk: "#8a5a00", warnFill: "#fbf0da",
     badInk: "#b3312f", badFill: "#fae7e6", infoInk: "#1c5cab", infoFill: "#e4edf9",
@@ -54,6 +55,7 @@ const THEMES = {
     ink: "#ffffff", ink2: "#d1d5dc", ink3: "#99a1af", muted: "#868e9d", faint: "#868e9d", ghost: "#868e9d",
     gold: "#b8904a", goldInk: "#b8904a", goldSoft: "#2a2416", teal: "#2a5c5c", tealInk: "#5eead4", inkOnAccent: "#0a1628",
     deep: "#0a1628", gradTealStop: "#14b8a6", gradBlueStop: "#3b82f6", gradVioletStop: "#956cf7",
+    gradIndigoStop: "#7279f5", gradAmberStop: "#d97706",
     wordmark: "#ffd666", slideGround: "#0a0e1a",
     okInk: "#6ee7b7", okFill: over("#34d399", 0.2, "#0a1628"), warnInk: "#fcd34d", warnFill: over("#fbbf24", 0.2, "#0a1628"),
     badInk: "#fca5a5", badFill: over("#f87171", 0.2, "#0a1628"), infoInk: "#93c5fd", infoFill: over("#60a5fa", 0.2, "#0a1628"),
@@ -121,17 +123,31 @@ const PAIRS = (t) => [
   // border instead.
   ["active step chip — label",         t.ink,      over(t.teal, 0.15, t.card),   "body"],
   ["active step chip — border vs card", over(t.teal, 0.38, t.card), t.card,      "decorative"],
-  // ASSERTED. Text sitting on a teal fill. --accent-teal is a fill cut, not a
-  // gradient stop: building the Send button inline from it left the button's
-  // own label at 2.40:1 in dark. --grad-teal exists so the stop is the hue.
-  // The whole family, not just the instance. Every filled button paints a
-  // gradient and prints --surface-app on it, so the stop that ink sits worst
-  // against is the pair worth holding. Teal was 2.40:1 and violet 4.28:1
-  // before this; asserting all three stops it recurring on the next gradient
-  // somebody adds.
+  // ASSERTED. Text sitting on a coloured fill. --accent-teal is a fill cut,
+  // not a gradient stop: building the Send button inline from it left the
+  // button's own label at 2.40:1 in dark. --grad-teal exists so the stop is
+  // the hue. The whole family, not just the instance — teal was 2.40:1,
+  // violet 4.28:1, indigo 4.06:1, and amber had no correct ink at all.
+  //
+  // The ink is NOT the same for every family, and quietly assuming it was is
+  // what let the gold buttons rot behind a green audit. A gradient that
+  // INVERTS with the theme — blue, violet, indigo, teal, bright on the dark
+  // ground and dark on paper — takes --surface-app, and inverts along with
+  // it. Gold does not invert: #B8904A is the same colour in both themes, so
+  // --surface-app lands on it as navy in dark (6.15:1, fine) and as
+  // near-white in light (2.78:1, the primary call-to-action, unreadable).
+  // Those take --ink-on-accent. Each row below measures the ink its family
+  // actually paints.
+  //
+  // Which ink each CALL SITE actually paints is no longer a matter of belief:
+  // scripts/control-contrast.mjs reads the pairs off the components
+  // themselves, so this list can no longer quietly describe a different app.
   ["send button — ink on teal fill",   t.deep,     t.gradTealStop,               "body"],
   ["blue gradient — ink on its stop",  t.deep,     t.gradBlueStop,               "body"],
   ["violet gradient — ink on its stop", t.deep,    t.gradVioletStop,             "body"],
+  ["indigo gradient — ink on its stop", t.deep,    t.gradIndigoStop,             "body"],
+  // Gold's family, so navy rather than the surface — see above.
+  ["amber gradient — ink on its stop", t.inkOnAccent, t.gradAmberStop,           "body"],
   // EXCUSED, with the number kept visible. These teal edges are decoration on
   // regions that are already identifiable without them: the explain panel has
   // a tinted ground and a labelled heading, and the generate card has a title

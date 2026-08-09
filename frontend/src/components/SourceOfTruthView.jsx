@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { SourcesAPI, DataQaAPI } from "../api";
-import { BAD, BORDER, DEEP, GOLD, GRAD_ACCENT, GRAD_AMBER, GRAD_INDIGO, HUE, INFO, INK, INK_3, OK, WARN, glass, inputCls, tint } from "../constants";
+import { BAD, BORDER, DEEP, GOLD, GRAD_ACCENT, GRAD_AMBER, GRAD_INDIGO, HUE, INFO, INK_3, INK_ON_ACCENT, OK, WARN, glass, inputCls, tint } from "../constants";
 import LoadFailed from "./LoadFailed";
 import { fireGuidance } from "../guidanceConfig";
 
@@ -688,7 +688,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                 onClick={(e) => { e.stopPropagation(); handleApproveAll(source.id); }}
                 disabled={approving || totalExtractionItems(source.id) === 0}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium transition hover:scale-[1.02] disabled:opacity-40"
-                style={{ background: GRAD_INDIGO, color: INK }}
+                style={{ background: GRAD_INDIGO, color: DEEP }}
               >
                 {approving ? (isAr ? "جاري الحفظ..." : "Saving...") : (isAr ? "قبول الكل" : "Approve All")}
               </button>
@@ -738,7 +738,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
           <button
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition hover:scale-[1.02]"
-            style={{ background: GRAD_ACCENT, color: DEEP }}
+            style={{ background: GRAD_ACCENT, color: INK_ON_ACCENT }}
           >
             + {isAr ? "إدخال يدوي" : "Manual Entry"}
           </button>
@@ -1075,7 +1075,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
               <button
                 onClick={() => { const reason = document.getElementById("quarantine-reason")?.value || ""; handleQuarantine(quarantineConfirm, reason); }}
                 className="px-5 py-2 rounded-lg text-sm font-semibold transition-all hover:scale-[1.02]"
-                style={{ background: GRAD_AMBER, color: DEEP }}
+                style={{ background: GRAD_AMBER, color: INK_ON_ACCENT }}
               >
                 {isAr ? "حجر" : "Quarantine"}
               </button>
@@ -1106,7 +1106,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                 onClick={addManualSource}
                 disabled={!newContent.trim()}
                 className="px-5 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-all hover:scale-[1.02]"
-                style={{ background: GRAD_ACCENT, color: DEEP }}
+                style={{ background: GRAD_ACCENT, color: INK_ON_ACCENT }}
               >
                 {isAr ? "إضافة" : "Add Source"}
               </button>

@@ -69,7 +69,8 @@ npm run dev                            # Dev server on :5173
 npm test                               # Run tests (376 tests, vitest)
 npm run test:watch                     # Tests in watch mode
 npm run build                          # Production build to dist/
-node scripts/contrast-audit.mjs        # Contrast gate; `dark` for the other theme
+npm run audit:contrast                 # Palette gate; `dark` for the other theme
+npm run audit:controls                 # Filled-control gate; reads the components
 ```
 
 ### Docker
@@ -111,12 +112,12 @@ Copy `.env.example` to `.env` at the repo root. Key variables:
 
 - **Backend**: pytest with asyncio support. Tests cover helpers (row conversion, health computation, code generation, password hashing, JWT), Pydantic schemas, and main app logic. No database required — tests mock the connection pool.
 - **Frontend**: vitest with jsdom + @testing-library/react. Tests cover constants validation, API/store classes (localStorage mocking), and component rendering.
-- **CI**: `.github/workflows/ci.yml` runs all three on every PR to `main` — frontend tests + build, backend tests, and the light-theme contrast audit.
+- **CI**: `.github/workflows/ci.yml` runs one thing per job on every PR to `main` — `lint` (correctness rules only), `frontend` (vitest + build), `backend` (pytest), `contrast-light`/`contrast-dark` (the palette audit), and `controls` (the filled-control audit).
 
-### Two ways a frontend test passes over a dead feature
+### Three ways a green check passes over broken code
 
-Both of these have shipped a broken control under a green suite. Neither is
-caught by anything except knowing about them.
+All three have shipped a broken control under a green suite. None is caught by
+anything except knowing about them.
 
 **1. A mock proves the component, not the app.** Rendering a view with
 `vi.fn()` props asserts the view calls its callback. It says nothing about the
@@ -145,6 +146,29 @@ fireEvent.click(within(room).getByRole('button', { name: /Manifest Room/i }));
 The rule generalises past this one overlay: if two surfaces can be mounted at
 once, a bare `screen.*` query is ambiguous by construction, and the ambiguity
 resolves in whichever direction makes your test pass.
+
+**3. The check and the thing being checked drift apart.** The palette audit
+asserts `--ink-on-accent` on gold at 5.82:1, and passed every run for months
+while every filled gold button in the app printed `--surface-app` on gold at
+2.78:1 — the primary call-to-action, unreadable in the default theme. The audit
+was not wrong. It was measuring a different application than the one shipping.
+
+Any check that names its subject in its own words — a hand-written list of
+pairs, a fixture, a mock, a snapshot — describes the code as it was understood
+on the day it was written, and goes on reporting on that version. It does not
+notice the component reaching past the token it asserts.
+
+So derive the check from the thing, and the two cannot disagree.
+`scripts/control-contrast.mjs` reads `tokens.css`, `constants.js` and every
+`.jsx`, and measures the (fill, ink) pairs the components actually paint — it
+cannot pass while the buttons are wrong, because the buttons are its input. It
+also prints what it could not resolve, with a count, because a check that
+silently skips the hard cases is back to describing an app of its own choosing.
+
+The generalisation worth keeping: when you find one instance of a bug, find the
+assertion that should have caught it and ask what that assertion is reading. If
+the answer is "a copy of what the code used to do", fixing the instance buys you
+nothing but time.
 
 **And a green CI does not mean it looks right.** The suite runs in jsdom, which
 has no layout engine and draws nothing. It cannot see wrapping, overflow,
