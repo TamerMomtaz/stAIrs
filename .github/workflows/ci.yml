@@ -1,0 +1,90 @@
+# ═══════════════════════════════════════════════════════════════════
+# Stairs — CI
+#
+# The repository had no workflows. Fifteen pull requests merged on
+# 2026-08-09 and not one of them ran a test, on either side of the stack.
+# That is not a hypothetical: #72 shipped a ReferenceError that threw on
+# every click of a header control, under a suite that was green on a laptop
+# and never executed anywhere else.
+#
+# THREE JOBS, ONE THING EACH, so a red X says which thing broke without
+# opening the log. They are deliberately dull. A workflow nobody trusts gets
+# ignored, and the way a workflow loses trust is by being clever, or by being
+# red for a reason nobody intends to fix.
+#
+# ON THE CONTRAST GATE. scripts/contrast-audit.mjs already exits non-zero, so
+# it gates as-is — but only on the light theme, which is the app's default and
+# passes 29/29 today. Dark is at 22/29 and has been since the palette work
+# landed light first; gating it now would open this workflow red on its first
+# run and teach everyone to ignore it. The dark job goes in the moment those
+# seven pairs are fixed, and the line to add is the same one with a different
+# argument.
+# ═══════════════════════════════════════════════════════════════════
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# A second push supersedes the first; don't pay for the run it replaced.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: frontend — tests and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      # The build is part of the gate because a type-free codebase has no
+      # other check that every import still resolves.
+      - run: npm run build
+
+  backend:
+    name: backend — tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+      # No database. tests/conftest.py mocks the asyncpg pool, which is what
+      # keeps this job a plain install-and-run with no service container.
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - run: python -m pytest tests/ -q
+
+  contrast:
+    name: contrast — light theme
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Dependency-free by design, so it needs no install step: the audit
+      # reads the token values it asserts on and composites them itself.
+      - run: node scripts/contrast-audit.mjs light

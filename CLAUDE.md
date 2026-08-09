@@ -57,7 +57,8 @@ frontend/
 cd backend
 pip install -r requirements.txt        # Install dependencies
 uvicorn app.main:app --reload          # Dev server on :8000
-python -m pytest tests/ -v             # Run tests (47 tests)
+pip install -r requirements-dev.txt    # pytest — not in requirements.txt
+python -m pytest tests/ -v             # Run tests (252 tests, no database needed)
 ```
 
 ### Frontend
@@ -65,9 +66,10 @@ python -m pytest tests/ -v             # Run tests (47 tests)
 cd frontend
 npm install                            # Install dependencies
 npm run dev                            # Dev server on :5173
-npm test                               # Run tests (39 tests, vitest)
+npm test                               # Run tests (376 tests, vitest)
 npm run test:watch                     # Tests in watch mode
 npm run build                          # Production build to dist/
+node scripts/contrast-audit.mjs        # Contrast gate; `dark` for the other theme
 ```
 
 ### Docker
@@ -109,6 +111,40 @@ Copy `.env.example` to `.env` at the repo root. Key variables:
 
 - **Backend**: pytest with asyncio support. Tests cover helpers (row conversion, health computation, code generation, password hashing, JWT), Pydantic schemas, and main app logic. No database required — tests mock the connection pool.
 - **Frontend**: vitest with jsdom + @testing-library/react. Tests cover constants validation, API/store classes (localStorage mocking), and component rendering.
+- **CI**: `.github/workflows/ci.yml` runs all three on every PR to `main` — frontend tests + build, backend tests, and the light-theme contrast audit.
+
+### Two ways a frontend test passes over a dead feature
+
+Both of these have shipped a broken control under a green suite. Neither is
+caught by anything except knowing about them.
+
+**1. A mock proves the component, not the app.** Rendering a view with
+`vi.fn()` props asserts the view calls its callback. It says nothing about the
+callback the app hands it. `onOpenManifest` spent its life calling a state
+setter that had been deleted, throwing `ReferenceError` on every click, while
+a test passing `vi.fn()` stayed green.
+
+For anything whose job is to navigate or mutate app state, add a case to
+`src/test/appWiring.test.jsx`: it mocks the network boundary and nothing else,
+renders the real `<App />`, drives it by hash the way a person drives it, and
+asserts on where `window.location.hash` lands.
+
+**2. An unscoped query matches the wrong element.** The Execution Room is a
+full-screen overlay, and the sidebar underneath it stays mounted — naming
+several of the same destinations. `getByRole('button', { name: /Manifest
+Room/i })` matches the *sidebar nav item*, clicks it, and passes while the
+room's own control is still dead. Same false green, new costume.
+
+Scope every query to the surface under test:
+
+```js
+const room = await screen.findByTestId('execution-room');
+fireEvent.click(within(room).getByRole('button', { name: /Manifest Room/i }));
+```
+
+The rule generalises past this one overlay: if two surfaces can be mounted at
+once, a bare `screen.*` query is ambiguous by construction, and the ambiguity
+resolves in whichever direction makes your test pass.
 
 ## Code Style
 
