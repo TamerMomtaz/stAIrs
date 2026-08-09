@@ -380,23 +380,16 @@ export default function App() {
     notes: { icon: "📝", label: isAr ? "ملاحظات" : "Notes", tutorial: "nav-notes" },
     knowledge: { icon: "📖", label: isAr ? "المعرفة" : "Knowledge", tutorial: "nav-knowledge" },
     tools: { icon: "🔧", label: isAr ? "أدوات استراتيجية" : "Strategy Tools", tutorial: "nav-tools" },
-    execroom: { icon: "🚀", label: isAr ? "غرفة التنفيذ" : "Execution Room", tutorial: "nav-execroom" },
+    execroom: { icon: "🚀", label: isAr ? "الغرفة" : "Execution Room", tutorial: "nav-execroom" },
     actionplans: { icon: "📋", label: isAr ? "خطط العمل" : "Action Plans", tutorial: "nav-actionplans" },
-    manifest: { icon: "📦", label: isAr ? "سجل التنفيذ" : "Manifest Room", tutorial: "nav-manifest" },
+    manifest: { icon: "📦", label: isAr ? "السجل" : "Manifest Room", tutorial: "nav-manifest" },
   };
   const goToView = (key) => { setView(key); trackFeature(key); setMobileNavOpen(false); };
 
   return (
     <div className="h-screen flex flex-col overflow-hidden text-white" dir={isAr ? "rtl" : "ltr"} style={{ background: `linear-gradient(180deg, ${DEEP} 0%, #0f1f3a 50%, ${DEEP} 100%)`, fontFamily: fontStack(isAr) }}>
       <header className="flex items-center justify-between px-6 py-3 shrink-0"
-        /* px-6 here is dead: index.html's unlayered `* { padding: 0 }` reset
-                 outranks Tailwind v4's @layer utilities, so all 1,036 spacing
-                 utilities in the app compute to zero. Until that reset moves
-                 into @layer base, the header needs its padding inline — without
-                 it the wordmark sits flush against the viewport edge, which
-                 under RTL is the first thing an Arabic client sees. Delete this
-                 style, not the class, once the cascade is fixed. */
-        style={{ borderBottom: `1px solid ${BORDER}`, paddingInline: "1.5rem" }}>
+        style={{ borderBottom: `1px solid ${BORDER}` }}>
         <div className="flex items-center gap-3">
           <button onClick={() => setMobileNavOpen(v => !v)} className="md:hidden p-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition text-lg" title="Menu" aria-label="Toggle navigation">☰</button>
           <button onClick={() => { setActiveStrat(null); if (stratApiRef.current) stratApiRef.current.setActive(null); }} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 transition group" title="Back to Strategies">

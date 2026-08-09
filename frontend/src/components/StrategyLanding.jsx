@@ -27,15 +27,7 @@ export const StrategyLanding = ({ strategies, onSelect, onCreate, onDelete, user
   const dismissWelcome = () => { setShowWelcome(false); if (userId) markWelcomeSeen(userId); };
   return (
     <div className="min-h-screen text-white" dir={isAr ? "rtl" : "ltr"} style={{ background: `linear-gradient(180deg, ${DEEP} 0%, #0f1f3a 50%, ${DEEP} 100%)`, fontFamily: fontStack(isAr) }}>
-      <header className="flex items-center justify-between px-6 py-4"
-        /* px-6 here is dead: index.html's unlayered `* { padding: 0 }` reset
-                 outranks Tailwind v4's @layer utilities, so all 1,036 spacing
-                 utilities in the app compute to zero. Until that reset moves
-                 into @layer base, the header needs its padding inline — without
-                 it the wordmark sits flush against the viewport edge, which
-                 under RTL is the first thing an Arabic client sees. Delete this
-                 style, not the class, once the cascade is fixed. */
-        style={{ paddingInline: "1.5rem" }}>
+      <header className="flex items-center justify-between px-6 py-4">
         <div className="flex items-center gap-2">
           <span className="text-2xl font-normal" style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_L})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: FONT_DISPLAY }}>Stairs</span>
           <span className="text-[10px] text-gray-600 uppercase tracking-widest">v3.7.0</span>
