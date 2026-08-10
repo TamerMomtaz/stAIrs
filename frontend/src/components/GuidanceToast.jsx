@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { DEEP, GOLD, GRAD_ACCENT, INK_3, cast, tint } from "../constants";
+import { DEEP, GOLD, GRAD_ACCENT, INK_3, INK_ON_ACCENT, cast, tint } from "../constants";
 import { GUIDANCE, GUIDANCE_SEEN_KEY } from "../guidanceConfig";
 
 const AUTO_DISMISS_MS = 8000;
@@ -81,7 +81,7 @@ const GuidanceToast = ({ entry, onAction, onClose }) => {
                 className="px-3 py-1.5 rounded-lg text-xs font-medium transition hover:scale-[1.03]"
                 style={a.primary ? {
                   background: GRAD_ACCENT,
-                  color: DEEP,
+                  color: INK_ON_ACCENT,
                 } : {
                   background: "rgb(var(--surface-hover-rgb) / 0.04)",
                   color: INK_3,

@@ -71,6 +71,7 @@ npm run test:watch                     # Tests in watch mode
 npm run build                          # Production build to dist/
 node scripts/contrast-audit.mjs        # Contrast gate; `dark` for the other theme
 node scripts/affordance-audit.mjs      # Look-vs-behaviour gate; --gate, --list A2a, --json
+node scripts/render-gate.mjs           # What a browser draws; needs `npm i --no-save playwright`
 ```
 
 ### Docker
@@ -187,6 +188,25 @@ them rather than assuming them.** Tailwind v4's preflight dropped v3's
 arrow; and there was no `:focus-visible` rule at all, against 18
 `focus:outline-none`. Delete either rule and the audit's count climbs back
 with a warning instead of passing quietly.
+
+**What a browser draws is a separate question, and `scripts/render-gate.mjs`
+asks it.** The focus ring passed every check in this repository — declared,
+compiled, right colour — while rendering invisible on 13 of 49 controls,
+because an ancestor's `overflow: hidden` clipped it. The gate runs the built
+app in Chromium and asserts *measurements*, never screenshots: rings not
+clipped by an ancestor, ring contrast against the ground it actually lands on,
+label contrast against the fill it actually sits on, target sizes, and that a
+hover never makes an edge worse than at rest. Same numbers every run. It found
+that filled gold buttons printed `--surface-app` where `--ink-on-accent`
+existed — a 2.78:1 label the contrast audit could not see, because that audit
+measures the palette rather than what components apply.
+
+Two lessons are baked into it after both bit: **being unable to measure is not
+passing** (a probe that grabbed an `md:hidden` control reported a clean sweep
+having examined nothing), and **a gate must not re-litigate a decision already
+made** (the gold fill is 2.78:1 against the light page and is excused in
+writing, so the edge is asserted relative to its own rest state, not against an
+absolute).
 
 **What it cannot see is the same blind spot as every other static check**: a
 handler that exists and throws is wired as far as a parser is concerned. The

@@ -17,12 +17,22 @@
 #   backend    pytest
 #   contrast   the token audit, both themes
 #   affordance elements whose look and behaviour disagree
+#   render     what a browser actually draws, asserted as numbers
 #
 # THE CONTRAST GATE COVERS BOTH THEMES. It did not always. Dark shipped at
 # 22/29 while light passed, so the dark job was held back rather than opening
 # this file red on its first run — the same trust argument as above, applied to
 # its own gate. Those pairs are fixed and both themes now assert, which is what
 # makes the matrix honest rather than decorative.
+#
+# THE RENDER JOB ASSERTS MEASUREMENTS, NOT PIXELS. Everything the other four
+# jobs can see is source, tokens or jsdom, and a focus ring passed all of them
+# while rendering invisible on 13 of 49 controls — an ancestor clipped it. So
+# one job runs a real browser. It compares no images: a pixel diff fails on a
+# font hint or a driver, and a job that cries wolf is switched off inside a
+# week, which costs more than it ever caught. It reads geometry, composited
+# colour and contrast ratios, which are the same numbers on every run — proved
+# by running it three times and diffing.
 #
 # THE LINT JOB IS NARROW ON PURPOSE. It exists because #72's ReferenceError was
 # statically detectable: no-undef finds a call to a deleted setter in about a
@@ -156,3 +166,26 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: node scripts/affordance-audit.mjs --gate
+
+  # A real browser, asserting numbers. Playwright lives HERE and nowhere else:
+  # its postinstall downloads browsers, so making it a devDependency would slow
+  # the `npm ci` in all four other jobs. --no-save keeps the lockfile clean.
+  render:
+    name: render
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      # Pinned, so the browser build is fixed rather than whatever is newest.
+      - run: npm i --no-save playwright@1.49.1
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/render-gate.mjs --list

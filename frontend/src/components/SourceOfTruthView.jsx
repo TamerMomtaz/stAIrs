@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { SourcesAPI, DataQaAPI } from "../api";
-import { BAD, BORDER, DEEP, GOLD, GRAD_ACCENT, GRAD_AMBER, GRAD_INDIGO, HUE, INFO, INK, INK_3, OK, WARN, clickable, glass, inputCls, tint } from "../constants";
+import { BAD, BORDER, DEEP, GOLD, GRAD_ACCENT, GRAD_AMBER, GRAD_INDIGO, HUE, INFO, INK, INK_3, INK_ON_ACCENT, OK, WARN, clickable, glass, inputCls, tint } from "../constants";
 import LoadFailed from "./LoadFailed";
 import { fireGuidance } from "../guidanceConfig";
 import { useEscape } from "./SharedUI";
@@ -744,7 +744,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
           <button
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition hover:scale-[1.02]"
-            style={{ background: GRAD_ACCENT, color: DEEP }}
+            style={{ background: GRAD_ACCENT, color: INK_ON_ACCENT }}
           >
             + {isAr ? "إدخال يدوي" : "Manual Entry"}
           </button>
@@ -1112,7 +1112,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                 onClick={addManualSource}
                 disabled={!newContent.trim()}
                 className="px-5 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-all hover:scale-[1.02]"
-                style={{ background: GRAD_ACCENT, color: DEEP }}
+                style={{ background: GRAD_ACCENT, color: INK_ON_ACCENT }}
               >
                 {isAr ? "إضافة" : "Add Source"}
               </button>

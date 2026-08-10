@@ -346,6 +346,13 @@ for (const file of jsxFiles(SRC).sort()) {
 
       const handlers = [...attrs.keys()].filter((k) => ACTIVATION.has(k) && !isStopPropagation(attrs.get(k)));
       if (viaClickable) handlers.push("onClick");
+      // A <button type="submit"> carries no onClick and submits the form it is
+      // in. It is still a control, and counting handlers alone missed the most
+      // important buttons in the application — Sign In and Create Account had
+      // no hover state at all and nothing here could see it.
+      if (!handlers.length && tag === "button" && attrs.get("type")?.value !== "button") {
+        handlers.push("submit");
+      }
       if ([...attrs.keys()].some((k) => ACTIVATION.has(k)) && !handlers.length) walls++;
       const keyed = viaClickable || [...attrs.keys()].some((k) => KEY_HANDLERS.has(k));
       const semantic = viaClickable || attrs.has("role") || attrs.has("href") || attrs.has("tabIndex");

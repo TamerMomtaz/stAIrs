@@ -14,7 +14,7 @@
    nothing has changed, only that we couldn't reach it.
    ═══════════════════════════════════════════════════════════════════ */
 
-import { CHAMPAGNE, DEEP, GOLD, GOLD_L, GRAD_ACCENT, tint } from "../constants";
+import { CHAMPAGNE, DEEP, GOLD, GOLD_L, GRAD_ACCENT, INK_ON_ACCENT, tint } from "../constants";
 // `what` names the thing that didn't load, so the sentence is about the
 // client's strategy rather than about software. Callers pass an already
 // localised noun; without one the copy stays general.
@@ -71,7 +71,7 @@ export default function LoadFailed({ what, lang = "en", onRetry, retrying = fals
               disabled={retrying}
               data-testid="load-failed-retry"
               className="mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-[1.03] disabled:opacity-50 disabled:hover:scale-100"
-              style={{ background: GRAD_ACCENT, color: DEEP }}
+              style={{ background: GRAD_ACCENT, color: INK_ON_ACCENT }}
             >
               {retrying ? t.retrying : t.retry}
             </button>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { api, SourcesAPI, extractDocumentText } from "../api";
-import { BAD, BORDER, DEEP, GOLD, GOLD_INK, GRAD_ACCENT, HUE, INFO, INK_3, OK, TEAL, WARN, clickable, glass, inputCls, labelCls, tint, typeColors, typeIcons } from "../constants";
+import { BAD, BORDER, DEEP, GOLD, GOLD_INK, GRAD_ACCENT, HUE, INFO, INK_3, INK_ON_ACCENT, OK, TEAL, WARN, clickable, glass, inputCls, labelCls, tint, typeColors, typeIcons } from "../constants";
 import { Markdown } from "./Markdown";
 import { Modal } from "./SharedUI";
 import { StrategyQuestionnaire } from "./StrategyQuestionnaire";
@@ -660,7 +660,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
                 rows={3}
                 className="flex-1 px-4 py-3.5 rounded-xl bg-input border border-hairline-strong text-ink text-[15px] placeholder-ink-faint focus:border-amber-500/45 focus:ring-2 focus:ring-amber-500/10 transition resize-none"
               />
-              <button onClick={() => sendToAI()} disabled={aiLoading || !aiInput.trim()} className="px-6 py-3.5 rounded-xl font-medium text-[15px] self-stretch disabled:opacity-30 transition-all hover:scale-[1.02]" style={{ background: GRAD_ACCENT, color: DEEP }}>{isAr ? "إرسال" : "Send"}</button>
+              <button onClick={() => sendToAI()} disabled={aiLoading || !aiInput.trim()} className="px-6 py-3.5 rounded-xl font-medium text-[15px] self-stretch disabled:opacity-30 transition-all hover:scale-[1.02]" style={{ background: GRAD_ACCENT, color: INK_ON_ACCENT }}>{isAr ? "إرسال" : "Send"}</button>
             </div>
             <div className="flex-shrink-0 text-[11px] text-ink-faint mt-1.5">{isAr ? "Enter للإرسال · Shift+Enter لسطر جديد" : "Enter to send · Shift+Enter for a new line"}</div>
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api, InvitesAPI, PasswordAPI } from "../api";
-import { BAD, BAD_INK, CHAMPAGNE, DEEP, DEEP_MID, FONT_DISPLAY, GOLD, GOLD_L, GRAD_ACCENT, INK, INK_3, INK_MUTED, OK, OK_INK, RAISED, cast, inputCls, tint } from "../constants";
+import { BAD, BAD_INK, CHAMPAGNE, DEEP, DEEP_MID, FONT_DISPLAY, GOLD, GOLD_L, GRAD_ACCENT, INK, INK_3, INK_MUTED, INK_ON_ACCENT, OK, OK_INK, RAISED, cast, inputCls, tint } from "../constants";
 import { useEscape } from "./SharedUI";
 export const LoginScreen = ({ onLogin }) => {
   const [mode, setMode] = useState("login"); // "login" or "signup"
@@ -123,7 +123,7 @@ export const LoginScreen = ({ onLogin }) => {
               <div style={{ textAlign: "center" }}>
                 <div style={{ color: OK_INK, fontSize: "15px", marginBottom: "8px" }}>Password updated</div>
                 <p style={{ color: INK_3, fontSize: "13px", marginBottom: "20px" }}>You can sign in with your new password now.</p>
-                <button className="transition hover:brightness-[var(--hover-lift)] active:brightness-[var(--press-lift)]" type="button" onClick={() => { setResetToken(""); setReset(null); setResetDone(false); setMode("login"); }} style={{ width: "100%", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "15px", color: DEEP, border: "none", cursor: "pointer", background: GRAD_ACCENT }}>Go to sign in</button>
+                <button className="transition hover:brightness-[var(--hover-lift)] active:brightness-[var(--press-lift)]" type="button" onClick={() => { setResetToken(""); setReset(null); setResetDone(false); setMode("login"); }} style={{ width: "100%", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "15px", color: INK_ON_ACCENT, border: "none", cursor: "pointer", background: GRAD_ACCENT }}>Go to sign in</button>
               </div>
             ) : reset === null ? (
               <div style={{ textAlign: "center", color: INK_3, fontSize: "13px", padding: "24px 0" }}>Checking your reset link…</div>
@@ -145,7 +145,7 @@ export const LoginScreen = ({ onLogin }) => {
                   <input type="password" value={resetConfirm} onChange={e => setResetConfirm(e.target.value)} placeholder="Confirm new password" className={inputCls} style={{ padding: "14px 18px", fontSize: "15px", height: "48px" }} data-testid="reset-confirm" />
                 </div>
                 {err && <div style={{ marginTop: "12px", color: BAD, fontSize: "14px", textAlign: "center" }} data-testid="reset-error">{err}</div>}
-                <button type="submit" disabled={busy} style={{ width: "100%", marginTop: "24px", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "16px", color: DEEP, border: "none", cursor: "pointer", background: GRAD_ACCENT, opacity: busy ? 0.5 : 1 }} data-testid="reset-submit">
+                <button className="transition hover:brightness-[var(--hover-lift)] active:brightness-[var(--press-lift)]" type="submit" disabled={busy} style={{ width: "100%", marginTop: "24px", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "16px", color: INK_ON_ACCENT, border: "none", cursor: "pointer", background: GRAD_ACCENT, opacity: busy ? 0.5 : 1 }} data-testid="reset-submit">
                   {busy ? "..." : "Set new password"}
                 </button>
               </form>
@@ -166,7 +166,7 @@ export const LoginScreen = ({ onLogin }) => {
               <input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Password" required className={inputCls} style={{ padding: "14px 18px", fontSize: "15px", height: "48px" }} />
             </div>
             {err && <div style={{ marginTop: "12px", color: BAD, fontSize: "14px", textAlign: "center" }}>{err}</div>}
-            <button type="submit" disabled={busy} style={{ width: "100%", marginTop: "24px", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "16px", color: DEEP, border: "none", cursor: "pointer", background: GRAD_ACCENT, opacity: busy ? 0.5 : 1, transition: "transform 0.2s" }}>{busy ? "..." : "Sign In"}</button>
+            <button className="transition hover:brightness-[var(--hover-lift)] active:brightness-[var(--press-lift)]" type="submit" disabled={busy} style={{ width: "100%", marginTop: "24px", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "16px", color: INK_ON_ACCENT, border: "none", cursor: "pointer", background: GRAD_ACCENT, opacity: busy ? 0.5 : 1, transition: "transform 0.2s" }}>{busy ? "..." : "Sign In"}</button>
             <div style={{ textAlign: "center", marginTop: "16px" }}>
               <button className="transition text-ink-muted hover:text-accent-ink" type="button" onClick={() => setShowForgot(true)} style={{ background: "none", border: "none", fontSize: "13px", cursor: "pointer", textDecoration: "underline", padding: 0 }}>Forgot Password?</button>
             </div>
@@ -224,7 +224,7 @@ export const LoginScreen = ({ onLogin }) => {
               )}
             </div>
             {err && <div style={{ marginTop: "12px", color: BAD, fontSize: "14px", textAlign: "center" }} data-testid="signup-error">{err}</div>}
-            <button type="submit" data-testid="signup-submit" disabled={busy || checkingInvite} style={{ width: "100%", marginTop: "24px", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "16px", color: DEEP, border: "none", cursor: "pointer", background: GRAD_ACCENT, opacity: (busy || checkingInvite) ? 0.5 : 1, transition: "transform 0.2s" }}>
+            <button className="transition hover:brightness-[var(--hover-lift)] active:brightness-[var(--press-lift)]" type="submit" data-testid="signup-submit" disabled={busy || checkingInvite} style={{ width: "100%", marginTop: "24px", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "16px", color: INK_ON_ACCENT, border: "none", cursor: "pointer", background: GRAD_ACCENT, opacity: (busy || checkingInvite) ? 0.5 : 1, transition: "transform 0.2s" }}>
               {busy ? "..." : joining ? `Join ${invite.organization_name}` : "Create Account"}
             </button>
           </form>
@@ -239,7 +239,7 @@ export const LoginScreen = ({ onLogin }) => {
             <div onClick={e => e.stopPropagation()} style={{ background: RAISED, border: `1px solid ${tint(GOLD, 20)}`, borderRadius: "12px", padding: "32px", maxWidth: "400px", width: "90%", textAlign: "center" }}>
               <div style={{ fontSize: "20px", marginBottom: "12px" }}>Reset your password</div>
               <p style={{ color: INK_3, fontSize: "14px", marginBottom: "20px" }}>Ask an administrator in your organisation to send you a reset link. They can create one from their profile menu, under Change password. Opening that link lets you choose a new password yourself — nobody else sees it.</p>
-              <button className="transition hover:brightness-[var(--hover-lift)] active:brightness-[var(--press-lift)]" onClick={() => setShowForgot(false)} style={{ padding: "10px 24px", borderRadius: "8px", fontWeight: 600, fontSize: "14px", color: DEEP, border: "none", cursor: "pointer", background: GRAD_ACCENT }}>OK</button>
+              <button className="transition hover:brightness-[var(--hover-lift)] active:brightness-[var(--press-lift)]" onClick={() => setShowForgot(false)} style={{ padding: "10px 24px", borderRadius: "8px", fontWeight: 600, fontSize: "14px", color: INK_ON_ACCENT, border: "none", cursor: "pointer", background: GRAD_ACCENT }}>OK</button>
             </div>
           </div>
         )}

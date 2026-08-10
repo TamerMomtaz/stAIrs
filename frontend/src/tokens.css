@@ -205,12 +205,20 @@
   --glass-lift: 0%;
   /* Which way a filled control moves under the pointer. On navy, brighter:
      the gold fill goes from 6.15:1 against the page to 7.36:1, and the navy
-     label it carries improves by the same amount. Paper is the opposite
-     problem — measured in Chromium, brightening the same fill takes its edge
-     from 2.95:1 to 2.46:1 against the card AND its near-white label from
-     2.78:1 to 2.32:1, so the button dissolves into the page exactly as it
-     becomes harder to read. Same role, opposite direction, one token —
-     the shape --glass-lift above already takes. */
+     label it carries improves with it, 6.15:1 to 7.36:1 on the dark stop.
+     Both directions win, so take the one that also strengthens the edge.
+
+     Paper wants the opposite, and only the EDGE decides it. A filled gold
+     button on the light page is 2.95:1 against the card at rest; brightening
+     takes that to 2.46:1 and the button starts dissolving into the page it
+     sits on. Darkening is the only direction that clears 3:1. Same role,
+     opposite direction, one token — the shape --glass-lift already takes.
+
+     This was first written as a choice between two failures, because the
+     label was wrong: filled gold buttons printed --surface-app, a near-white
+     on gold at 2.78:1, so brightening hurt the label too and 0.93 was picked
+     as the lesser damage. The label is --ink-on-accent now, 5.82:1 at rest,
+     which is what turns this back into a real decision. */
   --hover-lift: 1.10;
   --press-lift: 0.95;
 }
@@ -409,8 +417,10 @@
      card. This lifts every glass surface to solid white and lets the
      border and the shadow do the work the darkness used to do. */
   --glass-lift: 100%;
-  /* Down, not up. 0.93 puts the gold edge at 3.37:1 on the card and its
-     label at 3.18:1 — both over 3:1, both better than at rest. */
+  /* Down, not up, and chosen on the edge. 0.93 puts the gold edge at 3.37:1
+     against the card and 3.18:1 against the page, both clear of 3:1, where
+     brightening lands at 2.46:1 and 2.32:1. The label pays 5.82:1 -> 5.08:1
+     for it and stays far above the 4.5:1 it owes as text. */
   --hover-lift: 0.93;
   --press-lift: 0.88;
 }
