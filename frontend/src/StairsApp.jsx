@@ -29,6 +29,7 @@ import { Sidebar } from "./components/Sidebar";
 import { InviteManager } from "./components/InviteManager";
 import { PasswordManager } from "./components/PasswordManager";
 import { GuidanceManager } from "./components/GuidanceToast";
+import AiStatusChip from "./components/AiStatusChip";
 import { fireGuidance } from "./guidanceConfig";
 import { MATRIX_FRAMEWORKS } from "./components/StrategyMatrixToolkit";
 import { shouldShowTutorial, hasNewTutorialSteps, getNewSteps, markFeatureUsed, getTutorialState, saveTutorialState, getDefaultTutorialState } from "./tutorialConfig";
@@ -461,7 +462,7 @@ export default function App() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden text-ink" dir={isAr ? "rtl" : "ltr"} style={{ background: `linear-gradient(180deg, ${DEEP} 0%, ${DEEP_MID} 50%, ${DEEP} 100%)`, fontFamily: fontStack(isAr) }}>
-      <header className="flex items-center justify-between px-6 py-3 shrink-0"
+      <header className="flex items-center justify-between px-6 py-3 shrink-0" data-testid="app-header"
         style={{ borderBottom: `1px solid ${BORDER}` }}>
         <div className="flex items-center gap-3">
           <button onClick={() => setMobileNavOpen(v => !v)} className="md:hidden p-1.5 rounded-lg text-ink-3 hover:text-amber-400 hover:bg-amber-500/10 transition text-lg" title="Menu" aria-label="Toggle navigation">☰</button>
@@ -475,7 +476,7 @@ export default function App() {
           <span className="text-sm text-ink font-medium">{activeStrat.icon} {isAr && activeStrat.name_ar ? activeStrat.name_ar : activeStrat.name}</span>
         </div>
         <div className="flex items-center gap-3">
-          {aiProvider && canSeeAgentTelemetry() && <span className="text-[10px] text-ink-muted flex items-center gap-1 px-2 py-1 rounded-md border border-hairline bg-sunken" title={`AI powered by ${aiProvider.provider_display}`}>⚡ {aiProvider.provider_display}</span>}
+          {canSeeAgentTelemetry() && <AiStatusChip provider={aiProvider} isAr={isAr} />}
           {!isAr && <button onClick={() => setShowWelcomeSlideshow(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-ink-muted hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition uppercase tracking-wider" title="Watch the Stairs introduction" data-testid="watch-intro-btn">
             <span className="text-sm">🎬</span> <span className="hidden sm:inline">Watch Intro</span>
           </button>}
