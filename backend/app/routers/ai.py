@@ -13,9 +13,10 @@ import httpx
 from app.db.connection import get_pool
 from app.helpers import (
     row_to_dict, rows_to_dicts, generate_code,
-    get_auth, AuthContext,
+    get_auth, require_agent_telemetry, AuthContext,
     ANTHROPIC_API_KEY,
 )
+from app import ai_client
 from app.models.schemas import (
     AIChatRequest, AIChatResponse, AIGenerateRequest,
     QuestionnaireGenerateRequest, QuestionnaireGenerateResponse,
@@ -102,12 +103,38 @@ async def _log_ai_usage(
 
 
 @router.get("/provider")
-async def get_active_provider(auth: AuthContext = Depends(get_auth)):
-    """Returns the currently active AI provider for the frontend indicator."""
+async def get_active_provider(auth: AuthContext = Depends(require_agent_telemetry)):
+    """The active provider, for the header indicator. Admins and owners only:
+    the display name IS the vendor, which is what #65 gated six screens and
+    the exported PDF to keep from clients. Requiring a login was not enough —
+    every member had one."""
     status = get_ai_status()
     return {
         "provider": status["active_provider"],
         "provider_display": status["active_provider_display"],
+    }
+
+
+@router.get("/health")
+async def get_ai_health(auth: AuthContext = Depends(require_agent_telemetry)):
+    """Everything the header chip shows when you open it: is the assistant
+    up, which provider is answering, is it running on a fallback, and how
+    the last hour went. One call so the chip does not have to make three."""
+    status = get_ai_status()
+    snap = ai_client.status_snapshot()
+    return {
+        "provider": status["active_provider"],
+        "provider_display": status["active_provider_display"],
+        "healthy": bool(snap["ai_enabled"] and snap["active_model"]),
+        "ai_enabled": snap["ai_enabled"],
+        "degraded": snap["degraded"],
+        "active_model": snap["active_model"],
+        "success_rate": snap["success_rate"],
+        "calls_ok": snap["calls_ok"],
+        "calls_failed": snap["calls_failed"],
+        "last_error": snap["last_error"],
+        "fallback_switches_today": status["fallback_switches_today"],
+        "providers": status["providers"],
     }
 
 
