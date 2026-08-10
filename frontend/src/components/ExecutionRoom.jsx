@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api, ActionPlansAPI, SourcesAPI, ManifestStore, ArtifactsAPI, ARTIFACT, stairScope, taskScope, canSeeAgentTelemetry } from "../api";
-import { BORDER, DEEP, DEEP_MID, GOLD, GOLD_INK, GRAD_ACCENT, GRAD_ACCENT_90, GRAD_BLUE, GRAD_TEAL, GRAD_VIOLET, GRAD_VIOLET_90, HUE, INK_3, INK_MUTED, TEAL, cast, glass, tint, typeColors, typeIcons } from "../constants";
+import { BORDER, DEEP, DEEP_MID, GOLD, GOLD_INK, GRAD_ACCENT, GRAD_ACCENT_90, GRAD_BLUE, GRAD_TEAL, GRAD_VIOLET, GRAD_VIOLET_90, HUE, INK_3, INK_MUTED, TEAL, cast, clickable, glass, tint, typeColors, typeIcons } from "../constants";
 import { HealthBadge, ConfidenceBadge, ValidationWarnings, AgentActivityIndicator } from "./SharedUI";
 import { Markdown } from "./Markdown";
 import { logoUrl, printDocument } from "../exportUtils";
@@ -1327,8 +1327,8 @@ User question: ${msg}`;
                       return (
                         <div
                           key={t.id}
-                          onClick={() => selectAction(t)}
-                          className={`rounded-lg p-3 cursor-pointer transition ${active ? "ring-1 ring-amber-500/40" : "hover:bg-white/[0.03]"} ${t.done ? "opacity-60" : ""}`}
+                          {...clickable(() => selectAction(t), { label: t.name })}
+                          className={`rounded-lg p-3 cursor-pointer transition focus:outline-none focus:ring-2 focus:ring-accent/40 ${active ? "ring-1 ring-amber-500/40" : "hover:bg-white/[0.03]"} ${t.done ? "opacity-60" : ""}`}
                           style={active ? { ...glass(0.6), borderLeft: `3px solid ${GOLD}` } : glass(0.3)}
                         >
                           <div className="flex items-start gap-2.5">

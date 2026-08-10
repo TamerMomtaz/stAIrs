@@ -262,6 +262,11 @@ for (const file of jsxFiles(SRC).sort()) {
   const rel = relative(ROOT, file);
   const view = basename(file, ".jsx");
   const code = readFileSync(file, "utf8");
+  // File-level, deliberately: the Escape listener lives in the component that
+  // owns the overlay, not on the backdrop node, so there is nothing on the
+  // element itself to read. Coarse, and it says so — a file with two overlays
+  // and one Escape route reads as covered here.
+  const hasEscapeRoute = /useEscape\(|["']Escape["']/.test(code);
   const ast = parse(code, { sourceType: "module", plugins: ["jsx"] });
   perFile.set(view, { rel, elements: 0, A1: 0, A2a: 0, A2b: 0, A3: 0, B1: 0, B2: 0, C: 0 });
   const bucket = perFile.get(view);
@@ -276,8 +281,18 @@ for (const file of jsxFiles(SRC).sort()) {
 
       const attrs = new Map();
       let hasSpreadAttr = false;
+      let viaClickable = false;
       for (const a of node.attributes) {
-        if (a.type === "JSXSpreadAttribute") { hasSpreadAttr = true; continue; }
+        if (a.type === "JSXSpreadAttribute") {
+          // {...clickable(fn)} is the house helper: role, tabIndex, onClick
+          // and an Enter/Space handler in one spread. Recognised by name so
+          // it counts as a control rather than disappearing into "unknown
+          // spread" — an audit that goes blind where it was satisfied is
+          // worse than one that complains.
+          if (a.argument?.callee?.name === "clickable") viaClickable = true;
+          else hasSpreadAttr = true;
+          continue;
+        }
         attrs.set(a.name.name, a.value);
       }
 
@@ -286,9 +301,10 @@ for (const file of jsxFiles(SRC).sort()) {
       const has = (re) => [...classes].some((c) => re.test(c));
 
       const handlers = [...attrs.keys()].filter((k) => ACTIVATION.has(k) && !isStopPropagation(attrs.get(k)));
+      if (viaClickable) handlers.push("onClick");
       if ([...attrs.keys()].some((k) => ACTIVATION.has(k)) && !handlers.length) walls++;
-      const keyed = [...attrs.keys()].some((k) => KEY_HANDLERS.has(k));
-      const semantic = attrs.has("role") || attrs.has("href") || attrs.has("tabIndex");
+      const keyed = viaClickable || [...attrs.keys()].some((k) => KEY_HANDLERS.has(k));
+      const semantic = viaClickable || attrs.has("role") || attrs.has("href") || attrs.has("tabIndex");
       const native = NATIVE_INTERACTIVE.has(tag);
       const interactive = handlers.length > 0 || semantic || native;
       const disabled = attrs.has("disabled");
@@ -318,7 +334,7 @@ for (const file of jsxFiles(SRC).sort()) {
       const hasPad = has(PADDING) || [...styles].some((s) => s.startsWith("padding"));
       const hasRound = has(ROUNDED) || styles.has("borderRadius");
       const hasHover = has(HOVER);
-      const roleIsButton = attrs.get("role")?.value === "button";
+      const roleIsButton = viaClickable || attrs.get("role")?.value === "button";
       const hasCursor = classes.has("cursor-pointer") || styles.has("cursor")
         || (CURSOR_BASE_RULE && (tag === "button" || tag === "summary"))
         || (ROLE_BUTTON_BASE_RULE && roleIsButton);
@@ -372,8 +388,14 @@ for (const file of jsxFiles(SRC).sort()) {
         || (styles.has("position") && styles.has("inset"));
 
       /* ── B. Is a control, doesn't look it ─────────────────────── */
-      if (handlers.length) { clickable++; if (hasCursor) pointered++; }
-      if (handlers.length && !disabled && !backdrop) {
+      // <SaveBtn onClick={…}> is a prop named onClick, not a DOM handler. What
+      // SaveBtn does with it — and whether what it renders looks clickable —
+      // is a fact about SaveBtn's own definition, which this audit visits in
+      // its own right. Judging it at the call site counted one button once per
+      // caller and blamed the caller: 21 findings, every one of them a
+      // component rendering a native <button> internally.
+      if (handlers.length && !isComponent) { clickable++; if (hasCursor) pointered++; }
+      if (handlers.length && !isComponent && !disabled && !backdrop) {
         // Tailwind v4's preflight dropped v3's `button { cursor: pointer }`
         // and nothing here added it back, so a native button is as
         // cursor-less as a div. Verified against the compiled stylesheet:
@@ -397,6 +419,7 @@ for (const file of jsxFiles(SRC).sort()) {
         // A full-screen backdrop that dismisses a menu is a real finding,
         // but it is a different fix (Escape) from a control that needs a
         // role. Tagged so the report can say which is which.
+        if (backdrop && hasEscapeRoute) return;
         findings.push({
           ...at, cat: "C", backdrop,
           why: backdrop

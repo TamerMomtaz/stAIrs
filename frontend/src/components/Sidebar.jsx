@@ -1,4 +1,5 @@
 import { GOLD, GOLD_INK, SIDEBAR_SURFACE, BORDER, INK_2, INK_MUTED, INK_FAINT, SHADOW_SM, tint } from "../constants";
+import { useEscape } from "./SharedUI";
 
 const SECTIONS = [
   { label: { en: "Core", ar: "الأساسية" }, keys: ["dashboard", "staircase", "ai", "alerts"] },
@@ -56,6 +57,7 @@ const SidebarItem = ({ k, n, active, collapsed, isAr, onSelect }) => (
 );
 
 export const Sidebar = ({ navItems, view, onSelect, collapsed, onToggleCollapse, isAr, mobileOpen, onMobileClose }) => {
+  useEscape(mobileOpen, onMobileClose);
   return (
     <>
       {mobileOpen && (

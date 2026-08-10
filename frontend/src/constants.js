@@ -144,5 +144,28 @@ export const glass = (op = 0.6) => ({
   border: `1px solid ${BORDER}`,
   boxShadow: SHADOW_1,
 });
+// Everything a <div> needs before an onClick on it counts as a control.
+//
+// A div with a click handler and nothing else is reachable by mouse and by
+// nothing else: a screen reader announces no role, Tab skips it, and Enter
+// and Space do nothing. The affordance audit calls that category C, and it
+// found eight of them — the staircase expand row, the strategy card, the
+// dashboard tile, the conversation item, the wizard dropzone.
+//
+// Spread it: <div {...clickable(open, { label: "Open the room" })}>. The
+// cursor comes free, because index.css gives [role="button"] a pointer.
+export const clickable = (onClick, { label, disabled = false } = {}) => ({
+  role: "button",
+  tabIndex: disabled ? -1 : 0,
+  "aria-label": label,
+  "aria-disabled": disabled || undefined,
+  onClick: disabled ? undefined : onClick,
+  onKeyDown: disabled ? undefined : (e) => {
+    // Space scrolls the page unless you stop it, which is why a real button
+    // is always the better answer where the markup allows one.
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(e); }
+  },
+});
+
 export const inputCls = "w-full px-4 py-3.5 rounded-xl bg-input border border-hairline-strong text-ink text-[15px] placeholder-ink-faint focus:border-accent/45 focus:ring-2 focus:ring-accent/10 focus:outline-none transition";
 export const labelCls = "text-ink-3 text-[11px] uppercase tracking-[0.12em] mb-2 block font-medium";

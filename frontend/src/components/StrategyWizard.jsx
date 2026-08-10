@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { api, SourcesAPI, extractDocumentText } from "../api";
-import { BAD, BORDER, DEEP, GOLD, GOLD_INK, GRAD_ACCENT, HUE, INFO, INK_3, OK, TEAL, WARN, glass, inputCls, labelCls, tint, typeColors, typeIcons } from "../constants";
+import { BAD, BORDER, DEEP, GOLD, GOLD_INK, GRAD_ACCENT, HUE, INFO, INK_3, OK, TEAL, WARN, clickable, glass, inputCls, labelCls, tint, typeColors, typeIcons } from "../constants";
 import { Markdown } from "./Markdown";
 import { Modal } from "./SharedUI";
 import { StrategyQuestionnaire } from "./StrategyQuestionnaire";
@@ -467,8 +467,8 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
               onDrop={handleFileDrop}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
-              onClick={() => !extracting && fileInputRef.current?.click()}
-              className={`relative rounded-xl p-8 text-center cursor-pointer transition-all border-2 border-dashed ${dragOver ? "scale-[1.01]" : "hover:scale-[1.005]"}`}
+              {...clickable(() => fileInputRef.current?.click(), { label: "Upload a document", disabled: extracting })}
+              className={`relative rounded-xl p-8 text-center cursor-pointer transition-all border-2 border-dashed focus:outline-none focus:ring-2 focus:ring-accent/40 ${dragOver ? "scale-[1.01]" : "hover:scale-[1.005]"}`}
               style={{
                 borderColor: dragOver ? HUE.pink : BORDER,
                 background: dragOver ? tint(HUE.pink, 5) : "rgb(var(--surface-raised-rgb) / 0.3)",

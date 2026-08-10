@@ -33,6 +33,7 @@ import AiStatusChip from "./components/AiStatusChip";
 import { fireGuidance } from "./guidanceConfig";
 import { MATRIX_FRAMEWORKS } from "./components/StrategyMatrixToolkit";
 import { shouldShowTutorial, hasNewTutorialSteps, getNewSteps, markFeatureUsed, getTutorialState, saveTutorialState, getDefaultTutorialState } from "./tutorialConfig";
+import { useEscape } from "./components/SharedUI";
 
 const MATRIX_ORDER = ["ife", "efe", "space", "bcg", "porter"];
 
@@ -65,6 +66,9 @@ export default function App() {
   const [aiProvider, setAiProvider] = useState(null);
   const [showWelcomeSlideshow, setShowWelcomeSlideshow] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  // The scrim behind the menu closes it on a click. Escape is how a keyboard
+  // does the same thing; without it the menu is a mouse-only trap.
+  useEscape(showProfileDropdown, () => setShowProfileDropdown(false));
   const [showInvites, setShowInvites] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [noteSync, setNoteSync] = useState(null);

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { api, InvitesAPI, PasswordAPI } from "../api";
 import { BAD, BAD_INK, CHAMPAGNE, DEEP, DEEP_MID, FONT_DISPLAY, GOLD, GOLD_L, GRAD_ACCENT, INK, INK_3, INK_MUTED, OK, OK_INK, RAISED, cast, inputCls, tint } from "../constants";
+import { useEscape } from "./SharedUI";
 export const LoginScreen = ({ onLogin }) => {
   const [mode, setMode] = useState("login"); // "login" or "signup"
   const [email, setEmail] = useState("");
@@ -11,6 +12,7 @@ export const LoginScreen = ({ onLogin }) => {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
+  useEscape(showForgot, () => setShowForgot(false));
   // ── Password reset redemption (?reset=<token>) ──
   const [resetToken, setResetToken] = useState("");
   const [reset, setReset] = useState(null);        // { valid, reason, email }

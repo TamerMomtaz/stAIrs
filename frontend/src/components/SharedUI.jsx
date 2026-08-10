@@ -1,6 +1,21 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BAD, GOLD, MODAL_SURFACE, OK, SHADOW_LG, SUNKEN, WARN, tint } from "../constants";
 import { canSeeAgentTelemetry } from "../api";
+
+// A dismiss-backdrop is a click target the size of the screen, and it is the
+// only way out of most of these overlays. That makes closing them a thing
+// only a mouse can do. Escape is the keyboard's half of the same control.
+//
+// Exported because the overlays that build their own scrim — the profile
+// menu, the mobile nav, the impact panel — each need it too.
+export const useEscape = (active, onEscape) => {
+  useEffect(() => {
+    if (!active) return;
+    const onKey = (e) => { if (e.key === "Escape") onEscape(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [active, onEscape]);
+};
 
 // ═══ HEALTH BADGE ═══
 // Four things at once: a pale tint, a darker ink, an ICON and a WORD.
@@ -83,13 +98,15 @@ const MODAL_SIZES = {
 };
 
 export const Modal = ({ open, onClose, title, children, wide, size, footer }) => {
+  useEscape(open, onClose);
   if (!open) return null;
   const key = MODAL_SIZES[size] ? size : wide ? "lg" : "sm";
   const s = MODAL_SIZES[key];
   return (
-    <div className={`fixed inset-0 z-[100] flex items-center justify-center ${s.shell}`} onClick={onClose}>
+    <div className={`fixed inset-0 z-[100] flex items-center justify-center ${s.shell}`} onClick={onClose} aria-hidden="true">
       <div className="absolute inset-0 bg-scrim backdrop-blur-sm" />
       <div className={`${s.panel} flex flex-col overflow-hidden`} data-modal-size={key}
+        role="dialog" aria-modal="true" aria-label={typeof title === "string" ? title : undefined}
         style={{ background: MODAL_SURFACE, border: `1px solid ${tint(GOLD, 20)}`, boxShadow: SHADOW_LG }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" style={{ borderBottom: `1px solid ${tint(GOLD, 13)}` }}>
           <h2 className="text-ink font-semibold text-lg">{title}</h2>
