@@ -96,7 +96,7 @@ export default function AiStatusChip({ provider, isAr = false }) {
         data-testid="ai-status-chip"
         title={t.title}
         className="text-[10px] text-ink-muted flex items-center gap-1 px-2 py-1 rounded-md border border-hairline bg-sunken
-                   hover:text-accent-ink hover:border-accent/40 focus:outline-none focus:ring-2 focus:ring-accent/30 transition"
+                   hover:text-accent-ink hover:border-accent/40 transition"
       >
         ⚡ {provider.provider_display}
       </button>
