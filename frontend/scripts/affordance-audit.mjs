@@ -469,10 +469,18 @@ for (const file of jsxFiles(SRC).sort()) {
 
       /* B3 — the one thing the base :focus-visible rule cannot fix, because
          this IS the thing overriding it. Not limited to click handlers: a
-         text input is a control, it is where focus:outline-none mostly
-         lives, and a keyboard user needs to see it just as much. */
-      if (classes.has("focus:outline-none") && !has(/^focus:ring-\d/) && !has(/^focus-visible:/)) {
-        findings.push({ ...at, cat: "B3", why: "focus:outline-none with no replacement ring" });
+         text input is a control, and a keyboard user needs to see it just as
+         much.
+
+         ANY focus:outline-none counts, even with a replacement ring. That is
+         stricter than it started, and the reason is measured: inputCls
+         carried focus:ring-accent/10 as its replacement, which satisfied the
+         old check while moving the focused border 1.01:1 from the unfocused
+         one on paper — an indicator you cannot see. A ring that exists is not
+         the same as a ring that reads, and only the base rule has been
+         measured on both grounds. */
+      if (classes.has("focus:outline-none")) {
+        findings.push({ ...at, cat: "B3", why: "focus:outline-none overrides the measured base ring" });
         bucket.B3++;
       }
 
@@ -542,7 +550,7 @@ console.log(`
   A3   box on a container — a card, not a lie    ${sum("A3")}  (not counted)
   B1   handler, no pointer cursor                ${sum("B1")}
   B2   handler, no hover/focus/active style      ${sum("B2")}
-  B3   focus outline removed, nothing put back    ${sum("B3")}
+  B3   focus outline overridden                   ${sum("B3")}
   C    click handler no keyboard can reach       ${sum("C")}   (${findings.filter((f) => f.cat === "C" && f.backdrop).length} of them dismiss-backdrops)
 
   For scale: ${pointered} of ${clickable} click handlers change the pointer${CURSOR_BASE_RULE ? " (base rule active)" : " — NO BASE RULE, every button draws an arrow"}.

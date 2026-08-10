@@ -164,7 +164,7 @@ export const AIChatView = ({ lang, userId, strategyContext, onSaveNote, onMatrix
             </div>
           )}
           <div className="flex gap-2">
-            <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key==="Enter"&&!e.shiftKey) { e.preventDefault(); send(); } }} placeholder={isAr?"اسأل المستشار... (Shift+Enter لسطر جديد)":"Ask the strategy AI... (Shift+Enter for new line)"} disabled={loading} rows={3} className="flex-1 px-4 py-3 rounded-xl bg-input border border-hairline-strong text-ink placeholder-ink-faint focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-accent/30 transition text-sm resize-none" />
+            <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key==="Enter"&&!e.shiftKey) { e.preventDefault(); send(); } }} placeholder={isAr?"اسأل المستشار... (Shift+Enter لسطر جديد)":"Ask the strategy AI... (Shift+Enter for new line)"} disabled={loading} rows={3} className="flex-1 px-4 py-3 rounded-xl bg-input border border-hairline-strong text-ink placeholder-ink-faint focus:border-amber-500/40 focus:ring-2 focus:ring-accent/30 transition text-sm resize-none" />
             <button onClick={send} disabled={loading||!input.trim()} className="px-5 py-3 rounded-xl font-medium text-sm disabled:opacity-30 transition-all hover:scale-105 self-end" style={{ background:GRAD_ACCENT, color:DEEP }}>{isAr?"إرسال":"Send"}</button>
           </div>
         </div>

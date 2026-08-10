@@ -167,5 +167,5 @@ export const clickable = (onClick, { label, disabled = false } = {}) => ({
   },
 });
 
-export const inputCls = "w-full px-4 py-3.5 rounded-xl bg-input border border-hairline-strong text-ink text-[15px] placeholder-ink-faint focus:border-accent/45 focus:ring-2 focus:ring-accent/10 focus:outline-none transition";
+export const inputCls = "w-full px-4 py-3.5 rounded-xl bg-input border border-hairline-strong text-ink text-[15px] placeholder-ink-faint focus:border-accent/45 focus:ring-2 focus:ring-accent/10 transition";
 export const labelCls = "text-ink-3 text-[11px] uppercase tracking-[0.12em] mb-2 block font-medium";

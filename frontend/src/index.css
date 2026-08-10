@@ -28,6 +28,15 @@
 
      :focus-visible, not :focus, so a mouse click doesn't leave a ring behind.
 
+     THE COLOUR IS --accent-ink, NOT THE ACCENT. An earlier version of this
+     rule used the accent at 55% and this comment claimed it cleared 3:1 on
+     both grounds. Measured in Chromium it does not: 1.73:1 on a white field,
+     2.68:1 on navy. --accent-ink is the role for gold that has to be legible
+     rather than decorative — it is what a gold label already uses, and it
+     diverges in light for exactly this reason. As a ring it measures 5.02:1
+     on the white field, 4.73:1 on the page, 4.34:1 in a sunken well, and
+     6.15:1 / 5.16:1 on navy.
+
      THE OFFSET IS NEGATIVE, and that is the whole trick. A positive offset
      draws the ring outside the control's own box, where any ancestor with
      `overflow: hidden` erases it — and 13 of this application's 49 focusable
@@ -39,7 +48,7 @@
 
      Drawn inside, it cannot be clipped by anything. */
   :focus-visible {
-    outline: 2px solid rgb(var(--accent-rgb) / 0.55);
+    outline: 2px solid var(--accent-ink);
     outline-offset: -2px;
   }
 }

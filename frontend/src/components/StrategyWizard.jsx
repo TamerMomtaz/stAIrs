@@ -658,7 +658,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
                 placeholder={isAr ? "صف أهدافك..." : "Describe your goals..."}
                 disabled={aiLoading}
                 rows={3}
-                className="flex-1 px-4 py-3.5 rounded-xl bg-input border border-hairline-strong text-ink text-[15px] placeholder-ink-faint focus:border-amber-500/45 focus:ring-2 focus:ring-amber-500/10 focus:outline-none transition resize-none"
+                className="flex-1 px-4 py-3.5 rounded-xl bg-input border border-hairline-strong text-ink text-[15px] placeholder-ink-faint focus:border-amber-500/45 focus:ring-2 focus:ring-amber-500/10 transition resize-none"
               />
               <button onClick={() => sendToAI()} disabled={aiLoading || !aiInput.trim()} className="px-6 py-3.5 rounded-xl font-medium text-[15px] self-stretch disabled:opacity-30 transition-all hover:scale-[1.02]" style={{ background: GRAD_ACCENT, color: DEEP }}>{isAr ? "إرسال" : "Send"}</button>
             </div>

@@ -108,7 +108,9 @@ const newPage = async (browser, { theme, signedIn = true }) => {
     }
     // Silence the first-run tutorial and the slideshow; both cover the header.
     localStorage.setItem("stairs_tutorial", JSON.stringify({ completedVersion: 99, completedStepIds: [], featuresUsed: [], dismissed: true }));
-    localStorage.setItem("stairs_welcome_seen", "1");
+    // Keyed per user — stairs_welcome_seen_<id> — and the flat key silently
+    // does nothing, leaving the slideshow over everything the shots want.
+    localStorage.setItem(`stairs_welcome_seen_${user.id}`, "true");
   }, [theme, USER, signedIn]);
   return { ctx, page };
 };

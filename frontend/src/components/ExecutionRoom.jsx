@@ -1509,7 +1509,7 @@ User question: ${msg}`;
                                   onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendExplainChat(selectedTaskId); } }}
                                   placeholder={isAr ? "اسأل لفهم أعمق..." : "Ask to understand more..."}
                                   disabled={explainChatLoading}
-                                  className="flex-1 px-3 py-2 rounded-lg bg-input border border-blue-500/20 text-ink placeholder-ink-faint focus:border-blue-500/40 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition text-xs"
+                                  className="flex-1 px-3 py-2 rounded-lg bg-input border border-blue-500/20 text-ink placeholder-ink-faint focus:border-blue-500/40 focus:ring-2 focus:ring-blue-500/30 transition text-xs"
                                 />
                                 <button
                                   onClick={() => sendExplainChat(selectedTaskId)}
@@ -1568,7 +1568,7 @@ User question: ${msg}`;
                                   onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendActionChat(selectedTaskId); } }}
                                   placeholder={isAr ? "أخبرني عن قدرتك وقيودك..." : "Tell me about your ability and constraints..."}
                                   disabled={actionChatLoading}
-                                  className="flex-1 px-3 py-2 rounded-lg bg-input border border-hairline-strong text-ink placeholder-ink-faint focus:border-teal-500/40 focus:outline-none focus:ring-2 focus:ring-teal-500/30 transition text-xs"
+                                  className="flex-1 px-3 py-2 rounded-lg bg-input border border-hairline-strong text-ink placeholder-ink-faint focus:border-teal-500/40 focus:ring-2 focus:ring-teal-500/30 transition text-xs"
                                 />
                                 <button
                                   onClick={() => sendActionChat(selectedTaskId)}
@@ -1740,7 +1740,7 @@ User question: ${msg}`;
                                       onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendImplRoomChat(selectedTaskId); } }}
                                       placeholder={isAr ? "اسأل مرشدك عن أي خطوة..." : "Ask your coach about any step..."}
                                       disabled={implRoomChatLoading}
-                                      className="flex-1 px-3 py-2 rounded-lg bg-input border border-purple-500/20 text-ink placeholder-ink-faint focus:border-purple-500/40 focus:outline-none focus:ring-2 focus:ring-purple-500/30 transition text-xs"
+                                      className="flex-1 px-3 py-2 rounded-lg bg-input border border-purple-500/20 text-ink placeholder-ink-faint focus:border-purple-500/40 focus:ring-2 focus:ring-purple-500/30 transition text-xs"
                                     />
                                     <button
                                       onClick={() => sendImplRoomChat(selectedTaskId)}
@@ -1885,7 +1885,7 @@ User question: ${msg}`;
                 placeholder={isAr ? "اسأل عن تنفيذ هذه الخطوة..." : "Ask about executing this step... (Shift+Enter for new line)"}
                 disabled={chatLoading}
                 rows={3}
-                className="flex-1 px-4 py-3 rounded-xl bg-input border border-hairline-strong text-ink placeholder-ink-faint focus:border-amber-500/40 focus:outline-none focus:ring-2 focus:ring-accent/30 transition text-sm resize-none"
+                className="flex-1 px-4 py-3 rounded-xl bg-input border border-hairline-strong text-ink placeholder-ink-faint focus:border-amber-500/40 focus:ring-2 focus:ring-accent/30 transition text-sm resize-none"
               />
               <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()} className="px-5 py-3 rounded-xl font-medium text-sm disabled:opacity-30 transition-all hover:scale-105 self-end" style={{ background: GRAD_ACCENT, color: DEEP }}>
                 {isAr ? "إرسال" : "Send"}
