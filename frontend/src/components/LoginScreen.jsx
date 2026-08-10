@@ -123,7 +123,7 @@ export const LoginScreen = ({ onLogin }) => {
               <div style={{ textAlign: "center" }}>
                 <div style={{ color: OK_INK, fontSize: "15px", marginBottom: "8px" }}>Password updated</div>
                 <p style={{ color: INK_3, fontSize: "13px", marginBottom: "20px" }}>You can sign in with your new password now.</p>
-                <button type="button" onClick={() => { setResetToken(""); setReset(null); setResetDone(false); setMode("login"); }} style={{ width: "100%", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "15px", color: DEEP, border: "none", cursor: "pointer", background: GRAD_ACCENT }}>Go to sign in</button>
+                <button className="transition hover:brightness-110 active:brightness-95" type="button" onClick={() => { setResetToken(""); setReset(null); setResetDone(false); setMode("login"); }} style={{ width: "100%", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "15px", color: DEEP, border: "none", cursor: "pointer", background: GRAD_ACCENT }}>Go to sign in</button>
               </div>
             ) : reset === null ? (
               <div style={{ textAlign: "center", color: INK_3, fontSize: "13px", padding: "24px 0" }}>Checking your reset link…</div>
@@ -133,7 +133,7 @@ export const LoginScreen = ({ onLogin }) => {
                   <strong>This reset link can't be used</strong>
                   <div style={{ marginTop: "4px" }}>{reset.reason}</div>
                 </div>
-                <button type="button" onClick={() => { setResetToken(""); setReset(null); setMode("login"); }} style={{ width: "100%", padding: "12px", borderRadius: "10px", fontSize: "14px", color: INK_3, background: "transparent", border: `1px solid ${tint(GOLD, 15)}`, cursor: "pointer" }}>Back to sign in</button>
+                <button className="transition hover:brightness-110 active:brightness-95" type="button" onClick={() => { setResetToken(""); setReset(null); setMode("login"); }} style={{ width: "100%", padding: "12px", borderRadius: "10px", fontSize: "14px", color: INK_3, background: "transparent", border: `1px solid ${tint(GOLD, 15)}`, cursor: "pointer" }}>Back to sign in</button>
               </div>
             ) : (
               <form onSubmit={submitReset} noValidate>
@@ -155,8 +155,8 @@ export const LoginScreen = ({ onLogin }) => {
         <>
         {/* Tab switcher */}
         <div style={{ display: "flex", marginBottom: "24px", borderRadius: "10px", overflow: "hidden", border: `1px solid ${tint(GOLD, 15)}` }}>
-          <button type="button" onClick={() => switchMode("login")} style={{ flex: 1, padding: "10px", fontSize: "14px", fontWeight: 600, border: "none", cursor: "pointer", background: mode === "login" ? GRAD_ACCENT : "transparent", color: mode === "login" ? DEEP : INK_3, transition: "all 0.2s" }}>Sign In</button>
-          <button type="button" onClick={() => switchMode("signup")} style={{ flex: 1, padding: "10px", fontSize: "14px", fontWeight: 600, border: "none", cursor: "pointer", background: mode === "signup" ? GRAD_ACCENT : "transparent", color: mode === "signup" ? DEEP : INK_3, transition: "all 0.2s" }}>Create Account</button>
+          <button className="transition hover:brightness-110 active:brightness-95" type="button" onClick={() => switchMode("login")} style={{ flex: 1, padding: "10px", fontSize: "14px", fontWeight: 600, border: "none", cursor: "pointer", background: mode === "login" ? GRAD_ACCENT : "transparent", color: mode === "login" ? DEEP : INK_3, transition: "all 0.2s" }}>Sign In</button>
+          <button className="transition hover:brightness-110 active:brightness-95" type="button" onClick={() => switchMode("signup")} style={{ flex: 1, padding: "10px", fontSize: "14px", fontWeight: 600, border: "none", cursor: "pointer", background: mode === "signup" ? GRAD_ACCENT : "transparent", color: mode === "signup" ? DEEP : INK_3, transition: "all 0.2s" }}>Create Account</button>
         </div>
 
         {mode === "login" ? (
@@ -168,7 +168,7 @@ export const LoginScreen = ({ onLogin }) => {
             {err && <div style={{ marginTop: "12px", color: BAD, fontSize: "14px", textAlign: "center" }}>{err}</div>}
             <button type="submit" disabled={busy} style={{ width: "100%", marginTop: "24px", padding: "14px", borderRadius: "10px", fontWeight: 600, fontSize: "16px", color: DEEP, border: "none", cursor: "pointer", background: GRAD_ACCENT, opacity: busy ? 0.5 : 1, transition: "transform 0.2s" }}>{busy ? "..." : "Sign In"}</button>
             <div style={{ textAlign: "center", marginTop: "16px" }}>
-              <button type="button" onClick={() => setShowForgot(true)} style={{ background: "none", border: "none", color: INK_MUTED, fontSize: "13px", cursor: "pointer", textDecoration: "underline", padding: 0 }}>Forgot Password?</button>
+              <button className="transition text-ink-muted hover:text-accent-ink" type="button" onClick={() => setShowForgot(true)} style={{ background: "none", border: "none", fontSize: "13px", cursor: "pointer", textDecoration: "underline", padding: 0 }}>Forgot Password?</button>
             </div>
           </form>
         ) : (
@@ -218,7 +218,7 @@ export const LoginScreen = ({ onLogin }) => {
                   data-testid="invite-input"
                 />
               ) : (
-                <button type="button" onClick={() => setShowInviteField(true)} style={{ background: "none", border: "none", color: INK_MUTED, fontSize: "13px", cursor: "pointer", textDecoration: "underline", padding: 0, textAlign: "left" }} data-testid="have-invite-btn">
+                <button className="transition hover:brightness-110 active:brightness-95" type="button" onClick={() => setShowInviteField(true)} style={{ background: "none", border: "none", color: INK_MUTED, fontSize: "13px", cursor: "pointer", textDecoration: "underline", padding: 0, textAlign: "left" }} data-testid="have-invite-btn">
                   Have an invitation code?
                 </button>
               )}
@@ -239,7 +239,7 @@ export const LoginScreen = ({ onLogin }) => {
             <div onClick={e => e.stopPropagation()} style={{ background: RAISED, border: `1px solid ${tint(GOLD, 20)}`, borderRadius: "12px", padding: "32px", maxWidth: "400px", width: "90%", textAlign: "center" }}>
               <div style={{ fontSize: "20px", marginBottom: "12px" }}>Reset your password</div>
               <p style={{ color: INK_3, fontSize: "14px", marginBottom: "20px" }}>Ask an administrator in your organisation to send you a reset link. They can create one from their profile menu, under Change password. Opening that link lets you choose a new password yourself — nobody else sees it.</p>
-              <button onClick={() => setShowForgot(false)} style={{ padding: "10px 24px", borderRadius: "8px", fontWeight: 600, fontSize: "14px", color: DEEP, border: "none", cursor: "pointer", background: GRAD_ACCENT }}>OK</button>
+              <button className="transition hover:brightness-110 active:brightness-95" onClick={() => setShowForgot(false)} style={{ padding: "10px 24px", borderRadius: "8px", fontWeight: 600, fontSize: "14px", color: DEEP, border: "none", cursor: "pointer", background: GRAD_ACCENT }}>OK</button>
             </div>
           </div>
         )}

@@ -16,6 +16,7 @@
 #   frontend   vitest, then the build
 #   backend    pytest
 #   contrast   the token audit, both themes
+#   affordance elements whose look and behaviour disagree
 #
 # THE CONTRAST GATE COVERS BOTH THEMES. It did not always. Dark shipped at
 # 22/29 while light passed, so the dark job was held back rather than opening
@@ -131,3 +132,27 @@ jobs:
       # Dependency-free by design, so it needs no install step: the audit
       # reads the token values it asserts on and composites them itself.
       - run: node scripts/contrast-audit.mjs ${{ matrix.theme }}
+
+  # Elements that look like controls and aren't, controls that don't look like
+  # controls, and clicks no keyboard can reach. It gates six of its eight
+  # categories: status badges are pills by design and cards are allowed a box,
+  # so gating those would make this the job nobody reads — the same trust
+  # argument the contrast gate is built on.
+  #
+  # Unlike the contrast audit this one needs an install: it parses every view's
+  # JSX with @babel/parser rather than reading a table of values.
+  affordance:
+    name: affordance
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: node scripts/affordance-audit.mjs --gate

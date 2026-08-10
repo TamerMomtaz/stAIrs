@@ -22,7 +22,7 @@ const FreshReset = ({ reset, onDone, isAr }) => {
         <input readOnly value={link} className={inputCls} style={{ padding: "10px 12px", fontSize: "12px" }} data-testid="reset-link" />
         <button
           onClick={() => navigator.clipboard?.writeText(link).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); })}
-          className="px-3 py-2 rounded-lg text-xs font-semibold shrink-0"
+          className="transition hover:brightness-110 active:brightness-95 px-3 py-2 rounded-lg text-xs font-semibold shrink-0"
           style={{ background: GRAD_ACCENT, color: DEEP }}>
           {copied ? (isAr ? "تم النسخ" : "Copied") : (isAr ? "نسخ" : "Copy")}
         </button>

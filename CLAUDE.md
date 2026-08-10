@@ -70,6 +70,7 @@ npm test                               # Run tests (376 tests, vitest)
 npm run test:watch                     # Tests in watch mode
 npm run build                          # Production build to dist/
 node scripts/contrast-audit.mjs        # Contrast gate; `dark` for the other theme
+node scripts/affordance-audit.mjs      # Look-vs-behaviour gate; --gate, --list A2a, --json
 ```
 
 ### Docker
@@ -159,6 +160,40 @@ So anything whose failure mode is visual — a header that wraps at 390, a
 palette that dips under contrast, a control that mirrors the wrong way — needs
 eyes or pixels, not a green tick. Render it at the widths and directions you
 claim to support and look.
+
+### Affordance: what an element looks like vs. what it does
+
+`scripts/affordance-audit.mjs` parses every view's JSX and reports elements
+whose appearance and behaviour disagree. `--gate` is what CI runs.
+
+| | |
+|---|---|
+| **A1** | a `hover:` style with no handler — nothing in a UI moves under the pointer unless it does something |
+| **A2a** | a dead pill in the *button vocabulary*: neutral surface (`bg-sunken`, `border-hairline`) + padding + a button radius |
+| **A2b** | a dead pill in a *status colour* — a badge. Not gated: the colour is the information, and `rounded-full` is a real non-interactive convention |
+| **B1** | a handler with no pointer cursor |
+| **B2** | a handler with no hover/focus/active style |
+| **B3** | `focus:outline-none` with no replacement ring — the one thing the base `:focus-visible` rule can't fix, because this is what overrides it |
+| **C** | a `div`/`span` with `onClick` and no role, tabIndex or key handler |
+
+Two house helpers exist so these get fixed once rather than per site.
+`clickable(fn, { label })` in `constants.js` spreads role, tabIndex, onClick
+and an Enter/Space handler; `useEscape(active, fn)` in `SharedUI.jsx` gives an
+overlay a keyboard exit. The audit recognises both by name.
+
+**Two base rules in `index.css` do most of the work, and the audit reads
+them rather than assuming them.** Tailwind v4's preflight dropped v3's
+`button { cursor: pointer }`, which left 181 of 235 click handlers drawing an
+arrow; and there was no `:focus-visible` rule at all, against 18
+`focus:outline-none`. Delete either rule and the audit's count climbs back
+with a warning instead of passing quietly.
+
+**What it cannot see is the same blind spot as every other static check**: a
+handler that exists and throws is wired as far as a parser is concerned. The
+audit tells you a control has the *shape* of one. Whether pressing it does
+anything is a question for the real-handler tests above — and for keyboard
+work specifically, `role` and `tabIndex` with no key handler is exactly what a
+static sweep calls fixed. `src/test/keyboardReach.test.jsx` presses the keys.
 
 ## Code Style
 

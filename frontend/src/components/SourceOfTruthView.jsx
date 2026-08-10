@@ -454,9 +454,10 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
     const hasPages = meta.pages_text && Array.isArray(meta.pages_text) && meta.pages_text.length > 1;
 
     return (
+      // Lift removed: the row is not pressable, its buttons are.
       <div
         key={source.id}
-        className="group rounded-xl transition-all hover:scale-[1.005]"
+        className="group rounded-xl transition-all"
         style={glass(isExpanded ? 0.7 : 0.4)}
       >
         <div className="flex items-start gap-3 p-3.5">
@@ -669,7 +670,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                                 </div>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); toggleItemRejected(category, idx); }}
-                                  className={`shrink-0 text-[10px] px-2 py-1 rounded-md border transition ${
+                                  className={`transition hover:brightness-110 active:brightness-95 shrink-0 text-[10px] px-2 py-1 rounded-md border  ${
                                     isRejected
                                       ? "border-red-700/50 text-red-400 bg-red-900/20"
                                       : "border-emerald-700/50 text-emerald-400 bg-emerald-900/20"

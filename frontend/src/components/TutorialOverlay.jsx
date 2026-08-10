@@ -332,7 +332,7 @@ export const TutorialOverlay = ({ active, onClose, steps: customSteps }) => {
               </div>
               <button
                 onClick={handleNext}
-                className="px-4 py-1.5 text-xs font-semibold rounded-lg transition"
+                className="transition hover:brightness-110 active:brightness-95 px-4 py-1.5 text-xs font-semibold rounded-lg"
                 style={{
                   background: GRAD_ACCENT,
                   color: DEEP,
@@ -425,7 +425,7 @@ export const TutorialUpdatePrompt = ({ onStart, onDismiss }) => (
           <div className="flex gap-2">
             <button
               onClick={onStart}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg transition"
+              className="transition hover:brightness-110 active:brightness-95 px-3 py-1.5 text-xs font-semibold rounded-lg"
               style={{
                 background: GRAD_ACCENT,
                 color: DEEP,

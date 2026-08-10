@@ -71,6 +71,9 @@ const tokensCss = readFileSync(join(SRC, "tokens.css"), "utf8");
    and this reads it rather than assuming it, so deleting that rule makes
    B1 climb back to the number that found the bug instead of staying quiet. */
 const baseCss = readFileSync(join(SRC, "index.css"), "utf8");
+// The same question for the keyboard: does arriving at a control show you
+// that you have? There was no :focus-visible rule in this application at all.
+const FOCUS_BASE_RULE = /:focus-visible\s*\{[^}]*outline:/s.test(baseCss);
 const CURSOR_BASE_RULE = /button:not\(:disabled\)[^{]*\{[^}]*cursor:\s*pointer/s.test(baseCss);
 const ROLE_BUTTON_BASE_RULE = /\[role="button"\]:not\(:disabled\)[^{]*\{[^}]*cursor:\s*pointer/s.test(baseCss);
 
@@ -197,21 +200,26 @@ const isStopPropagation = (value) => {
 
 // The union of every class the element can carry. A hover style behind a
 // ternary is still a hover style — the branch it hides in doesn't matter.
-const classesOf = (node, acc = []) => {
+const classesOf = (node, acc = [], vars = {}) => {
   if (!node) return acc;
   switch (node.type) {
     case "StringLiteral": acc.push(...node.value.split(/\s+/).filter(Boolean)); break;
     case "TemplateLiteral":
       node.quasis.forEach((q) => acc.push(...q.value.cooked.split(/\s+/).filter(Boolean)));
-      node.expressions.forEach((e) => classesOf(e, acc));
+      node.expressions.forEach((e) => classesOf(e, acc, vars));
       break;
-    case "ConditionalExpression": classesOf(node.consequent, acc); classesOf(node.alternate, acc); break;
-    case "LogicalExpression": classesOf(node.left, acc); classesOf(node.right, acc); break;
-    case "BinaryExpression": classesOf(node.left, acc); classesOf(node.right, acc); break;
-    case "JSXExpressionContainer": classesOf(node.expression, acc); break;
-    // A helper call — inputCls and friends. Named so the report can say so
-    // rather than pretending the element has no classes at all.
-    case "Identifier": acc.push(`@${node.name}`); break;
+    case "ConditionalExpression": classesOf(node.consequent, acc, vars); classesOf(node.alternate, acc, vars); break;
+    case "LogicalExpression": classesOf(node.left, acc, vars); classesOf(node.right, acc, vars); break;
+    case "BinaryExpression": classesOf(node.left, acc, vars); classesOf(node.right, acc, vars); break;
+    case "JSXExpressionContainer": classesOf(node.expression, acc, vars); break;
+    // A class string held in a local const — `const link = "… hover:…"`.
+    // Resolved from the same file, because an unresolved name reads as "no
+    // hover style" and invents a finding: the Execution Room breadcrumb was
+    // flagged for having none while `link` supplied two.
+    case "Identifier":
+      if (vars[node.name]) acc.push(...vars[node.name]);
+      else acc.push(`@${node.name}`);
+      break;
     case "CallExpression":
       if (node.callee.type === "Identifier") acc.push(`@${node.callee.name}()`);
       break;
@@ -268,7 +276,20 @@ for (const file of jsxFiles(SRC).sort()) {
   // and one Escape route reads as covered here.
   const hasEscapeRoute = /useEscape\(|["']Escape["']/.test(code);
   const ast = parse(code, { sourceType: "module", plugins: ["jsx"] });
-  perFile.set(view, { rel, elements: 0, A1: 0, A2a: 0, A2b: 0, A3: 0, B1: 0, B2: 0, C: 0 });
+
+  // Pass one: every `const x = "…"` in the file that could hold a className.
+  const classVars = {};
+  traverse(ast, {
+    VariableDeclarator(path) {
+      const { id, init } = path.node;
+      if (id.type !== "Identifier" || !init) return;
+      if (init.type === "StringLiteral") classVars[id.name] = init.value.split(/\s+/).filter(Boolean);
+      else if (init.type === "TemplateLiteral" && !init.expressions.length) {
+        classVars[id.name] = init.quasis.map((q) => q.value.cooked).join(" ").split(/\s+/).filter(Boolean);
+      }
+    },
+  });
+  perFile.set(view, { rel, elements: 0, A1: 0, A2a: 0, A2b: 0, A3: 0, B1: 0, B2: 0, B3: 0, C: 0 });
   const bucket = perFile.get(view);
 
   traverse(ast, {
@@ -296,7 +317,7 @@ for (const file of jsxFiles(SRC).sort()) {
         attrs.set(a.name.name, a.value);
       }
 
-      const classes = new Set(classesOf(attrs.get("className")));
+      const classes = new Set(classesOf(attrs.get("className"), [], classVars));
       const styles = styleOf(attrs.get("style"));
       const has = (re) => [...classes].some((c) => re.test(c));
 
@@ -345,7 +366,13 @@ for (const file of jsxFiles(SRC).sort()) {
       if (!interactive && !inControl && !isComponent && !hasSpreadAttr) {
         // A1 — a hover style is a promise. Nothing else in a UI moves
         // under the pointer unless it does something.
-        if (hasHover) {
+        // A row highlight in a dense table is a reading aid, not a promise:
+        // it helps you track one record across columns, and no one has ever
+        // clicked a table row because it lightened. Same reasoning as the
+        // status badges in A2b — a convention the audit should know, not
+        // relearn as a finding every run.
+        const rowHighlight = tag === "tr" && [...classes].every((c) => !HOVER.test(c) || /^hover:bg-/.test(c));
+        if (hasHover && !rowHighlight) {
           findings.push({ ...at, cat: "A1", why: `hover style, no handler: ${[...classes].filter((c) => HOVER.test(c)).join(" ")}` });
           bucket.A1++;
         } else if (leaf && (hasBg || hasBorder) && hasPad && hasRound) {
@@ -408,10 +435,22 @@ for (const file of jsxFiles(SRC).sort()) {
         // they do it with onMouseEnter and React state. That is still a hover
         // affordance, and counting it as missing would be wrong.
         const jsHover = attrs.has("onMouseEnter") || attrs.has("onMouseLeave") || attrs.has("onFocus");
-        if (!hasHover && !jsHover && !classes.has("group") && !has(/^(focus|active):/)) {
+        // `@name` marks a class string this audit could not resolve — imported
+        // from another module, or produced by a call. Silence beats a guess.
+        const unresolved = has(/^@/);
+        if (!hasHover && !jsHover && !unresolved && !classes.has("group") && !has(/^(focus|active):/)) {
           findings.push({ ...at, cat: "B2", why: `${handlers[0]}, no hover/focus/active style` });
           bucket.B2++;
         }
+      }
+
+      /* B3 — the one thing the base :focus-visible rule cannot fix, because
+         this IS the thing overriding it. Not limited to click handlers: a
+         text input is a control, it is where focus:outline-none mostly
+         lives, and a keyboard user needs to see it just as much. */
+      if (classes.has("focus:outline-none") && !has(/^focus:ring-\d/) && !has(/^focus-visible:/)) {
+        findings.push({ ...at, cat: "B3", why: "focus:outline-none with no replacement ring" });
+        bucket.B3++;
       }
 
       /* ── C. Mouse only ────────────────────────────────────────── */
@@ -454,7 +493,7 @@ if (listArg) {
 }
 
 const all = [...perFile.entries()]
-  .map(([view, b]) => ({ view, ...b, total: b.A1 + b.A2a + b.A2b + b.B1 + b.B2 + b.C }));
+  .map(([view, b]) => ({ view, ...b, total: b.A1 + b.A2a + b.A2b + b.B1 + b.B2 + b.B3 + b.C }));
 // Views with nothing left to report drop out of the table but stay in the
 // totals — otherwise fixing a view shrinks the denominator it was measured
 // against, and every count looks better than it is.
@@ -464,14 +503,14 @@ const pad = (s, n) => String(s).padEnd(n);
 const num = (s, n) => String(s).padStart(n);
 
 console.log("\n  AFFORDANCE AUDIT — every view, both themes\n");
-console.log(`  ${pad("view", 26)}${num("els", 5)}${num("A1", 5)}${num("A2a", 5)}${num("A2b", 5)}${num("B1", 5)}${num("B2", 5)}${num("C", 5)}${num("total", 7)}`);
-console.log(`  ${"─".repeat(68)}`);
+console.log(`  ${pad("view", 26)}${num("els", 5)}${num("A1", 5)}${num("A2a", 5)}${num("A2b", 5)}${num("B1", 5)}${num("B2", 5)}${num("B3", 5)}${num("C", 5)}${num("total", 7)}`);
+console.log(`  ${"─".repeat(73)}`);
 for (const r of rows) {
-  console.log(`  ${pad(r.view, 26)}${num(r.elements, 5)}${num(r.A1, 5)}${num(r.A2a, 5)}${num(r.A2b, 5)}${num(r.B1, 5)}${num(r.B2, 5)}${num(r.C, 5)}${num(r.total, 7)}`);
+  console.log(`  ${pad(r.view, 26)}${num(r.elements, 5)}${num(r.A1, 5)}${num(r.A2a, 5)}${num(r.A2b, 5)}${num(r.B1, 5)}${num(r.B2, 5)}${num(r.B3, 5)}${num(r.C, 5)}${num(r.total, 7)}`);
 }
 const sum = (k) => all.reduce((n, r) => n + r[k], 0);
-console.log(`  ${"─".repeat(68)}`);
-console.log(`  ${pad("TOTAL", 26)}${num(sum("elements"), 5)}${num(sum("A1"), 5)}${num(sum("A2a"), 5)}${num(sum("A2b"), 5)}${num(sum("B1"), 5)}${num(sum("B2"), 5)}${num(sum("C"), 5)}${num(sum("total"), 7)}`);
+console.log(`  ${"─".repeat(73)}`);
+console.log(`  ${pad("TOTAL", 26)}${num(sum("elements"), 5)}${num(sum("A1"), 5)}${num(sum("A2a"), 5)}${num(sum("A2b"), 5)}${num(sum("B1"), 5)}${num(sum("B2"), 5)}${num(sum("B3"), 5)}${num(sum("C"), 5)}${num(sum("total"), 7)}`);
 
 console.log(`
   A1   hover style, nothing behind it            ${sum("A1")}
@@ -480,8 +519,28 @@ console.log(`
   A3   box on a container — a card, not a lie    ${sum("A3")}  (not counted)
   B1   handler, no pointer cursor                ${sum("B1")}
   B2   handler, no hover/focus/active style      ${sum("B2")}
+  B3   focus outline removed, nothing put back    ${sum("B3")}
   C    click handler no keyboard can reach       ${sum("C")}   (${findings.filter((f) => f.cat === "C" && f.backdrop).length} of them dismiss-backdrops)
 
   For scale: ${pointered} of ${clickable} click handlers change the pointer${CURSOR_BASE_RULE ? " (base rule active)" : " — NO BASE RULE, every button draws an arrow"}.
+  Focus ring: ${FOCUS_BASE_RULE ? "a base :focus-visible rule covers every control" : "NO BASE RULE — arriving by keyboard shows nothing"}.
   Excluded: ${walls} stopPropagation walls, which are not controls.
 `);
+
+/* ── The gate ────────────────────────────────────────────────────
+   --gate exits non-zero on anything that is a defect rather than a
+   convention. A2b is excluded deliberately: a status badge is a pill by
+   design, the colour is the information, and gating on 33 of them would
+   make this the workflow nobody reads. A3 is excluded because a card is
+   allowed to be a card. Everything else is a control and its appearance
+   disagreeing, which is the thing worth blocking a merge for. */
+if (args.includes("--gate")) {
+  const GATED = ["A1", "A2a", "B1", "B2", "B3", "C"];
+  const failed = GATED.filter((k) => sum(k) > 0);
+  if (failed.length) {
+    console.error(`  FAIL — ${failed.map((k) => `${sum(k)} ${k}`).join(", ")}.`
+      + ` Run \`node scripts/affordance-audit.mjs --list <category>\` for the sites.\n`);
+    process.exit(1);
+  }
+  console.log("  PASS — no element and its affordance disagree.\n");
+}

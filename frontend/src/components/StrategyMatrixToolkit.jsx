@@ -544,8 +544,8 @@ const ScoreDisplay = ({ label, value, max, interpretation, color }) => (
   </div>
 );
 
-const weightInputCls = "w-20 px-2 py-1.5 rounded-lg bg-input border border-hairline-strong text-ink text-center text-xs focus:border-warn/40 focus:outline-none transition";
-const narrowInputCls = "w-16 px-2 py-1.5 rounded-lg bg-input border border-hairline-strong text-ink text-center text-xs focus:border-warn/40 focus:outline-none transition";
+const weightInputCls = "w-20 px-2 py-1.5 rounded-lg bg-input border border-hairline-strong text-ink text-center text-xs focus:border-warn/40 focus:outline-none focus:ring-2 focus:ring-warn/30 transition";
+const narrowInputCls = "w-16 px-2 py-1.5 rounded-lg bg-input border border-hairline-strong text-ink text-center text-xs focus:border-warn/40 focus:outline-none focus:ring-2 focus:ring-warn/30 transition";
 
 // ═══ IFE MATRIX ═══
 const IFEMatrix = ({ onSave, strategyContext, initialData }) => {
