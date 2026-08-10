@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { SourcesAPI, DataQaAPI } from "../api";
-import { BAD, BORDER, DEEP, GOLD, GRAD_ACCENT, GRAD_AMBER, GRAD_INDIGO, HUE, INFO, INK, INK_3, OK, WARN, glass, inputCls, tint } from "../constants";
+import { BAD, BORDER, DEEP, GOLD, GRAD_ACCENT, GRAD_AMBER, GRAD_INDIGO, HUE, INFO, INK, INK_3, INK_ON_ACCENT, OK, WARN, clickable, glass, inputCls, tint } from "../constants";
 import LoadFailed from "./LoadFailed";
 import { fireGuidance } from "../guidanceConfig";
+import { useEscape } from "./SharedUI";
 
 const sourceTypeConfig = {
   questionnaire: { icon: "📋", label: "Questionnaire", labelAr: "استبيان", color: INFO },
@@ -53,6 +54,10 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
   const [impactData, setImpactData] = useState(null);
   const [impactSourceId, setImpactSourceId] = useState(null);
   const [quarantineConfirm, setQuarantineConfirm] = useState(null);
+  // Three overlays, three ways out. Each was click-the-scrim only.
+  useEscape(!!impactData, () => { setImpactData(null); setImpactSourceId(null); });
+  useEscape(!!quarantineConfirm, () => setQuarantineConfirm(null));
+  useEscape(showAddModal, () => setShowAddModal(false));
   const [dataHealth, setDataHealth] = useState(null);
   const isAr = lang === "ar";
   const searchTimer = useRef(null);
@@ -449,9 +454,10 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
     const hasPages = meta.pages_text && Array.isArray(meta.pages_text) && meta.pages_text.length > 1;
 
     return (
+      // Lift removed: the row is not pressable, its buttons are.
       <div
         key={source.id}
-        className="group rounded-xl transition-all hover:scale-[1.005]"
+        className="group rounded-xl transition-all"
         style={glass(isExpanded ? 0.7 : 0.4)}
       >
         <div className="flex items-start gap-3 p-3.5">
@@ -664,7 +670,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                                 </div>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); toggleItemRejected(category, idx); }}
-                                  className={`shrink-0 text-[10px] px-2 py-1 rounded-md border transition ${
+                                  className={`transition hover:brightness-[var(--hover-lift)] active:brightness-[var(--press-lift)] shrink-0 text-[10px] px-2 py-1 rounded-md border  ${
                                     isRejected
                                       ? "border-red-700/50 text-red-400 bg-red-900/20"
                                       : "border-emerald-700/50 text-emerald-400 bg-emerald-900/20"
@@ -738,7 +744,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
           <button
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition hover:scale-[1.02]"
-            style={{ background: GRAD_ACCENT, color: DEEP }}
+            style={{ background: GRAD_ACCENT, color: INK_ON_ACCENT }}
           >
             + {isAr ? "إدخال يدوي" : "Manual Entry"}
           </button>
@@ -750,7 +756,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        onClick={() => !uploading && fileInputRef.current?.click()}
+        {...clickable(() => fileInputRef.current?.click(), { label: "Upload a document", disabled: uploading })}
         className={`relative rounded-xl p-4 text-center cursor-pointer transition-all border-2 border-dashed ${dragOver ? "scale-[1.01]" : "hover:scale-[1.005]"}`}
         style={{
           borderColor: dragOver ? sourceTypeConfig.document.color : `${BORDER}`,
@@ -892,7 +898,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                 key={source.id}
                 className="group rounded-xl transition-all cursor-pointer hover:scale-[1.005]"
                 style={glass(isExpanded ? 0.7 : 0.4)}
-                onClick={() => setExpandedId(isExpanded ? null : source.id)}
+                {...clickable(() => setExpandedId(isExpanded ? null : source.id), { label: source.title || source.name })}
               >
                 <div className="flex items-start gap-3 p-3.5">
                   {/* Type icon */}
@@ -1106,7 +1112,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                 onClick={addManualSource}
                 disabled={!newContent.trim()}
                 className="px-5 py-2 rounded-lg text-sm font-semibold disabled:opacity-40 transition-all hover:scale-[1.02]"
-                style={{ background: GRAD_ACCENT, color: DEEP }}
+                style={{ background: GRAD_ACCENT, color: INK_ON_ACCENT }}
               >
                 {isAr ? "إضافة" : "Add Source"}
               </button>

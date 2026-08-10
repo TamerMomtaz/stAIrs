@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { InvitesAPI } from "../api";
-import { BORDER, DEEP, GRAD_ACCENT, OK, glass, inputCls, tint } from "../constants";
+import { BORDER, DEEP, GRAD_ACCENT, INK_ON_ACCENT, OK, glass, inputCls, tint } from "../constants";
 import { Modal } from "./SharedUI";
 
 const ROLES = [
@@ -37,7 +37,7 @@ const FreshInvite = ({ invite, onDone, isAr }) => {
       </p>
       <div className="flex gap-2 mb-2">
         <input readOnly value={link} className={inputCls} style={{ padding: "10px 12px", fontSize: "12px" }} data-testid="invite-link" />
-        <button onClick={() => copy(link)} className="px-3 py-2 rounded-lg text-xs font-semibold shrink-0" style={{ background: GRAD_ACCENT, color: DEEP }}>
+        <button onClick={() => copy(link)} className="transition hover:brightness-[var(--hover-lift)] active:brightness-[var(--press-lift)] px-3 py-2 rounded-lg text-xs font-semibold shrink-0" style={{ background: GRAD_ACCENT, color: INK_ON_ACCENT }}>
           {copied ? (isAr ? "تم النسخ" : "Copied") : (isAr ? "نسخ الرابط" : "Copy link")}
         </button>
       </div>
@@ -147,7 +147,7 @@ export const InviteManager = ({ open, onClose, lang, currentUserRole }) => {
                   </select>
                 </div>
                 <div className="flex items-end">
-                  <button onClick={create} disabled={creating} className="w-full px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-40 transition hover:scale-[1.01]" style={{ background: GRAD_ACCENT, color: DEEP }} data-testid="create-invite">
+                  <button onClick={create} disabled={creating} className="w-full px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-40 transition hover:scale-[1.01]" style={{ background: GRAD_ACCENT, color: INK_ON_ACCENT }} data-testid="create-invite">
                     {creating ? (isAr ? "..." : "...") : (isAr ? "إنشاء دعوة" : "Create invitation")}
                   </button>
                 </div>

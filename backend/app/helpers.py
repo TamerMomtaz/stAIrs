@@ -10,7 +10,7 @@ from datetime import datetime, date, timedelta, timezone
 from typing import Optional
 from decimal import Decimal
 
-from fastapi import HTTPException, Header, status as http_status
+from fastapi import Depends, HTTPException, Header, status as http_status
 from jose import JWTError, jwt
 import bcrypt
 
@@ -225,3 +225,17 @@ async def require_auth(authorization: Optional[str] = Header(None)) -> AuthConte
         raise HTTPException(status_code=401, detail="Invalid token: missing user or organization",
                             headers={"WWW-Authenticate": "Bearer"})
     return AuthContext(user_id, org_id, payload.get("role", "member"))
+
+
+# The server-side half of the frontend's canSeeAgentTelemetry(). A client
+# should never learn which vendor answered them, which model, or how often
+# it fails — and gating only the component that draws it leaves the endpoint
+# feeding that component answering anyone who asks. Same two roles, so the
+# screen and the API cannot drift apart.
+AGENT_TELEMETRY_ROLES = ("admin", "owner")
+
+
+async def require_agent_telemetry(auth: AuthContext = Depends(get_auth)) -> AuthContext:
+    if auth.role not in AGENT_TELEMETRY_ROLES:
+        raise HTTPException(status_code=403, detail="Administrator access required")
+    return auth

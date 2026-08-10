@@ -29,9 +29,11 @@ import { Sidebar } from "./components/Sidebar";
 import { InviteManager } from "./components/InviteManager";
 import { PasswordManager } from "./components/PasswordManager";
 import { GuidanceManager } from "./components/GuidanceToast";
+import AiStatusChip from "./components/AiStatusChip";
 import { fireGuidance } from "./guidanceConfig";
 import { MATRIX_FRAMEWORKS } from "./components/StrategyMatrixToolkit";
 import { shouldShowTutorial, hasNewTutorialSteps, getNewSteps, markFeatureUsed, getTutorialState, saveTutorialState, getDefaultTutorialState } from "./tutorialConfig";
+import { useEscape } from "./components/SharedUI";
 
 const MATRIX_ORDER = ["ife", "efe", "space", "bcg", "porter"];
 
@@ -64,6 +66,9 @@ export default function App() {
   const [aiProvider, setAiProvider] = useState(null);
   const [showWelcomeSlideshow, setShowWelcomeSlideshow] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  // The scrim behind the menu closes it on a click. Escape is how a keyboard
+  // does the same thing; without it the menu is a mouse-only trap.
+  useEscape(showProfileDropdown, () => setShowProfileDropdown(false));
   const [showInvites, setShowInvites] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [noteSync, setNoteSync] = useState(null);
@@ -461,7 +466,7 @@ export default function App() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden text-ink" dir={isAr ? "rtl" : "ltr"} style={{ background: `linear-gradient(180deg, ${DEEP} 0%, ${DEEP_MID} 50%, ${DEEP} 100%)`, fontFamily: fontStack(isAr) }}>
-      <header className="flex items-center justify-between px-6 py-3 shrink-0"
+      <header className="flex items-center justify-between px-6 py-3 shrink-0" data-testid="app-header"
         style={{ borderBottom: `1px solid ${BORDER}` }}>
         <div className="flex items-center gap-3">
           <button onClick={() => setMobileNavOpen(v => !v)} className="md:hidden p-1.5 rounded-lg text-ink-3 hover:text-amber-400 hover:bg-amber-500/10 transition text-lg" title="Menu" aria-label="Toggle navigation">☰</button>
@@ -475,20 +480,20 @@ export default function App() {
           <span className="text-sm text-ink font-medium">{activeStrat.icon} {isAr && activeStrat.name_ar ? activeStrat.name_ar : activeStrat.name}</span>
         </div>
         <div className="flex items-center gap-3">
-          {aiProvider && canSeeAgentTelemetry() && <span className="text-[10px] text-ink-muted flex items-center gap-1 px-2 py-1 rounded-md border border-hairline bg-sunken" title={`AI powered by ${aiProvider.provider_display}`}>⚡ {aiProvider.provider_display}</span>}
+          {canSeeAgentTelemetry() && <AiStatusChip provider={aiProvider} isAr={isAr} />}
           {!isAr && <button onClick={() => setShowWelcomeSlideshow(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-ink-muted hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition uppercase tracking-wider" title="Watch the Stairs introduction" data-testid="watch-intro-btn">
             <span className="text-sm">🎬</span> <span className="hidden sm:inline">Watch Intro</span>
           </button>}
           <button onClick={startTutorial} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-ink-muted hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition uppercase tracking-wider" title="How to Climb These Stairs Guide" data-tutorial="guide-btn">
             <span className="text-sm">🪜</span> <span className="hidden sm:inline">{isAr ? "دليل الاستخدام" : "Guide"}</span>
           </button>
-          <button onClick={() => setShowFeaturesBadge(v => !v)} className="text-[10px] text-ink-faint hover:text-amber-400 transition" title="Features Explored">📊</button>
+          <button onClick={() => setShowFeaturesBadge(v => !v)} className="text-[10px] text-ink-faint hover:text-amber-400 transition px-1.5 py-1.5 rounded" title="Features Explored">📊</button>
           {/* Theme. Light is the default; this remembers the other choice. */}
           <button onClick={flipTheme} title={theme === "dark" ? "Switch to light" : "Switch to dark"}
-            className="text-xs text-ink-muted hover:text-accent-ink transition" data-testid="theme-toggle">
+            className="text-xs text-ink-muted hover:text-accent-ink transition px-1.5 py-1.5 rounded" data-testid="theme-toggle">
             {theme === "dark" ? (isAr ? "فاتح" : "Light") : (isAr ? "داكن" : "Dark")}
           </button>
-          <button onClick={toggleLang} className="text-xs text-ink-muted hover:text-amber-400 transition">{isAr ? "EN" : "عربي"}</button>
+          <button onClick={toggleLang} className="text-xs text-ink-muted hover:text-amber-400 transition px-1.5 py-1.5 rounded">{isAr ? "EN" : "عربي"}</button>
           <div className="relative">
             <button onClick={() => setShowProfileDropdown(v => !v)} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-ink-3 hover:text-amber-400 hover:bg-amber-500/10 transition">
               <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ background: "transparent", color: GOLD_INK, border: `1px solid ${tint(GOLD, 25)}` }}>{(user.full_name || user.name || user.email || "?")[0].toUpperCase()}</span>

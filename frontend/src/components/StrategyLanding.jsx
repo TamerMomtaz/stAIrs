@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
-import { BORDER, DEEP, DEEP_MID, FONT_DISPLAY, GOLD, GOLD_INK, GRAD_ACCENT, HUE, INK_3, OK, cast, fontStack, glass, tint } from "../constants";
+import { BORDER, DEEP, DEEP_MID, FONT_DISPLAY, GOLD, GOLD_INK, GRAD_ACCENT, HUE, INK_3, OK, cast, clickable, fontStack, glass, tint } from "../constants";
 import { StrategyWizard } from "./StrategyWizard";
 import { WelcomeSlideshow, hasSeenWelcome, markWelcomeSeen } from "./WelcomeSlideshow";
+import { useEscape } from "./SharedUI";
 
 export const StrategyLanding = ({ theme, onThemeToggle, missingStrategy, onDismissMissing, strategies, onSelect, onCreate, onDelete, userName, onLogout, onLangToggle, lang, loading, userId, userEmail, userRole }) => {
   const [showWizard, setShowWizard] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  useEscape(showProfile, () => setShowProfile(false));
   const isAr = lang === "ar";
   const hasStrategies = strategies.length > 0;
 
@@ -101,7 +103,7 @@ export const StrategyLanding = ({ theme, onThemeToggle, missingStrategy, onDismi
               const statusLabel = s.source === "server" ? (s.status === "active" ? "● Active" : s.status === "archived" ? "◌ Archived" : "◦ Draft") : "● Local Draft";
               const statusColor = s.source === "server" ? (s.status === "active" ? OK : s.status === "archived" ? INK_3 : GOLD) : HUE.violet;
               return (
-                <div key={s.id} className="group relative p-8 rounded-2xl transition-all hover:scale-[1.02] cursor-pointer flex flex-col" style={{ ...glass(0.5), borderColor: `${tint(s.color || GOLD, 19)}`, flex: "1 1 320px", maxWidth: "380px", minHeight: "260px" }} onClick={() => onSelect(s)}>
+                <div key={s.id} className="group relative p-8 rounded-2xl transition-all hover:scale-[1.02] cursor-pointer flex flex-col" style={{ ...glass(0.5), borderColor: `${tint(s.color || GOLD, 19)}`, flex: "1 1 320px", maxWidth: "380px", minHeight: "260px" }} {...clickable(() => onSelect(s), { label: s.name })}>
                   <button onClick={e => { e.stopPropagation(); if (window.confirm(`Delete "${s.name}"?`)) onDelete(s.id); }} className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 text-xs transition p-1.5 rounded-lg hover:bg-red-500/10">✕</button>
                   <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl mb-4" style={{ background: `${tint(s.color || GOLD, 13)}`, border: `1px solid ${tint(s.color || GOLD, 19)}` }}>{s.icon || "🎯"}</div>
                   <div className="flex-1">

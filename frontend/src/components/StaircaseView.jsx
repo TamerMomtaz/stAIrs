@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api, ArtifactsAPI, ARTIFACT, stairScope } from "../api";
-import { BORDER_STRONG, DEEP, GOLD, GOLD_INK, GRAD_ACCENT, INK, INK_2, INK_3, TEAL, pal, tint, typeColors, typeIcons } from "../constants";
+import { BORDER_STRONG, DEEP, GOLD, GOLD_INK, GRAD_ACCENT, INK, INK_2, INK_3, TEAL, clickable, pal, tint, typeColors, typeIcons } from "../constants";
 import { HealthBadge } from "./SharedUI";
 import { Markdown } from "./Markdown";
 import { LoadMatrixButtons } from "./StrategyMatrixToolkit";
@@ -115,7 +115,7 @@ export const StaircaseView = ({ tree, lang, onEdit, onAdd, onExport, onMove, str
     return (
       <div key={s.id} style={{ marginLeft: depth*24 }}>
         <div className={`group rounded-xl my-1.5 transition-all ${isExp?"ring-1":""}`} style={{ borderLeft:`3px solid ${color}`, ...(isExp?{ringColor:`${tint(color, 25)}`,background:"rgb(var(--surface-raised-rgb) / 0.4)"}:{}) }}>
-          <div className="flex items-center gap-2 p-3 cursor-pointer hover:bg-lift/[0.03] rounded-xl transition" onClick={() => setExpanded(prev => { const next = prev===s.id?null:s.id; if (next===s.id) fireGuidance("stair_expanded", { name: isAr&&s.title_ar?s.title_ar:s.title }); return next; })}>
+          <div className="flex items-center gap-2 p-3 cursor-pointer hover:bg-lift/[0.03] rounded-xl transition" {...clickable(() => setExpanded(prev => { const next = prev===s.id?null:s.id; if (next===s.id) fireGuidance("stair_expanded", { name: isAr&&s.title_ar?s.title_ar:s.title }); return next; }), { label: isAr&&s.title_ar?s.title_ar:s.title })}>
             <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition shrink-0"><button onClick={e => {e.stopPropagation();onMove(s.id,"up");}} disabled={si===0} className="text-ink-faint hover:text-ink text-[10px] disabled:opacity-20 p-0.5">▲</button><button onClick={e => {e.stopPropagation();onMove(s.id,"down");}} disabled={si>=sc-1} className="text-ink-faint hover:text-ink text-[10px] disabled:opacity-20 p-0.5">▼</button></div>
             <span className={`text-ink-faint text-[10px] transition-transform ${isExp?"rotate-90":""}`}>▶</span>
             <span style={{color:INK_2,fontSize:16}}>{typeIcons[s.element_type]||"•"}</span>

@@ -567,12 +567,21 @@ def status_snapshot() -> Dict[str, Any]:
 
 
 try:
-    from fastapi import APIRouter
+    from fastapi import APIRouter, Depends
 
+    from app.helpers import require_agent_telemetry
+
+    # Both routes below name the vendor and the exact model, which is the one
+    # thing #65 decided a client must never learn. They shipped with no
+    # dependency at all: `curl` with no Authorization header returned 200 and
+    # a preference_chain of four Claude model ids. Gated to the same two roles
+    # as every other telemetry surface. The refresh route is a POST that makes
+    # live outbound calls, so leaving it open was also a way to spend someone
+    # else's API budget.
     router = APIRouter(prefix="/api/v1/ai", tags=["ai-health"])
 
     @router.get("/status")
-    async def ai_status():
+    async def ai_status(auth=Depends(require_agent_telemetry)):
         """Is the strategy assistant actually alive? One call, straight answer."""
         if ANTHROPIC_API_KEY and not _state["active_model"]:
             await resolve_model()
@@ -581,7 +590,7 @@ try:
         return snap
 
     @router.post("/status/refresh")
-    async def ai_status_refresh():
+    async def ai_status_refresh(auth=Depends(require_agent_telemetry)):
         """Force re-discovery after changing CLAUDE_MODEL — no redeploy needed."""
         reload_config()
         model = await resolve_model(force=True)

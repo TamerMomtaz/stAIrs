@@ -2,6 +2,57 @@
 @import "./tokens.css";
 @import "./fonts.css";
 
+/* ═══ WHAT A CONTROL FEELS LIKE ═══
+
+   Tailwind v3's preflight set `cursor: pointer` on buttons. v4 removed it
+   deliberately, to match the platform — and nothing here put it back, so
+   181 of this application's 206 click handlers were drawing an arrow. The
+   audit found it by reading the compiled stylesheet: the only cursor rules
+   in the whole bundle were the four utilities, and 25 elements had reached
+   for `cursor-pointer` by hand without anyone noticing why they had to.
+
+   This is the v4 upgrade guide's own remedy. `:not(:disabled)` keeps a
+   disabled control honest — it is not clickable and must not claim to be. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+
+  /* And what a control looks like when you arrive by keyboard.
+     There was no focus-visible rule anywhere in this application — the audit
+     counted eighteen `focus:outline-none` against eleven replacement rings,
+     so seven controls took the browser's outline away and put nothing back.
+     A keyboard user could not see where they were standing.
+
+     :focus-visible, not :focus, so a mouse click doesn't leave a ring behind.
+
+     THE COLOUR IS --accent-ink, NOT THE ACCENT. An earlier version of this
+     rule used the accent at 55% and this comment claimed it cleared 3:1 on
+     both grounds. Measured in Chromium it does not: 1.73:1 on a white field,
+     2.68:1 on navy. --accent-ink is the role for gold that has to be legible
+     rather than decorative — it is what a gold label already uses, and it
+     diverges in light for exactly this reason. As a ring it measures 5.02:1
+     on the white field, 4.73:1 on the page, 4.34:1 in a sunken well, and
+     6.15:1 / 5.16:1 on navy.
+
+     THE OFFSET IS NEGATIVE, and that is the whole trick. A positive offset
+     draws the ring outside the control's own box, where any ancestor with
+     `overflow: hidden` erases it — and 13 of this application's 49 focusable
+     controls sit flush inside one. Every item in the sidebar is full-width in
+     a scrolling nav, so the ring lost both its sides; the login screen's
+     segmented control clipped three of four. All of that measured in Chromium,
+     because a ring that is declared, compiled and clipped looks identical to a
+     working one from every static check and every jsdom test.
+
+     Drawn inside, it cannot be clipped by anything. */
+  :focus-visible {
+    outline: 2px solid var(--accent-ink);
+    outline-offset: -2px;
+  }
+}
+
 /* ═══ TUTORIAL ANIMATIONS ═══ */
 
 /* Tooltip entrance */

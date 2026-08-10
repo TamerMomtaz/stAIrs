@@ -118,8 +118,12 @@ export const NotesView = ({ lang, userId, strategyName }) => {
         </div>
       ) : (
         <div className="space-y-2">
+          {/* The card used to lift under the pointer, and nothing happened when
+              you pressed it — only the buttons inside it do anything. `group`
+              stays, because those buttons appear on hover and that reveal is the
+              real affordance; the lift was the part making a promise. */}
           {[...pinned, ...unpinned].map(n => (
-            <div key={n.id} className="group p-4 rounded-xl transition-all hover:scale-[1.005]" style={{ ...glass(0.5), borderColor: n.pinned ? `${tint(GOLD, 25)}` : undefined }}>
+            <div key={n.id} className="group p-4 rounded-xl transition-all" style={{ ...glass(0.5), borderColor: n.pinned ? `${tint(GOLD, 25)}` : undefined }}>
               <div className="flex items-start gap-3">
                 <span className="text-base shrink-0 mt-0.5">{sourceIcon(n.source)}</span>
                 <div className="flex-1 min-w-0">
