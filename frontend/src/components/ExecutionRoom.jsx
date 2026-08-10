@@ -1328,7 +1328,7 @@ User question: ${msg}`;
                         <div
                           key={t.id}
                           {...clickable(() => selectAction(t), { label: t.name })}
-                          className={`rounded-lg p-3 cursor-pointer transition focus:outline-none focus:ring-2 focus:ring-accent/40 ${active ? "ring-1 ring-amber-500/40" : "hover:bg-white/[0.03]"} ${t.done ? "opacity-60" : ""}`}
+                          className={`rounded-lg p-3 cursor-pointer transition ${active ? "ring-1 ring-amber-500/40" : "hover:bg-white/[0.03]"} ${t.done ? "opacity-60" : ""}`}
                           style={active ? { ...glass(0.6), borderLeft: `3px solid ${GOLD}` } : glass(0.3)}
                         >
                           <div className="flex items-start gap-2.5">

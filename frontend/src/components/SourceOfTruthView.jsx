@@ -670,7 +670,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
                                 </div>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); toggleItemRejected(category, idx); }}
-                                  className={`transition hover:brightness-110 active:brightness-95 shrink-0 text-[10px] px-2 py-1 rounded-md border  ${
+                                  className={`transition hover:brightness-[var(--hover-lift)] active:brightness-[var(--press-lift)] shrink-0 text-[10px] px-2 py-1 rounded-md border  ${
                                     isRejected
                                       ? "border-red-700/50 text-red-400 bg-red-900/20"
                                       : "border-emerald-700/50 text-emerald-400 bg-emerald-900/20"
@@ -757,7 +757,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         {...clickable(() => fileInputRef.current?.click(), { label: "Upload a document", disabled: uploading })}
-        className={`relative rounded-xl p-4 text-center cursor-pointer transition-all border-2 border-dashed focus:outline-none focus:ring-2 focus:ring-accent/40 ${dragOver ? "scale-[1.01]" : "hover:scale-[1.005]"}`}
+        className={`relative rounded-xl p-4 text-center cursor-pointer transition-all border-2 border-dashed ${dragOver ? "scale-[1.01]" : "hover:scale-[1.005]"}`}
         style={{
           borderColor: dragOver ? sourceTypeConfig.document.color : `${BORDER}`,
           background: dragOver ? tint(HUE.pink, 5) : "rgb(var(--surface-raised-rgb) / 0.3)",
@@ -896,7 +896,7 @@ export const SourceOfTruthView = ({ lang, strategyContext }) => {
             return (
               <div
                 key={source.id}
-                className="group rounded-xl transition-all cursor-pointer hover:scale-[1.005] focus:outline-none focus:ring-2 focus:ring-accent/40"
+                className="group rounded-xl transition-all cursor-pointer hover:scale-[1.005]"
                 style={glass(isExpanded ? 0.7 : 0.4)}
                 {...clickable(() => setExpandedId(isExpanded ? null : source.id), { label: source.title || source.name })}
               >

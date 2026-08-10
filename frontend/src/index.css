@@ -27,11 +27,20 @@
      A keyboard user could not see where they were standing.
 
      :focus-visible, not :focus, so a mouse click doesn't leave a ring behind.
-     The accent at 55% clears 3:1 on both grounds, and the offset keeps it off
-     the control's own border. */
+
+     THE OFFSET IS NEGATIVE, and that is the whole trick. A positive offset
+     draws the ring outside the control's own box, where any ancestor with
+     `overflow: hidden` erases it — and 13 of this application's 49 focusable
+     controls sit flush inside one. Every item in the sidebar is full-width in
+     a scrolling nav, so the ring lost both its sides; the login screen's
+     segmented control clipped three of four. All of that measured in Chromium,
+     because a ring that is declared, compiled and clipped looks identical to a
+     working one from every static check and every jsdom test.
+
+     Drawn inside, it cannot be clipped by anything. */
   :focus-visible {
     outline: 2px solid rgb(var(--accent-rgb) / 0.55);
-    outline-offset: 2px;
+    outline-offset: -2px;
   }
 }
 

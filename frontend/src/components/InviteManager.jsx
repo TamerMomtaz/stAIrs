@@ -37,7 +37,7 @@ const FreshInvite = ({ invite, onDone, isAr }) => {
       </p>
       <div className="flex gap-2 mb-2">
         <input readOnly value={link} className={inputCls} style={{ padding: "10px 12px", fontSize: "12px" }} data-testid="invite-link" />
-        <button onClick={() => copy(link)} className="transition hover:brightness-110 active:brightness-95 px-3 py-2 rounded-lg text-xs font-semibold shrink-0" style={{ background: GRAD_ACCENT, color: DEEP }}>
+        <button onClick={() => copy(link)} className="transition hover:brightness-[var(--hover-lift)] active:brightness-[var(--press-lift)] px-3 py-2 rounded-lg text-xs font-semibold shrink-0" style={{ background: GRAD_ACCENT, color: DEEP }}>
           {copied ? (isAr ? "تم النسخ" : "Copied") : (isAr ? "نسخ الرابط" : "Copy link")}
         </button>
       </div>

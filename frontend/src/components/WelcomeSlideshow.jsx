@@ -759,7 +759,7 @@ export const WelcomeSlideshow = ({ open, onClose, onGetStarted, hasStrategies })
         {/* Dot navigation */}
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
           {slideConfigs.map((_, i) => (
-            <button className="transition hover:brightness-110 active:brightness-95"
+            <button className="transition hover:brightness-[var(--hover-lift)] active:brightness-[var(--press-lift)]"
               key={i}
               onClick={() => goTo(i)}
               data-testid={`slideshow-dot-${i}`}
@@ -776,7 +776,7 @@ export const WelcomeSlideshow = ({ open, onClose, onGetStarted, hasStrategies })
 
         {/* Next */}
         {isLast ? (
-          <button className="transition hover:brightness-110 active:brightness-95"
+          <button className="transition hover:brightness-[var(--hover-lift)] active:brightness-[var(--press-lift)]"
             onClick={hasStrategies ? handleSkip : handleGetStarted}
             data-testid="slideshow-next"
             style={{
@@ -788,7 +788,7 @@ export const WelcomeSlideshow = ({ open, onClose, onGetStarted, hasStrategies })
             }}
           >{hasStrategies ? "Skip to Dashboard →" : "Get Started →"}</button>
         ) : (
-          <button className="transition hover:brightness-110 active:brightness-95"
+          <button className="transition hover:brightness-[var(--hover-lift)] active:brightness-[var(--press-lift)]"
             onClick={next}
             data-testid="slideshow-next"
             style={{

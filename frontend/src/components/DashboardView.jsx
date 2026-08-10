@@ -169,7 +169,7 @@ export const DashboardView = ({ data, lang, matrixResults, onMatrixClick, strate
           {Object.values(MATRIX_FRAMEWORKS).map(fw => {
             const result = matrixResults?.[fw.key];
             return (
-              <div key={fw.key} className="p-3 rounded-xl text-center cursor-pointer hover:scale-[1.02] transition-all focus:outline-none focus:ring-2 focus:ring-accent/40" style={glass(0.4)} {...clickable(() => onMatrixClick(fw.key), { label: fw.label })}>
+              <div key={fw.key} className="p-3 rounded-xl text-center cursor-pointer hover:scale-[1.02] transition-all" style={glass(0.4)} {...clickable(() => onMatrixClick(fw.key), { label: fw.label })}>
                 <div className="text-lg mb-1">{fw.icon}</div>
                 <div className="text-ink text-[11px] font-medium mb-1">{fw.name}</div>
                 {result

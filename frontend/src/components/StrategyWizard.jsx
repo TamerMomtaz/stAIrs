@@ -443,7 +443,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-5">
-            <div><label className={labelCls}>Icon</label><div className="flex flex-wrap gap-2">{iconOpts.map(ic => <button key={ic} onClick={() => setInfo(f => ({...f, icon: ic}))} className={`w-11 h-11 rounded-lg text-xl flex items-center justify-center transition hover:brightness-110 active:brightness-95 ${info.icon===ic ? "bg-amber-500/20 border border-amber-500/40 scale-110" : "bg-[#0a1628]/60 border border-[#1e3a5f]"}`}>{ic}</button>)}</div></div>
+            <div><label className={labelCls}>Icon</label><div className="flex flex-wrap gap-2">{iconOpts.map(ic => <button key={ic} onClick={() => setInfo(f => ({...f, icon: ic}))} className={`w-11 h-11 rounded-lg text-xl flex items-center justify-center transition hover:brightness-[var(--hover-lift)] active:brightness-[var(--press-lift)] ${info.icon===ic ? "bg-amber-500/20 border border-amber-500/40 scale-110" : "bg-[#0a1628]/60 border border-[#1e3a5f]"}`}>{ic}</button>)}</div></div>
             <div><label className={labelCls}>Color</label><div className="flex flex-wrap gap-2">{colorOpts.map(c => <button key={c} onClick={() => setInfo(f => ({...f, color: c}))} className={`w-[34px] h-[34px] rounded-full transition ${info.color===c ? "scale-125 ring-2 ring-white/30" : "hover:scale-110"}`} style={{ background: c }} />)}</div></div>
           </div>
           <div className="flex justify-end gap-3 pt-5" style={{ borderTop: `1px solid ${BORDER}` }}>
@@ -468,7 +468,7 @@ export const StrategyWizard = ({ open, onClose, onCreate, lang }) => {
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
               {...clickable(() => fileInputRef.current?.click(), { label: "Upload a document", disabled: extracting })}
-              className={`relative rounded-xl p-8 text-center cursor-pointer transition-all border-2 border-dashed focus:outline-none focus:ring-2 focus:ring-accent/40 ${dragOver ? "scale-[1.01]" : "hover:scale-[1.005]"}`}
+              className={`relative rounded-xl p-8 text-center cursor-pointer transition-all border-2 border-dashed ${dragOver ? "scale-[1.01]" : "hover:scale-[1.005]"}`}
               style={{
                 borderColor: dragOver ? HUE.pink : BORDER,
                 background: dragOver ? tint(HUE.pink, 5) : "rgb(var(--surface-raised-rgb) / 0.3)",

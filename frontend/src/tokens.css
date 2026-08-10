@@ -203,6 +203,16 @@
   --shadow-1: none;
   --shadow-2: none;
   --glass-lift: 0%;
+  /* Which way a filled control moves under the pointer. On navy, brighter:
+     the gold fill goes from 6.15:1 against the page to 7.36:1, and the navy
+     label it carries improves by the same amount. Paper is the opposite
+     problem — measured in Chromium, brightening the same fill takes its edge
+     from 2.95:1 to 2.46:1 against the card AND its near-white label from
+     2.78:1 to 2.32:1, so the button dissolves into the page exactly as it
+     becomes harder to read. Same role, opposite direction, one token —
+     the shape --glass-lift above already takes. */
+  --hover-lift: 1.10;
+  --press-lift: 0.95;
 }
 
 /* PROVISIONAL — replaced wholesale in stage 3. Values traced from
@@ -399,6 +409,10 @@
      card. This lifts every glass surface to solid white and lets the
      border and the shadow do the work the darkness used to do. */
   --glass-lift: 100%;
+  /* Down, not up. 0.93 puts the gold edge at 3.37:1 on the card and its
+     label at 3.18:1 — both over 3:1, both better than at rest. */
+  --hover-lift: 0.93;
+  --press-lift: 0.88;
 }
 
 /* ── Tailwind utilities over the roles ──

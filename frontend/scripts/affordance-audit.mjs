@@ -31,6 +31,29 @@
    survives being called is a question for src/test/appWiring.test.jsx,
    which renders the real app and drives it. Neither check replaces the
    other.
+
+   Nor can it see anything that only exists once the page is laid out. The
+   :focus-visible ring shipped correct by every measure here — declared,
+   compiled, 2px, right colour — and was clipped to nothing on 13 of 49
+   controls by an ancestor's `overflow: hidden`. It took Chromium to find
+   that. scripts/affordance-shots.mjs is the instrument.
+
+   READ THESE COUNTS AS FINDINGS THAT SURVIVED THE CLASSIFIER, NOT AS THE
+   TRUTH. Every number below is the output of judgement calls encoded
+   here: that a `rounded-full` pill in a status colour is a badge, that a
+   block-level box is a panel, that a `<tr>` hover is a reading aid. Each
+   of those is a decision that could be wrong for a case not yet seen, and
+   the ones already found were found the same way — by reading the list
+   and disagreeing with it. Twice the audit was flat wrong and said so
+   confidently: it blamed 21 call sites for their components' missing
+   cursor, and it flagged the Execution Room breadcrumb for having no
+   hover while a local `link` constant supplied two. Both were fixed by
+   someone checking a finding against the source rather than trusting the
+   count.
+
+   So expect more of that shape. A zero here means "nothing the classifier
+   recognises", and the useful move on a suspicious zero — or a suspicious
+   finding — is `--list <category>` and an argument with it.
    ═══════════════════════════════════════════════════════════════════ */
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
