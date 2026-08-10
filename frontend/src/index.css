@@ -2,6 +2,25 @@
 @import "./tokens.css";
 @import "./fonts.css";
 
+/* ═══ WHAT A CONTROL FEELS LIKE ═══
+
+   Tailwind v3's preflight set `cursor: pointer` on buttons. v4 removed it
+   deliberately, to match the platform — and nothing here put it back, so
+   181 of this application's 206 click handlers were drawing an arrow. The
+   audit found it by reading the compiled stylesheet: the only cursor rules
+   in the whole bundle were the four utilities, and 25 elements had reached
+   for `cursor-pointer` by hand without anyone noticing why they had to.
+
+   This is the v4 upgrade guide's own remedy. `:not(:disabled)` keeps a
+   disabled control honest — it is not clickable and must not claim to be. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+}
+
 /* ═══ TUTORIAL ANIMATIONS ═══ */
 
 /* Tooltip entrance */

@@ -65,6 +65,15 @@ const KEY_HANDLERS = new Set(["onKeyDown", "onKeyUp", "onKeyPress"]);
 
 const tokensCss = readFileSync(join(SRC, "tokens.css"), "utf8");
 
+/* Does a base rule hand every button a pointer, or does each one have to
+   ask? Tailwind v4's preflight dropped v3's `button { cursor: pointer }`,
+   which is how 181 controls came to draw an arrow. index.css puts it back —
+   and this reads it rather than assuming it, so deleting that rule makes
+   B1 climb back to the number that found the bug instead of staying quiet. */
+const baseCss = readFileSync(join(SRC, "index.css"), "utf8");
+const CURSOR_BASE_RULE = /button:not\(:disabled\)[^{]*\{[^}]*cursor:\s*pointer/s.test(baseCss);
+const ROLE_BUTTON_BASE_RULE = /\[role="button"\]:not\(:disabled\)[^{]*\{[^}]*cursor:\s*pointer/s.test(baseCss);
+
 const declarations = (block) => {
   const out = {};
   for (const [, name, value] of block.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
@@ -246,7 +255,8 @@ const jsxFiles = (dir, out = []) => {
 const findings = [];
 const perFile = new Map();
 let walls = 0;      // stopPropagation containers, excluded from every category
-let pointered = 0;  // handlers that DO carry cursor-pointer, for scale
+let clickable = 0;  // every real activation handler, for scale
+let pointered = 0;  // how many of those the pointer actually changes over
 
 for (const file of jsxFiles(SRC).sort()) {
   const rel = relative(ROOT, file);
@@ -308,7 +318,10 @@ for (const file of jsxFiles(SRC).sort()) {
       const hasPad = has(PADDING) || [...styles].some((s) => s.startsWith("padding"));
       const hasRound = has(ROUNDED) || styles.has("borderRadius");
       const hasHover = has(HOVER);
-      const hasCursor = classes.has("cursor-pointer") || styles.has("cursor");
+      const roleIsButton = attrs.get("role")?.value === "button";
+      const hasCursor = classes.has("cursor-pointer") || styles.has("cursor")
+        || (CURSOR_BASE_RULE && (tag === "button" || tag === "summary"))
+        || (ROLE_BUTTON_BASE_RULE && roleIsButton);
 
       const at = { view, rel, line: node.loc.start.line, tag, classes: [...classes], styles: [...styles] };
 
@@ -359,7 +372,7 @@ for (const file of jsxFiles(SRC).sort()) {
         || (styles.has("position") && styles.has("inset"));
 
       /* ── B. Is a control, doesn't look it ─────────────────────── */
-      if (hasCursor && handlers.length) pointered++;
+      if (handlers.length) { clickable++; if (hasCursor) pointered++; }
       if (handlers.length && !disabled && !backdrop) {
         // Tailwind v4's preflight dropped v3's `button { cursor: pointer }`
         // and nothing here added it back, so a native button is as
@@ -417,10 +430,12 @@ if (listArg) {
   process.exit(0);
 }
 
-const rows = [...perFile.entries()]
-  .map(([view, b]) => ({ view, ...b, A: b.A1 + b.A2a + b.A2b, total: b.A1 + b.A2a + b.A2b + b.B1 + b.B2 + b.C }))
-  .filter((r) => r.total > 0)
-  .sort((a, b) => b.total - a.total);
+const all = [...perFile.entries()]
+  .map(([view, b]) => ({ view, ...b, total: b.A1 + b.A2a + b.A2b + b.B1 + b.B2 + b.C }));
+// Views with nothing left to report drop out of the table but stay in the
+// totals — otherwise fixing a view shrinks the denominator it was measured
+// against, and every count looks better than it is.
+const rows = all.filter((r) => r.total > 0).sort((a, b) => b.total - a.total);
 
 const pad = (s, n) => String(s).padEnd(n);
 const num = (s, n) => String(s).padStart(n);
@@ -431,7 +446,7 @@ console.log(`  ${"─".repeat(68)}`);
 for (const r of rows) {
   console.log(`  ${pad(r.view, 26)}${num(r.elements, 5)}${num(r.A1, 5)}${num(r.A2a, 5)}${num(r.A2b, 5)}${num(r.B1, 5)}${num(r.B2, 5)}${num(r.C, 5)}${num(r.total, 7)}`);
 }
-const sum = (k) => rows.reduce((n, r) => n + r[k], 0);
+const sum = (k) => all.reduce((n, r) => n + r[k], 0);
 console.log(`  ${"─".repeat(68)}`);
 console.log(`  ${pad("TOTAL", 26)}${num(sum("elements"), 5)}${num(sum("A1"), 5)}${num(sum("A2a"), 5)}${num(sum("A2b"), 5)}${num(sum("B1"), 5)}${num(sum("B2"), 5)}${num(sum("C"), 5)}${num(sum("total"), 7)}`);
 
@@ -444,6 +459,6 @@ console.log(`
   B2   handler, no hover/focus/active style      ${sum("B2")}
   C    click handler no keyboard can reach       ${sum("C")}   (${findings.filter((f) => f.cat === "C" && f.backdrop).length} of them dismiss-backdrops)
 
-  For scale: ${pointered} of ${pointered + sum("B1")} click handlers carry cursor-pointer.
+  For scale: ${pointered} of ${clickable} click handlers change the pointer${CURSOR_BASE_RULE ? " (base rule active)" : " — NO BASE RULE, every button draws an arrow"}.
   Excluded: ${walls} stopPropagation walls, which are not controls.
 `);
