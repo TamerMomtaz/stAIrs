@@ -487,13 +487,13 @@ export default function App() {
           <button onClick={startTutorial} className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-ink-muted hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition uppercase tracking-wider" title="How to Climb These Stairs Guide" data-tutorial="guide-btn">
             <span className="text-sm">🪜</span> <span className="hidden sm:inline">{isAr ? "دليل الاستخدام" : "Guide"}</span>
           </button>
-          <button onClick={() => setShowFeaturesBadge(v => !v)} className="text-[10px] text-ink-faint hover:text-amber-400 transition px-1.5 py-1 rounded" title="Features Explored">📊</button>
+          <button onClick={() => setShowFeaturesBadge(v => !v)} className="text-[10px] text-ink-faint hover:text-amber-400 transition px-1.5 py-1.5 rounded" title="Features Explored">📊</button>
           {/* Theme. Light is the default; this remembers the other choice. */}
           <button onClick={flipTheme} title={theme === "dark" ? "Switch to light" : "Switch to dark"}
-            className="text-xs text-ink-muted hover:text-accent-ink transition px-1.5 py-1 rounded" data-testid="theme-toggle">
+            className="text-xs text-ink-muted hover:text-accent-ink transition px-1.5 py-1.5 rounded" data-testid="theme-toggle">
             {theme === "dark" ? (isAr ? "فاتح" : "Light") : (isAr ? "داكن" : "Dark")}
           </button>
-          <button onClick={toggleLang} className="text-xs text-ink-muted hover:text-amber-400 transition px-1.5 py-1 rounded">{isAr ? "EN" : "عربي"}</button>
+          <button onClick={toggleLang} className="text-xs text-ink-muted hover:text-amber-400 transition px-1.5 py-1.5 rounded">{isAr ? "EN" : "عربي"}</button>
           <div className="relative">
             <button onClick={() => setShowProfileDropdown(v => !v)} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-ink-3 hover:text-amber-400 hover:bg-amber-500/10 transition">
               <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ background: "transparent", color: GOLD_INK, border: `1px solid ${tint(GOLD, 25)}` }}>{(user.full_name || user.name || user.email || "?")[0].toUpperCase()}</span>
